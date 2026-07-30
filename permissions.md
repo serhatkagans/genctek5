@@ -1,0 +1,122 @@
+# GençTek — Yetki ve Kapsam
+
+## 1. Tam yetki matrisi
+
+| İşlem | Öğrenci | Danışman öğretmen | İl koordinatörü | Proje yöneticisi |
+|---|---|---|---|---|
+| Kendi profilini düzenleme | ✓ | ✓ | ✓ | ✓ |
+| Öğrenci/öğretmen verisi görüntüleme | ✗ | Kendi okulu | Kendi ili | Tüm iller |
+| Tekil öğrenci profilini görüntüleme | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller |
+| Öğrenciyi çalışma grubuna ekleme / çıkarma | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller |
+| Kazanım kaydı ekleme / silme (dış etkinlik, ürün, akran eğitimi, yarışma derecesi) | ✓ (yalnızca kendi kayıtları) | ✗ | ✗ | ✗ |
+| Öğrenci CV'si yükleme / kaldırma | ✓ (yalnızca kendisi) | ✗ | ✗ | ✗ |
+| Öğrenci CV'si indirme | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller |
+| Okul içi faaliyet açma | ✗ | ✓ | ✓ | ✓ |
+| İl içi faaliyet açma | ✗ | ✗ | ✓ | ✓ |
+| Ulusal faaliyet açma | ✗ | ✗ | ✓ (onaya tabi) | ✓ |
+| Faaliyete dosya/görsel ekleme | ✗ | Kendi açtığı faaliyete | Kendi açtığı faaliyete | Her faaliyete |
+| Faaliyete yorum yazma | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ |
+| Kendi yorumunu silme | ✓ | ✓ | ✓ | ✓ |
+| Başkasının yorumunu silme | ✗ | Kendi faaliyetinde | Kendi faaliyetinde | Her yerde |
+| Başvuru değerlendirme | ✗ | Kendi faaliyeti | Kendi faaliyeti | Tümü |
+| Ulusal faaliyet onaylama | ✗ | ✗ | ✗ | ✓ |
+| İl koordinatörü atama | ✗ | ✗ | ✗ | ✓ |
+| Okul temsilcisi atama | ✗ | ✓ (kendi okulu) | ✗ | ✓ |
+| İl temsilcisi atama | ✗ | ✗ | ✓ (kendi ili) | ✓ |
+| Çalışma grubu tanımlama | ✗ | ✗ | ✗ | ✓ |
+| Faaliyete başvuru | ✓ | ✗ | ✗ | ✗ |
+| Faaliyet düzenleme / iptal etme | ✗ | Kendi açtığı faaliyette | Kendi açtığı faaliyette | Her faaliyette |
+| Rol/atama envanterini görüntüleme | ✗ | ✗ | ✗ | ✓ |
+
+**Rol/atama envanteri**, "Öğrenci/öğretmen verisi görüntüleme" satırından **ayrı** bir yetkidir: o tekil profil erişimi, bu toplu/yönetimsel görünüm. İl koordinatörü kendi ilindeki danışmansız okulları zaten görür; envanter aynı sorguyu **il filtresi olmadan** çalıştırdığı için yalnızca proje yöneticisine açıktır.
+
+**Kazanım kayıtları ve CV öğrenci beyanıdır.** Danışman, koordinatör ve proje yöneticisi bunları **görür ama düzenlemez** — profilinde kayıt açan tek kişi öğrencinin kendisidir. Çalışma grubu eklemenin buradan farkı bilinçlidir: grup üyeliği programın işleyişine ait bir karardır (danışman öğrenciyi yönlendirebilir), kazanım beyanı ise öğrencinin kendi geçmişidir.
+
+**"Öğrenciyi çalışma grubuna ekleme"** ile **"çalışma grubu tanımlama"** ayrı satırlardır: ilki mevcut bir gruba öğrenci yazmak, ikincisi grup listesini yönetmektir (yalnızca proje yöneticisi).
+
+## 2. Kapsam filtresi
+
+Yetki rolden değil, rolün **bağlı olduğu kurum/ilden** gelir. Öğrenci sorgulayan her endpoint bu filtreden geçmeli — istisna yok.
+
+```
+PROJE_YONETICISI  → filtre yok
+IL_KOORDINATOR    → WHERE ogrenci.il_kodu = @kullanicininIlKodu
+DANISMAN          → WHERE ogrenci.kurum_kodu = @kullanicininKurumKodu
+                      AND aktif_danisman_atama.danisman_kullanici_id = @kullaniciId
+OGRENCI           → WHERE ogrenci.id = @kullaniciId
+```
+
+Bunu her sorguya elle yazma — merkezi bir yetki servisi ya da ORM'in query-scoping mekanizması (ör. Prisma middleware) kullan. Elle yazılan filtreler er geç bir endpoint'te unutulur ve veri sızar.
+
+## 3. Ulusal faaliyet istisnası
+
+Tek istisna budur: il koordinatörü **kendi açtığı ulusal faaliyete başvurmuş** öğrencileri, başka ilden olsalar da görebilir.
+
+```
+faaliyet.duzenleyen_kullanici_id = @kullaniciId
+  AND faaliyet.kapsam = 'ULUSAL'
+  AND basvuru.ogrenci_id = ogrenci.id
+```
+
+Bu erişim **yalnızca başvuru değerlendirme ekranındadır**. Öğrenci envanteri, arama, raporlama ekranlarında geçerli değildir. Burada gösterilecek öğrenci verisi asgari düzeyde tutulmalı: ad-soyad, il, okul, sınıf, çalışma grupları ve başvuru gerekçesi. Telefon ve e-posta gösterme.
+
+## 4. Faaliyet içeriği (dosya/yorum) kapsam filtresi
+
+Yorum ve dosya erişimi ayrı bir kural gerektirmez — **her zaman bağlı olduğu faaliyetin görünürlüğünden türer**:
+
+```
+faaliyet görünür mü? (Bölüm 2'deki kapsam filtresiyle)
+  → evet ise: o faaliyetin yorumları ve ekleri de görünür
+  → hayır ise: yorum/ek endpoint'i de 404 dönmeli (403 değil — faaliyetin varlığını bile sızdırma)
+```
+
+Silme yetkisi ayrıca kontrol edilir (Bölüm 1'deki matris): yorum sahibi, faaliyeti açan kullanıcı, veya proje yöneticisi.
+
+Dosya/görsel **yükleme** yetkisi yalnızca faaliyeti açan kullanıcıdadır; bu API seviyesinde `faaliyet.duzenleyen_kullanici_id = @kullaniciId` kontrolüyle uygulanır, rol kontrolü tek başına yeterli değildir (aynı rolden başka bir danışman başkasının faaliyetine dosya ekleyemez).
+
+## 5. Öğrenci görev rolleri yetki vermez
+
+`IL_TEMSILCISI` ve `OKUL_TEMSILCISI` rollerine sahip öğrenciler, diğer öğrencilerle **aynı** yetkiye sahiptir. Bu roller için yetki kontrolüne dal ekleme. Sadece profilde ve ileride rozet olarak gösterilir.
+
+## 6. Mock kimlik doğrulama aşamasında yetki
+
+`AuthProvider` mock olsa da yetki katmanı gerçek kurallarla çalışmalı — mock kullanıcıya da kurum kodu/il ata ve tüm kapsam filtrelerini bu veriyle test et. Aksi halde EBA entegrasyonu geldiğinde yetki hataları ilk kez üretimde ortaya çıkar.
+
+## 7. Endpoint kontrolleri
+
+| Endpoint | Kontrol |
+|---|---|
+| `GET /ogrenciler` | Kapsam filtresi zorunlu |
+| `GET /ogrenciler/:id` | Kapsam filtresi + erişim logu. Kapsam dışında **404** (403 değil) |
+| `GET /ogrenciler/:id/cv` | Kapsam filtresi + erişim logu; dosya public dizinden servis edilmez, kapsam dışında 404 |
+| `POST /ogrenciler/:id/calisma-gruplari` | Rol (`ogrenciCalismaGrubuYonetebilirMi`) **ve** kapsam filtresi birlikte; yalnızca `aktif=true` gruba yeni kayıt |
+| `DELETE /ogrenciler/:id/calisma-gruplari/:grupId` | Aynı yetki; pasif gruptan da çıkarılabilir |
+| `POST /profil/kazanimlar` | Yalnızca OGRENCI; `ogrenci_id` daima oturumdan alınır, form girdisinden **okunmaz**; bağlantıda yalnızca http/https |
+| `DELETE /profil/kazanimlar/:id` | Silme koşuluna `ogrenci_id = @kullaniciId` **eklenir** (yalnızca id'ye göre silme, başkasının kaydını silmeye açık kapı bırakır) |
+| `PUT /profil/cv` | Yalnızca OGRENCI, yalnızca kendi profili; tip/boyut kontrolü `IZINLI_CV_TIPLERI` ve `CV_MAKS_BAYT` ayarlarından |
+| `DELETE /profil/cv` | Aynı yetki; kayıt temizlenir, sonra dosya silinir |
+| `POST /faaliyetler` | Kapsam yetkisi: danışman yalnızca OKUL, il koordinatörü OKUL/IL/ULUSAL |
+| `POST /faaliyetler/:id/onayla` | Yalnızca PROJE_YONETICISI |
+| `GET /faaliyetler` | Öğrenciye yalnızca kendi kapsamındaki + onaylı faaliyetler |
+| `POST /faaliyetler/:id/ekler` | Yalnızca `duzenleyen_kullanici_id = @kullaniciId`; tip/boyut kontrolü |
+| `GET /faaliyetler/:id/ekler` | Faaliyet görünürlük kontrolünden geçer |
+| `POST /faaliyetler/:id/yorumlar` | Faaliyet görünürlük kontrolünden geçer; içerik boş olamaz |
+| `DELETE /yorumlar/:id` | Yorum sahibi veya faaliyeti açan veya PROJE_YONETICISI; soft delete + log |
+| `POST /basvurular` | Yalnızca OGRENCI; kapsam uygunluğu; aktif ikinci başvuru kontrolü; başvuru tarihi kontrolü; kontenjan sayımı kaydın açıldığı transaction içinde |
+| `POST /basvurular/:id/geri-cek` | Yalnızca başvuru sahibi |
+| `POST /basvurular/:id/degerlendir` | Yalnızca faaliyeti açan kullanıcı |
+| `POST /roller/il-koordinator` | Yalnızca PROJE_YONETICISI; ilde boşluk kontrolü. Danışman öğretmen ENGELLENMEZ: danışmanlığı kapatılır, öğrencileri devir kurallarına göre dağıtılır |
+| `DELETE /roller/il-koordinator` | Yalnızca PROJE_YONETICISI; koordinatöre bağlı öğrenciler "atanmamış" duruma düşer ve envanterde uyarı olarak görünür |
+| `GET /rol-envanteri` | Yalnızca PROJE_YONETICISI |
+| `PATCH /faaliyetler/:id` | Faaliyeti açan / yetki devralan koordinatör / PROJE_YONETICISI; kontenjan seçilen sayısının altına düşürülemez; onaylı ulusal faaliyette tarih değişirse onay düşer |
+| `POST /faaliyetler/:id/iptal` | Aynı yetki; aktif başvurular IPTAL_EDILDI'ye geçer ve öğrencilere bildirim gider |
+| `POST /danisman-secim` | Yalnızca OGRENCI; seçilen öğretmen aynı kurum kodunda ve danışman işaretli olmalı |
+| `PUT /profil` | Salt okunur alanlar gelirse **sessizce yok say**, hata döndürme yerine logla |
+
+## 8. Sık yapılan hatalar
+
+- **İstemci tarafında filtreleme.** Ön yüzde listeyi filtrelemek yetki değildir; API zaten fazlasını döndürmüş olur.
+- **Rol kontrolü var, kapsam kontrolü yok.** "Bu kullanıcı il koordinatörü mü" yeterli değil; "bu öğrenci onun ilinde mi" de sorulmalı.
+- **Tekillik kontrolünü yalnızca uygulamada yapmak.** Eşzamanlı iki istek kontrolü atlar; DB kısıtı şart.
+- **Yorum/dosya endpoint'lerini faaliyetten bağımsız yetkilendirmek.** Bunlar ayrı bir izin sistemi değil, faaliyetin kapsam filtresinin bir uzantısıdır.
+- **Mock kimlik doğrulama aşamasında yetkiyi gevşetmek** ("nasılsa test verisi"). Gerçek kısıtlarla test etmezsen EBA entegrasyonunda sürpriz çıkar.

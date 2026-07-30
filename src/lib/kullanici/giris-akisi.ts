@@ -1,0 +1,85 @@
+import { authProvider } from "../auth";
+import { oturumAc } from "../auth/oturum";
+import { aktifAtamaGetir, danismanliktanAyrildi, ilkAtamayiYurut } from "../danisman/atama";
+import { prisma } from "../db";
+import { erisimLogla } from "../yetki/log";
+import { kullaniciSagla } from "./sagla";
+
+/**
+ * Giriş akışı: kimlik doğrulama → kullanıcı sağlama → kurum değişimi kontrolü →
+ * danışman ataması → oturum açma.
+ *
+ * Bu akış AuthProvider'ın hangi implementasyon olduğunu bilmez; mock ile de
+ * EBA ile de aynı şekilde çalışır.
+ */
+
+export type GirisSonucu =
+  | { durum: "BASARISIZ"; mesaj: string }
+  | {
+      durum: "BASARILI";
+      kullaniciId: number;
+      /** Öğrencinin danışman seçmesi gerekiyorsa seçim ekranına yönlendirilir. */
+      danismanSecimiGerekli: boolean;
+    };
+
+export async function girisYap(kimlikBilgisi: string): Promise<GirisSonucu> {
+  const kimlik = await authProvider().girisYap(kimlikBilgisi);
+  if (!kimlik) {
+    return { durum: "BASARISIZ", mesaj: "Kimlik doğrulanamadı." };
+  }
+
+  const saglama = await kullaniciSagla(kimlik);
+
+  // Kurum kodu değiştiyse devir akışı tetiklenir: öğretmenin öğrencileri
+  // dağıtılır, öğrencinin kendi ataması yeni okula göre yeniden kurulur.
+  if (saglama.kurumKoduDegistiMi && !saglama.yeniKullaniciMi) {
+    if (kimlik.tip === "OGRETMEN") {
+      await danismanliktanAyrildi(
+        saglama.kullaniciId,
+        saglama.eskiKurumKodu,
+        "OGRETMEN_AYRILDI",
+      );
+    } else if (kimlik.tip === "OGRENCI") {
+      await kapatAktifAtama(saglama.kullaniciId);
+    }
+  }
+
+  let danismanSecimiGerekli = false;
+
+  if (kimlik.tip === "OGRENCI") {
+    const karar = await ilkAtamayiYurut(saglama.kullaniciId);
+    danismanSecimiGerekli = karar.tur === "SECIM_GEREKLI";
+  }
+
+  await oturumAc(kimlik.authProviderId);
+
+  await erisimLogla({
+    kullaniciId: saglama.kullaniciId,
+    islem: saglama.yeniKullaniciMi ? "DEGISIKLIK" : "GORUNTULEME",
+    hedefTip: kimlik.tip === "OGRENCI" ? "OGRENCI" : "OGRETMEN",
+    hedefId: saglama.kullaniciId,
+    detay: saglama.yeniKullaniciMi
+      ? `İlk giriş, kullanıcı oluşturuldu (${authProvider().saglayiciAdi})`
+      : `Giriş yapıldı (${authProvider().saglayiciAdi})`,
+  });
+
+  return {
+    durum: "BASARILI",
+    kullaniciId: saglama.kullaniciId,
+    danismanSecimiGerekli,
+  };
+}
+
+/** Öğrenci okul değiştirdiğinde eski atama kapatılır, yeni okulun akışına girer. */
+async function kapatAktifAtama(ogrenciId: number): Promise<void> {
+  const atama = await aktifAtamaGetir(ogrenciId);
+  if (!atama) return;
+
+  await prisma.danismanAtama.update({
+    where: { id: atama.id },
+    data: {
+      bitisTarihi: new Date(),
+      kapanmaNedeni: "OGRENCI_OKUL_DEGISTIRDI",
+    },
+  });
+}

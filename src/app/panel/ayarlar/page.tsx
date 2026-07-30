@@ -1,0 +1,351 @@
+import {
+  CalendarRange,
+  Layers,
+  Mail,
+  Plus,
+  SlidersHorizontal,
+} from "lucide-react";
+import {
+  BilgiKutusu,
+  Kart,
+  KartBasligi,
+  SayfaBasligi,
+  SINIF_BIRINCIL_BUTON,
+  SINIF_GIRDI,
+  SINIF_IKINCIL_BUTON,
+} from "@/components/ui";
+import type { EpostaDurumu } from "@/generated/prisma/enums";
+import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import { YONETILEBILIR_AYARLAR } from "@/lib/ayar";
+import { prisma } from "@/lib/db";
+import { ortam } from "@/lib/ortam";
+import { tarihSaatYaz } from "@/lib/tarih";
+import { sistemAyarlariniYonetebilirMi } from "@/lib/yetki/izinler";
+import {
+  ayarKaydetEylemi,
+  calismaGrubuDurumEylemi,
+  calismaGrubuEkleEylemi,
+  programDurumEylemi,
+  programEkleEylemi,
+} from "./eylemler";
+
+export const dynamic = "force-dynamic";
+
+const EPOSTA_SAGLAYICI_ETIKETLERI: Record<string, string> = {
+  kapali: "Kapalı — e-posta hiç denenmez",
+  gunluk: "Günlük — ileti gönderilmez, sunucu günlüğüne yazılır",
+  smtp: "SMTP — kurum posta sunucusu",
+};
+
+const DURUM_MESAJLARI: Record<string, string> = {
+  kaydedildi: "Ayar kaydedildi.",
+  varsayilan: "Ayar varsayılan değerine döndürüldü.",
+  "grup-eklendi": "Çalışma grubu eklendi.",
+  "grup-pasif": "Çalışma grubu pasife alındı; geçmiş seçimler korunuyor.",
+  "grup-aktif": "Çalışma grubu yeniden aktifleştirildi.",
+  "program-eklendi": "Etkinlik programı eklendi.",
+  "program-pasif": "Etkinlik programı pasife alındı; geçmiş faaliyetler korunuyor.",
+  "program-aktif": "Etkinlik programı yeniden aktifleştirildi.",
+};
+
+/**
+ * Yönetim ekranı — sistem ayarları, çalışma grupları ve etkinlik programları.
+ *
+ * Üçü de "koda gömülmeyecek" listelerdir ve yalnızca proje yöneticisi tarafından
+ * yönetilir. Hiçbirinde SİLME yoktur: kapanan kayıt pasife alınır, böylece
+ * geçmiş seçimler ve faaliyet bağlantıları bozulmaz.
+ */
+export default async function AyarlarSayfasi({
+  searchParams,
+}: {
+  searchParams: Promise<{ durum?: string; hata?: string; anahtar?: string }>;
+}) {
+  const { durum, hata } = await searchParams;
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  if (!sistemAyarlariniYonetebilirMi(kullanici)) {
+    return (
+      <Kart>
+        <KartBasligi
+          baslik="Yönetim"
+          aciklama="Bu ekran yalnızca proje yöneticisine açıktır."
+        />
+      </Kart>
+    );
+  }
+
+  const [ayarlar, gruplar, programlar, epostaSayimlari, sonHata] =
+    await Promise.all([
+      prisma.sistemAyari.findMany(),
+      prisma.calismaGrubu.findMany({
+        orderBy: [{ aktif: "desc" }, { siraNo: "asc" }],
+      }),
+      prisma.temelEtkinlikProgrami.findMany({
+        orderBy: [{ grup: "asc" }, { aktif: "desc" }, { siraNo: "asc" }],
+      }),
+      prisma.bildirim.groupBy({
+        by: ["epostaDurumu"],
+        _count: { _all: true },
+      }),
+      prisma.bildirim.findFirst({
+        where: { epostaDurumu: "BASARISIZ" },
+        orderBy: { olusturmaTarihi: "desc" },
+        select: { olusturmaTarihi: true, epostaHatasi: true },
+      }),
+    ]);
+
+  const epostaSayisi = (durum: EpostaDurumu) =>
+    epostaSayimlari.find((satir) => satir.epostaDurumu === durum)?._count
+      ._all ?? 0;
+
+  const ayarDegeri = (anahtar: string) =>
+    ayarlar.find((ayar) => ayar.anahtar === anahtar)?.deger ?? "";
+
+  const temelProgramlar = programlar.filter(
+    (program) => program.grup === "TEMEL_ETKINLIK",
+  );
+  const grupProgramlari = programlar.filter(
+    (program) => program.grup === "CALISMA_GRUBU_ETKINLIGI",
+  );
+
+  return (
+    <div className="space-y-6">
+      <SayfaBasligi
+        baslik="Yönetim"
+        aciklama="Sistem ayarları, çalışma grupları ve etkinlik programları. Hiçbir kayıt silinmez; kapananlar pasife alınır."
+      />
+
+      {durum && DURUM_MESAJLARI[durum] && (
+        <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>
+      )}
+      {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
+
+      <Kart>
+        <KartBasligi
+          baslik="Sistem ayarları"
+          aciklama="Her ayar kendi başına kaydedilir."
+          Ikon={SlidersHorizontal}
+        />
+        <div className="space-y-5">
+          {YONETILEBILIR_AYARLAR.map((tanim) => (
+            <form
+              key={tanim.anahtar}
+              action={ayarKaydetEylemi}
+              className="border-t border-cizgi pt-5 first:border-t-0 first:pt-0"
+            >
+              <input type="hidden" name="anahtar" value={tanim.anahtar} />
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  {tanim.baslik}
+                </span>
+                {tanim.bicim === "uzun-metin" ? (
+                  <textarea
+                    name="deger"
+                    rows={10}
+                    defaultValue={ayarDegeri(tanim.anahtar)}
+                    placeholder="Boş bırakılırsa varsayılan metin kullanılır."
+                    className={`${SINIF_GIRDI} font-mono text-xs`}
+                  />
+                ) : (
+                  <input
+                    type={tanim.bicim === "sayi" ? "number" : "text"}
+                    name="deger"
+                    min={tanim.bicim === "sayi" ? 1 : undefined}
+                    defaultValue={ayarDegeri(tanim.anahtar)}
+                    className={SINIF_GIRDI}
+                  />
+                )}
+                <span className="mt-1 block text-sm text-metin-yumusak">
+                  {tanim.yardim}
+                </span>
+              </label>
+              <button type="submit" className={`${SINIF_IKINCIL_BUTON} mt-3`}>
+                Kaydet
+              </button>
+            </form>
+          ))}
+        </div>
+      </Kart>
+
+      <Kart>
+        <KartBasligi
+          baslik="E-posta bildirimi"
+          aciklama="Panel bildirimi her koşulda yazılır; e-posta yalnızca bir kopyasıdır. Sağlayıcı ortam değişkeniyle seçilir, buradan değiştirilmez."
+          Ikon={Mail}
+        />
+        <dl className="grid gap-4 sm:grid-cols-4">
+          <div>
+            <dt className="text-sm text-metin-yumusak">Sağlayıcı</dt>
+            <dd className="mt-0.5 font-medium text-metin">
+              {EPOSTA_SAGLAYICI_ETIKETLERI[ortam.EPOSTA_SAGLAYICI]}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-metin-yumusak">Gönderildi</dt>
+            <dd className="mt-0.5 font-medium text-metin">
+              {epostaSayisi("GONDERILDI")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-metin-yumusak">Başarısız</dt>
+            <dd className="mt-0.5 font-medium text-metin">
+              {epostaSayisi("BASARISIZ")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-metin-yumusak">
+              Gönderilmedi (adres yok)
+            </dt>
+            <dd className="mt-0.5 font-medium text-metin">
+              {epostaSayisi("GEREKMIYOR")}
+            </dd>
+          </div>
+        </dl>
+        {sonHata && (
+          <BilgiKutusu cesit="hata" className="mt-4">
+            Son başarısız gönderim {tarihSaatYaz(sonHata.olusturmaTarihi)}:{" "}
+            {sonHata.epostaHatasi ?? "gerekçe kaydedilmemiş"}
+          </BilgiKutusu>
+        )}
+      </Kart>
+
+      <Kart>
+        <KartBasligi
+          baslik="Çalışma grupları"
+          aciklama="Öğrencilerin seçebildiği ilgi alanları. Pasif gruplar yeni seçimlerde listelenmez, geçmiş seçimler korunur."
+          Ikon={Layers}
+        />
+
+        <form
+          action={calismaGrubuEkleEylemi}
+          className="mb-5 flex flex-wrap items-end gap-3"
+        >
+          <label className="block grow">
+            <span className="text-sm font-medium text-metin">Grup adı</span>
+            <input type="text" name="ad" required className={SINIF_GIRDI} />
+          </label>
+          <label className="block w-28">
+            <span className="text-sm font-medium text-metin">Sıra</span>
+            <input type="number" name="siraNo" min={1} className={SINIF_GIRDI} />
+          </label>
+          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+            <Plus size={16} aria-hidden />
+            Ekle
+          </button>
+        </form>
+
+        <ul className="divide-y divide-cizgi">
+          {gruplar.map((grup) => (
+            <li
+              key={grup.id}
+              className="flex flex-wrap items-center justify-between gap-3 py-2.5"
+            >
+              <span className={grup.aktif ? "text-metin" : "text-metin-yumusak"}>
+                {grup.siraNo}. {grup.ad}
+                {!grup.aktif && (
+                  <span className="ml-2 rounded-full bg-zemin px-2 py-0.5 text-xs">
+                    pasif
+                  </span>
+                )}
+              </span>
+              <form action={calismaGrubuDurumEylemi}>
+                <input type="hidden" name="id" value={grup.id} />
+                <input
+                  type="hidden"
+                  name="aktif"
+                  value={grup.aktif ? "hayir" : "evet"}
+                />
+                <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                  {grup.aktif ? "Pasife al" : "Aktifleştir"}
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      </Kart>
+
+      <Kart>
+        <KartBasligi
+          baslik="Etkinlik programları"
+          aciklama="Temel Etkinlik ve Çalışma Grubu Etkinliği kategorilerinde faaliyetin adı bu listeden seçilir. İl Etkinliği'nin sabit listesi yoktur."
+          Ikon={CalendarRange}
+        />
+
+        <form
+          action={programEkleEylemi}
+          className="mb-5 flex flex-wrap items-end gap-3"
+        >
+          <label className="block grow">
+            <span className="text-sm font-medium text-metin">Program adı</span>
+            <input type="text" name="ad" required className={SINIF_GIRDI} />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-metin">Grup</span>
+            <select name="grup" className={SINIF_GIRDI}>
+              <option value="TEMEL_ETKINLIK">Temel Etkinlik</option>
+              <option value="CALISMA_GRUBU_ETKINLIGI">
+                Çalışma Grubu Etkinliği
+              </option>
+            </select>
+          </label>
+          <label className="block w-28">
+            <span className="text-sm font-medium text-metin">Sıra</span>
+            <input type="number" name="siraNo" min={1} className={SINIF_GIRDI} />
+          </label>
+          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+            <Plus size={16} aria-hidden />
+            Ekle
+          </button>
+        </form>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          {[
+            { baslik: "Temel Etkinlik", liste: temelProgramlar },
+            { baslik: "Çalışma Grubu Etkinliği", liste: grupProgramlari },
+          ].map((bolum) => (
+            <div key={bolum.baslik}>
+              <h3 className="mb-2 text-sm font-semibold text-baslik">
+                {bolum.baslik}
+              </h3>
+              <ul className="divide-y divide-cizgi">
+                {bolum.liste.map((program) => (
+                  <li
+                    key={program.id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                  >
+                    <span
+                      className={`text-sm ${
+                        program.aktif ? "text-metin" : "text-metin-yumusak"
+                      }`}
+                    >
+                      {program.ad}
+                      {!program.aktif && (
+                        <span className="ml-2 rounded-full bg-zemin px-2 py-0.5 text-xs">
+                          pasif
+                        </span>
+                      )}
+                    </span>
+                    <form action={programDurumEylemi}>
+                      <input type="hidden" name="id" value={program.id} />
+                      <input
+                        type="hidden"
+                        name="aktif"
+                        value={program.aktif ? "hayir" : "evet"}
+                      />
+                      <button
+                        type="submit"
+                        className="text-sm text-metin-yumusak underline underline-offset-2 transition hover:text-metin"
+                      >
+                        {program.aktif ? "Pasife al" : "Aktifleştir"}
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Kart>
+    </div>
+  );
+}

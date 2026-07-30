@@ -1,0 +1,89 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import { prisma } from "@/lib/db";
+import { ogrenciMi } from "@/lib/yetki/izinler";
+import { erisimLogla } from "@/lib/yetki/log";
+import { YetkiHatasi } from "@/lib/yetki/tipler";
+
+export async function calismaGrubuKaydetEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  if (!ogrenciMi(kullanici)) {
+    throw new YetkiHatasi("Çalışma grubu seçimi yalnızca öğrenciler içindir.");
+  }
+
+  const secilenler = veri
+    .getAll("grupId")
+    .map((deger) => Number.parseInt(String(deger), 10))
+    .filter((sayi) => Number.isFinite(sayi));
+
+  /*
+   * Seçim sayısında ÜST SINIR YOKTUR. Daha önce "en fazla 3" gibi bir kısıt
+   * vardı, kaldırıldı: öğrenci ilgi duyduğu tüm gruplara yazılabilir. Buraya
+   * sayı kontrolü eklemeyin.
+   */
+
+  // Pasif gruplar yeni seçimlerde kabul edilmez; geçmiş seçimler korunur.
+  const gecerliGruplar = await prisma.calismaGrubu.findMany({
+    where: { id: { in: secilenler }, aktif: true },
+    select: { id: true },
+  });
+  const gecerliIdler = gecerliGruplar.map((grup) => grup.id);
+
+  /*
+   * Kayıt SİL-YENİDEN-YAZ ile değil FARK hesaplanarak güncellenir. İki neden:
+   *
+   *   1. Ekran yalnızca AKTİF grupları listeler. Hepsini silip yeniden yazmak,
+   *      öğrencinin kapanmış bir gruba ait geçmiş seçimini de silerdi — oysa
+   *      pasif gruplarda geçmiş korunmalı (domain-rules.md Bölüm 5).
+   *   2. Grubu danışman ya da koordinatör eklemiş olabilir. Yeniden yazmak
+   *      `secimTarihi` ve `ekleyenKullaniciId` izini sıfırlardı; öğrenci kutuya
+   *      dokunmadığı hâlde kayıt "kendi seçimi" görünürdü.
+   */
+  const mevcutSecimler = await prisma.ogrenciCalismaGrubu.findMany({
+    where: { ogrenciId: kullanici.id, calismaGrubu: { aktif: true } },
+    select: { calismaGrubuId: true },
+  });
+  const mevcutIdler = mevcutSecimler.map((secim) => secim.calismaGrubuId);
+
+  const eklenecekler = gecerliIdler.filter((id) => !mevcutIdler.includes(id));
+  const cikarilacaklar = mevcutIdler.filter((id) => !gecerliIdler.includes(id));
+
+  await prisma.$transaction(async (islem) => {
+    if (cikarilacaklar.length > 0) {
+      await islem.ogrenciCalismaGrubu.deleteMany({
+        where: {
+          ogrenciId: kullanici.id,
+          calismaGrubuId: { in: cikarilacaklar },
+        },
+      });
+    }
+    if (eklenecekler.length > 0) {
+      await islem.ogrenciCalismaGrubu.createMany({
+        data: eklenecekler.map((grupId) => ({
+          ogrenciId: kullanici.id,
+          calismaGrubuId: grupId,
+          // Öğrencinin kendi seçimi: ekleyen alanı boş kalır.
+          ekleyenKullaniciId: null,
+        })),
+      });
+    }
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "OGRENCI",
+    hedefId: kullanici.id,
+    detay: `Çalışma grubu seçimi güncellendi: ${gecerliIdler.join(", ") || "yok"}`,
+  });
+
+  revalidatePath("/panel/calisma-gruplari");
+  revalidatePath("/panel/profil");
+  // Danışman/koordinatörün gördüğü tekil profil de aynı listeyi gösteriyor.
+  revalidatePath(`/panel/ogrenciler/${kullanici.id}`);
+  redirect("/panel/calisma-gruplari?durum=kaydedildi");
+}

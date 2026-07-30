@@ -1,0 +1,409 @@
+import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../src/generated/prisma/client";
+import {
+  MOCK_KOORDINATOR_KIMLIKLERI,
+  MOCK_PROJE_YONETICISI_KIMLIKLERI,
+  mockKimlikBul,
+} from "../src/lib/auth/mock-kullanicilar";
+import { ILLER, ORNEK_ILCELER, ORNEK_KURUMLAR } from "./veri/iller";
+
+/**
+ * Seed — referans veriler, çalışma grupları, sistem ayarları, bildirim
+ * şablonları ve sistemin başlangıç yöneticisi.
+ *
+ * Yeniden çalıştırılabilir (idempotent): tüm kayıtlar upsert edilir.
+ *
+ * Öğrenci ve öğretmen kullanıcıları BURADA oluşturulmaz; ilk girişte kullanıcı
+ * sağlama akışıyla oluşurlar. İstisna, elle atanması gereken roller: proje
+ * yöneticileri ve il koordinatörleri olmadan sistem çalışmaya başlayamaz
+ * (il koordinatörünü yalnızca proje yöneticisi atar).
+ *
+ * Proje yöneticisi listesi katalogdan gelir ve seed onu OTORİTE kabul eder:
+ * listeden çıkarılan kişinin rolü kapatılır, kaydı pasife alınır. Silinmez —
+ * açtığı faaliyetler ve erişim logları ona bağlıdır.
+ */
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
+
+const CALISMA_GRUPLARI = [
+  "Oyun Tasarımı",
+  "Siber Güvenlik",
+  "Bilgisayar Olimpiyatları",
+  "Mobil Programlama",
+  "Web Programlama",
+  "Havacılık Sistemleri",
+  "Robotik",
+  "Yapay Zekâ",
+  "E-Ticaret ve E-İhracat",
+  "Dijital Sanatlar ve İçerik Geliştirme",
+  "Açık Kaynak",
+  "Espor",
+];
+
+/**
+ * Temel Etkinlik ve Çalışma Grubu Etkinliği programları — adları SABİTTİR.
+ *
+ * Bu liste ilk aktarımdır; tam liste geldiğinde buraya eklenir. İl Etkinliği
+ * burada YOKTUR: il koordinatörü faaliyet adını serbestçe girer, sabit bir
+ * isim listesi tutulmaz.
+ */
+const TEMEL_ETKINLIK_PROGRAMLARI: {
+  ad: string;
+  grup: "TEMEL_ETKINLIK" | "CALISMA_GRUBU_ETKINLIGI";
+}[] = [
+  { ad: "Genç Gölge", grup: "TEMEL_ETKINLIK" },
+  { ad: "Sahne Senin", grup: "TEMEL_ETKINLIK" },
+  { ad: "G2S Genç Sektör Buluşmaları", grup: "TEMEL_ETKINLIK" },
+  { ad: "Sınır Ötesi (Beyond The Borders)", grup: "TEMEL_ETKINLIK" },
+  { ad: "Öğrenci Forumu", grup: "TEMEL_ETKINLIK" },
+  { ad: "Hack The Idea", grup: "TEMEL_ETKINLIK" },
+  { ad: "Akran Öğretimi", grup: "TEMEL_ETKINLIK" },
+  { ad: "Dijital Yürüyüş STEM", grup: "TEMEL_ETKINLIK" },
+  { ad: "Oyunun e Hâli", grup: "TEMEL_ETKINLIK" },
+  { ad: "Tek Maraton", grup: "TEMEL_ETKINLIK" },
+  { ad: "Misafir Öğretmenlik/Öğrencilik", grup: "TEMEL_ETKINLIK" },
+  { ad: "GençTek Zirvesi", grup: "TEMEL_ETKINLIK" },
+  { ad: "EğitiJAM", grup: "CALISMA_GRUBU_ETKINLIGI" },
+  { ad: "Capture The Flag (Bayrağı Yakala)", grup: "CALISMA_GRUBU_ETKINLIGI" },
+  {
+    ad: "Mobil Uygulama Geliştirme Yarışması",
+    grup: "CALISMA_GRUBU_ETKINLIGI",
+  },
+  { ad: "Teknik Gezi", grup: "CALISMA_GRUBU_ETKINLIGI" },
+  { ad: "Master Tek", grup: "CALISMA_GRUBU_ETKINLIGI" },
+  { ad: "E-Ticaret Ideathonu", grup: "CALISMA_GRUBU_ETKINLIGI" },
+];
+
+/*
+ * OGRENCI_CALISMA_GRUBU_UST_SINIRI burada YOKTUR: öğrenci başına çalışma grubu
+ * seçim sınırı kaldırıldı. Anahtarı geri eklemeyin; migration mevcut kaydı da
+ * siliyor.
+ */
+const SISTEM_AYARLARI = [
+  {
+    anahtar: "GORSEL_MAKS_BAYT",
+    deger: String(5 * 1024 * 1024),
+    aciklama: "Faaliyete eklenecek görsel başına üst sınır (varsayım: 5 MB).",
+  },
+  {
+    anahtar: "BELGE_MAKS_BAYT",
+    deger: String(10 * 1024 * 1024),
+    aciklama: "Faaliyete eklenecek belge başına üst sınır (varsayım: 10 MB).",
+  },
+  {
+    anahtar: "IZINLI_GORSEL_TIPLERI",
+    deger: "image/jpeg,image/png,image/webp",
+    aciklama: "Yüklenebilir görsel MIME tipleri.",
+  },
+  {
+    anahtar: "IZINLI_BELGE_TIPLERI",
+    deger: "application/pdf",
+    aciklama: "Yüklenebilir belge MIME tipleri.",
+  },
+  {
+    // Faaliyet eklerinin belge ayarından AYRIDIR: CV'de doc/docx kabul edilir,
+    // faaliyet ekinde edilmez. Ortak ayar kullanılsaydı biri için açılan tip
+    // diğerinde de açılırdı.
+    anahtar: "IZINLI_CV_TIPLERI",
+    deger:
+      "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    aciklama: "Öğrencinin CV olarak yükleyebileceği MIME tipleri (pdf, doc, docx).",
+  },
+  {
+    anahtar: "CV_MAKS_BAYT",
+    deger: String(5 * 1024 * 1024),
+    aciklama: "Öğrenci CV'si için üst boyut sınırı (varsayım: 5 MB).",
+  },
+  {
+    anahtar: "ERISIM_LOGU_SAKLAMA_AYI",
+    deger: "24",
+    aciklama:
+      "Erişim kayıtlarının saklanma süresi (ay). Süresi dolanlar bakim:saklama işiyle silinir.",
+  },
+  {
+    anahtar: "BILDIRIM_SAKLAMA_AYI",
+    deger: "12",
+    aciklama:
+      "Okunmuş bildirimlerin saklanma süresi (ay). Okunmamış bildirim silinmez.",
+  },
+  {
+    anahtar: "DISA_AKTARMA_UST_SINIRI",
+    deger: "5000",
+    aciklama:
+      "Tek CSV indirmesindeki azami kayıt sayısı. Aşıldığında indirme yapılmaz, filtre daraltılması istenir.",
+  },
+];
+
+const BILDIRIM_SABLONLARI = [
+  {
+    kod: "BASVURU_SONUCU",
+    konu: "{{faaliyetAdi}} başvurunuz sonuçlandı",
+    govdeSablonu:
+      "Merhaba {{ogrenciAdSoyad}},\n\n{{faaliyetAdi}} faaliyetine yaptığınız başvurunun sonucu: {{sonuc}}.\n\nGençTek",
+  },
+  {
+    kod: "DANISMAN_DEGISTI",
+    konu: "Danışman öğretmeniniz değişti",
+    govdeSablonu:
+      "Merhaba,\n\nGençTek danışman öğretmeniniz güncellendi. Yeni danışmanınızı profil sayfanızdan görebilirsiniz.\n\nGençTek",
+  },
+  {
+    kod: "DANISMAN_YENIDEN_SECIM",
+    konu: "Danışman öğretmeninizi yeniden seçmeniz gerekiyor",
+    govdeSablonu:
+      "Merhaba,\n\nDanışman öğretmeniniz okulunuzdan ayrıldı. Okulunuzda birden fazla danışman öğretmen bulunduğu için yeni danışmanınızı sizin seçmeniz gerekiyor. Seçim yapana kadar il koordinatörünüze bağlı görünürsünüz.\n\nGençTek",
+  },
+  {
+    kod: "KOORDINATOR_DEVREDILEBILIR_OGRENCI",
+    konu: "{{okulAdi}} için devredilebilir öğrenci var",
+    govdeSablonu:
+      "Merhaba,\n\n{{okulAdi}} okulunda GençTek danışman öğretmeni görev aldı. Size bağlı {{ogrenciSayisi}} öğrenci bu öğretmene devredilebilir. Devri onaylamak için panelinizi ziyaret edin.\n\nGençTek",
+  },
+  {
+    kod: "ONAY_BEKLEYEN_ULUSAL_FAALIYET",
+    konu: "Onay bekleyen ulusal faaliyet: {{faaliyetAdi}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{duzenleyenAdSoyad}} tarafından {{faaliyetAdi}} adlı ulusal faaliyet oluşturuldu ve onayınızı bekliyor.\n\nGençTek",
+  },
+  {
+    kod: "DANISMANA_KOPYA_ULUSAL_BASVURU",
+    konu: "Öğrenciniz bir ulusal faaliyete başvurdu",
+    govdeSablonu:
+      "Merhaba,\n\nDanışmanlığını yaptığınız {{ogrenciAdSoyad}}, {{faaliyetAdi}} adlı ulusal faaliyete başvurdu. Bu bildirim yalnızca bilgilendirme amaçlıdır; onayınız gerekmez.\n\nGençTek",
+  },
+  {
+    kod: "FAALIYET_IPTAL_EDILDI",
+    konu: "{{faaliyetAdi}} iptal edildi",
+    govdeSablonu:
+      "Merhaba,\n\nBaşvurduğunuz {{faaliyetAdi}} adlı faaliyet iptal edildi; başvurunuz bu nedenle kapatıldı.\n\nGerekçe: {{gerekce}}\n\nGençTek",
+  },
+  {
+    kod: "OGRENCI_ATANAMADI",
+    konu: "Danışman atanamayan öğrenci: {{ogrenciAdSoyad}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{ogrenciAdSoyad}} adlı öğrenciye danışman atanamadı: okulunda danışman öğretmen yok ve {{ilKodu}} kodlu ilin koordinatörü tanımlı değil. İl koordinatörü ataması gerekiyor.\n\nGençTek",
+  },
+];
+
+async function referansVerileriYukle() {
+  for (const il of ILLER) {
+    await prisma.il.upsert({
+      where: { ilKodu: il.ilKodu },
+      update: { ad: il.ad },
+      create: il,
+    });
+  }
+
+  for (const ilce of ORNEK_ILCELER) {
+    await prisma.ilce.upsert({
+      where: { ilceKodu: ilce.ilceKodu },
+      update: { ad: ilce.ad, ilKodu: ilce.ilKodu },
+      create: ilce,
+    });
+  }
+
+  for (const kurum of ORNEK_KURUMLAR) {
+    await prisma.kurum.upsert({
+      where: { kurumKodu: kurum.kurumKodu },
+      update: kurum,
+      create: kurum,
+    });
+  }
+
+  console.log(
+    `  ${ILLER.length} il, ${ORNEK_ILCELER.length} ilçe, ${ORNEK_KURUMLAR.length} kurum`,
+  );
+}
+
+async function calismaGruplariniYukle() {
+  for (const [sira, ad] of CALISMA_GRUPLARI.entries()) {
+    await prisma.calismaGrubu.upsert({
+      where: { ad },
+      update: { siraNo: sira + 1 },
+      create: { ad, siraNo: sira + 1 },
+    });
+  }
+  console.log(`  ${CALISMA_GRUPLARI.length} çalışma grubu`);
+}
+
+async function temelEtkinlikProgramlariniYukle() {
+  for (const [sira, program] of TEMEL_ETKINLIK_PROGRAMLARI.entries()) {
+    await prisma.temelEtkinlikProgrami.upsert({
+      where: { ad: program.ad },
+      // Pasife alınmış bir program seed ile yeniden aktifleştirilmez; grup ve
+      // sıra bilgisi tazelenir, "aktif" alanına dokunulmaz.
+      update: { grup: program.grup, siraNo: sira + 1 },
+      create: { ad: program.ad, grup: program.grup, siraNo: sira + 1 },
+    });
+  }
+  console.log(
+    `  ${TEMEL_ETKINLIK_PROGRAMLARI.length} temel/çalışma grubu etkinlik programı`,
+  );
+}
+
+async function sistemAyarlariniYukle() {
+  for (const ayar of SISTEM_AYARLARI) {
+    await prisma.sistemAyari.upsert({
+      where: { anahtar: ayar.anahtar },
+      update: { aciklama: ayar.aciklama },
+      create: ayar,
+    });
+  }
+  console.log(`  ${SISTEM_AYARLARI.length} sistem ayarı`);
+}
+
+async function bildirimSablonlariniYukle() {
+  for (const sablon of BILDIRIM_SABLONLARI) {
+    await prisma.bildirimSablonu.upsert({
+      where: { kod: sablon.kod },
+      update: { konu: sablon.konu, govdeSablonu: sablon.govdeSablonu },
+      create: sablon,
+    });
+  }
+  console.log(`  ${BILDIRIM_SABLONLARI.length} bildirim şablonu`);
+}
+
+/** Kimlik kataloğundaki bir kullanıcıyı veritabanına yazar (idempotent). */
+async function kullaniciOlustur(authProviderId: string) {
+  const kimlik = mockKimlikBul(authProviderId);
+  if (!kimlik) {
+    throw new Error(`Mock kimlik kataloğunda yok: ${authProviderId}`);
+  }
+
+  return prisma.kullanici.upsert({
+    where: { authProviderId },
+    update: {},
+    create: {
+      authProviderId: kimlik.authProviderId,
+      ad: kimlik.ad,
+      soyad: kimlik.soyad,
+      cinsiyet: kimlik.cinsiyet,
+      kurumKodu: kimlik.kurumKodu,
+      ilKodu: kimlik.ilKodu,
+      ilceKodu: kimlik.ilceKodu,
+      sinif: kimlik.sinif,
+      brans: kimlik.brans,
+      egitimOgretimYili: kimlik.egitimOgretimYili,
+    },
+    select: { id: true },
+  });
+}
+
+/** Rolü yoksa açar; varsa dokunmaz. Rol geçmişi bozulmaz. */
+async function rolVer(
+  kullaniciId: number,
+  rolKodu: "PROJE_YONETICISI" | "IL_KOORDINATOR",
+  kapsam: { ilKodu?: string; atayanKullaniciId?: number } = {},
+) {
+  const mevcut = await prisma.kullaniciRol.findFirst({
+    where: { kullaniciId, rolKodu, bitisTarihi: null },
+    select: { id: true },
+  });
+  if (mevcut) return;
+
+  await prisma.kullaniciRol.create({
+    data: {
+      kullaniciId,
+      rolKodu,
+      ilKodu: kapsam.ilKodu ?? null,
+      atayanKullaniciId: kapsam.atayanKullaniciId ?? null,
+    },
+  });
+}
+
+/**
+ * Katalogdan çıkarılmış proje yöneticilerini görevden alır.
+ *
+ * SİLME YAPILMAZ: kullanıcı kaydı, açtığı faaliyetler ve erişim logları ona
+ * bağlı olduğu için durur. Rol geçmişli tabloda kapatılır (bitiş tarihi
+ * yazılır) ve kayıt pasife alınır — böylece kişi hiçbir listede çıkmaz ama
+ * geçmiş bozulmaz.
+ */
+async function eskiProjeYoneticileriniGorevdenAl(gecerliIdler: number[]) {
+  const eskiler = await prisma.kullaniciRol.findMany({
+    where: {
+      rolKodu: "PROJE_YONETICISI",
+      bitisTarihi: null,
+      kullaniciId: { notIn: gecerliIdler },
+    },
+    select: {
+      id: true,
+      kullaniciId: true,
+      kullanici: { select: { ad: true, soyad: true } },
+    },
+  });
+
+  for (const rol of eskiler) {
+    await prisma.kullaniciRol.update({
+      where: { id: rol.id },
+      data: { bitisTarihi: new Date() },
+    });
+    await prisma.kullanici.update({
+      where: { id: rol.kullaniciId },
+      data: { aktif: false },
+    });
+    console.log(
+      `  görevden alındı: ${rol.kullanici.ad} ${rol.kullanici.soyad} (kayıt pasife alındı, silinmedi)`,
+    );
+  }
+
+  return eskiler.length;
+}
+
+async function baslangicYoneticileriniOlustur() {
+  const yoneticiIdleri: number[] = [];
+  for (const authProviderId of MOCK_PROJE_YONETICISI_KIMLIKLERI) {
+    const yonetici = await kullaniciOlustur(authProviderId);
+    await rolVer(yonetici.id, "PROJE_YONETICISI");
+    yoneticiIdleri.push(yonetici.id);
+  }
+
+  await eskiProjeYoneticileriniGorevdenAl(yoneticiIdleri);
+
+  /*
+   * Koordinatörü kim atadı bilgisi için yöneticilerden biri yeterli; listedeki
+   * ilk kişi seçiliyor. Bu yalnızca izleme amaçlı bir alan, yetki taşımaz.
+   */
+  const projeYoneticisi = { id: yoneticiIdleri[0] };
+
+  for (const koordinator of MOCK_KOORDINATOR_KIMLIKLERI) {
+    const kullanici = await kullaniciOlustur(koordinator.authProviderId);
+    // Öğretmen kaydı olduğu için öğretmen profili de açılır; danışmanlık
+    // işaretlenmez (bir öğretmen aynı anda hem danışman hem koordinatör olamaz).
+    await prisma.ogretmenProfil.upsert({
+      where: { kullaniciId: kullanici.id },
+      update: {},
+      create: { kullaniciId: kullanici.id },
+    });
+    await rolVer(kullanici.id, "IL_KOORDINATOR", {
+      ilKodu: koordinator.ilKodu,
+      atayanKullaniciId: projeYoneticisi.id,
+    });
+  }
+
+  console.log(
+    `  ${MOCK_PROJE_YONETICISI_KIMLIKLERI.length} proje yöneticisi, ${MOCK_KOORDINATOR_KIMLIKLERI.length} il koordinatörü`,
+  );
+}
+
+async function main() {
+  console.log("GençTek seed başlıyor...");
+  await referansVerileriYukle();
+  await calismaGruplariniYukle();
+  await temelEtkinlikProgramlariniYukle();
+  await sistemAyarlariniYukle();
+  await bildirimSablonlariniYukle();
+  await baslangicYoneticileriniOlustur();
+  console.log("Seed tamamlandı.");
+}
+
+main()
+  .catch((hata) => {
+    console.error("Seed başarısız:", hata);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

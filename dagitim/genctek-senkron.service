@@ -1,0 +1,29 @@
+# Gecelik danışman senkronu — /etc/systemd/system/genctek-senkron.service
+#
+# Öğretmen uzun süre giriş yapmazsa kurum kodu değişikliği fark edilmez; bu iş
+# aktif danışmanların kurum bilgisini kontrol eder ve değişenler için devir
+# akışını çalıştırır (references/domain-rules.md Bölüm 1).
+#
+# Cron yerine systemd timer kullanılıyor: sunucu kapalıyken kaçan çalıştırma
+# Persistent=true sayesinde açılışta telafi edilir, cron'da edilmez.
+
+[Unit]
+Description=GençTek gecelik danışman senkronu
+After=network-online.target postgresql.service genctek.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=genctek
+Group=genctek
+WorkingDirectory=/opt/genctek
+EnvironmentFile=/opt/genctek/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run senkron:danisman
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/genctek/depolama
+SyslogIdentifier=genctek-senkron

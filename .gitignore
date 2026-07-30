@@ -1,0 +1,27 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Ortam değişkenleri — gerçek değerler asla depoya girmez
+.env
+.env.local
+.env.production
+
+# Prisma tarafından üretilen client
+/src/generated/
+
+# Yerel dosya depolama (VPS'te kalıcı bir dizine/S3'e taşınacak)
+/depolama/
+
+# Tema karşılaştırması için alınan ekran görüntüleri
+/ekran-goruntuleri/
+
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+coverage/
+next-env.d.ts
+tsconfig.tsbuildinfo

@@ -1,0 +1,21 @@
+# Gecelik senkron zamanlayıcısı — /etc/systemd/system/genctek-senkron.timer
+#
+# Kurulum:
+#   sudo cp dagitim/genctek-senkron.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now genctek-senkron.timer
+#
+# Kontrol:  systemctl list-timers genctek-senkron.timer
+
+[Unit]
+Description=GençTek gecelik danışman senkronunu her gece 03:00'te çalıştırır
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# Sunucu o saatte kapalıysa açılışta telafi edilir.
+Persistent=true
+# Aynı anda birden çok sunucu varsa hepsi 03:00'te vurmasın.
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

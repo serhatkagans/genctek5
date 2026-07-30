@@ -1,0 +1,52 @@
+# GençTek'in yerel süreçlerini durdurur.
+#
+# Pencereyi elle kapatmak yerine bunu kullanın: Next.js dev sunucusu kendini
+# ayrı bir süreç olarak da çalıştırdığı için pencereyi kapatmak arkada takılı
+# bir süreç bırakabiliyor ("Another next dev server is already running").
+
+$proje = Split-Path -Parent $PSScriptRoot
+Set-Location $proje
+
+$UYGULAMA_PORT = 3000
+$SUNUCU_ADI = "default"
+
+Write-Host ""
+
+# --- 1. Uygulama -----------------------------------------------------------
+$idler = Get-NetTCPConnection -LocalPort $UYGULAMA_PORT -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty OwningProcess -Unique
+
+if ($idler) {
+    foreach ($id in $idler) {
+        $surec = Get-Process -Id $id -ErrorAction SilentlyContinue
+        if ($surec) {
+            Write-Host ("  Uygulama kapatiliyor: PID {0}" -f $id)
+            Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+        }
+    }
+} else {
+    Write-Host "  Uygulama zaten kapali."
+}
+
+# --- 2. Veritabanı ---------------------------------------------------------
+#
+# SÜREÇ ÖLDÜRÜLMEZ. "prisma dev" öldürülünce kilit dosyası geride kalır ve bir
+# sonraki açılış "Lock file is already being held" ile düşer; kilidi elle
+# silmek gerekir. Kendi stop komutu bunu temiz yapar.
+Write-Host "  Veritabani durduruluyor..."
+& npx prisma dev stop $SUNUCU_ADI | Out-Null
+
+Start-Sleep -Seconds 2
+
+$kalan = Get-NetTCPConnection -LocalPort @(3000, 51213, 51214, 51215, 51216) -State Listen -ErrorAction SilentlyContinue
+Write-Host ""
+if ($kalan) {
+    Write-Host "  UYARI: bazi portlar hala acik:" -ForegroundColor Red
+    $kalan | ForEach-Object { Write-Host ("    port {0} (PID {1})" -f $_.LocalPort, $_.OwningProcess) }
+} else {
+    Write-Host "  Durduruldu." -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "  Yeniden baslatmak icin: baslat.bat"
+Write-Host ""

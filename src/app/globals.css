@@ -1,0 +1,338 @@
+@import "tailwindcss";
+
+/*
+  Dört tema desteklenir ve kullanıcı arayüzden değiştirir:
+
+    Tema D — "GençTek marka" (VARSAYILAN): kurumsal paletin kendisi — beyaz
+             zemin, nötr siyah metin, kırmızı vurgu. Palet üç renkten oluşur:
+             #c4161c (Pantone 7621 C), #414042 (Neutral Black U),
+             #939598 (Cool Gray 8 U).
+    Tema A — "GençTek kurumsal": koyu lacivert üst bar, kağıt tonu zemin,
+             amber vurgu. Roller kendi renginde tanınır (öğrenci amber,
+             danışman teal, il koordinatörü lacivert, YEĞİTEK mor).
+    Tema B — "Sade kurumsal": açık üst bar, mavi vurgu, düşük kontrastlı sade
+             görünüm.
+    Tema C — "MEB kırmızı": MEB kurumsal kimliğine uygun bordo üst bar, kırmızı
+             düğme ve bağlantılar, altın seçim vurgusu.
+
+  Ekranlar renk adı KULLANMAZ, anlam adı kullanır (bg-zemin, text-baslik,
+  bg-birincil gibi). Böylece yeni bir tema eklemek yalnızca bu dosyaya
+  değişken bloğu eklemek demektir; sayfalara dokunulmaz.
+
+  Renk seçerken kontrast oranı gözetilir: gövde metni kendi zemininde en az
+  4.5:1 olmalı. Aşağıdaki üç blokta bu sağlanmıştır; yeni bir ton eklerken
+  kontrolü atlamayın — hedef kitlenin bir kısmı düşük kontrastı okuyamaz.
+*/
+
+@theme inline {
+  --color-zemin: var(--renk-zemin);
+  --color-kart: var(--renk-kart);
+  --color-cizgi: var(--renk-cizgi);
+  --color-metin: var(--renk-metin);
+  --color-metin-yumusak: var(--renk-metin-yumusak);
+  --color-baslik: var(--renk-baslik);
+
+  --color-ust-bar: var(--renk-ust-bar);
+  --color-ust-bar-metin: var(--renk-ust-bar-metin);
+  --color-ust-bar-metin-yumusak: var(--renk-ust-bar-metin-yumusak);
+  --color-ust-bar-cizgi: var(--renk-ust-bar-cizgi);
+  --color-ust-bar-secili-zemin: var(--renk-ust-bar-secili-zemin);
+  --color-ust-bar-secili-metin: var(--renk-ust-bar-secili-metin);
+
+  --color-birincil: var(--renk-birincil);
+  --color-birincil-koyu: var(--renk-birincil-koyu);
+  --color-birincil-metin: var(--renk-birincil-metin);
+
+  --color-vurgu: var(--renk-vurgu);
+  --color-vurgu-zemin: var(--renk-vurgu-zemin);
+  --color-vurgu-metin: var(--renk-vurgu-metin);
+
+  --color-secili-zemin: var(--renk-secili-zemin);
+  --color-secili-metin: var(--renk-secili-metin);
+
+  --color-olumlu-zemin: var(--renk-olumlu-zemin);
+  --color-olumlu-cizgi: var(--renk-olumlu-cizgi);
+  --color-olumlu-metin: var(--renk-olumlu-metin);
+
+  --color-uyari-zemin: var(--renk-uyari-zemin);
+  --color-uyari-cizgi: var(--renk-uyari-cizgi);
+  --color-uyari-metin: var(--renk-uyari-metin);
+
+  --color-hata-zemin: var(--renk-hata-zemin);
+  --color-hata-cizgi: var(--renk-hata-cizgi);
+  --color-hata-metin: var(--renk-hata-metin);
+
+  --color-rol-ogrenci-zemin: var(--renk-rol-ogrenci-zemin);
+  --color-rol-ogrenci-metin: var(--renk-rol-ogrenci-metin);
+  --color-rol-danisman-zemin: var(--renk-rol-danisman-zemin);
+  --color-rol-danisman-metin: var(--renk-rol-danisman-metin);
+  --color-rol-koordinator-zemin: var(--renk-rol-koordinator-zemin);
+  --color-rol-koordinator-metin: var(--renk-rol-koordinator-metin);
+  --color-rol-yonetici-zemin: var(--renk-rol-yonetici-zemin);
+  --color-rol-yonetici-metin: var(--renk-rol-yonetici-metin);
+
+  --radius-kart: var(--yaricap-kart);
+}
+
+/* --- Tema D: GençTek marka (varsayılan) ------------------------------------ */
+/*
+  Kurumsal paletin doğrudan karşılığı: beyaz zemin, kırmızı vurgu.
+
+    #c4161c  kırmızı        — düğme, bağlantı, seçili sekme, vurgu
+    #414042  nötr siyah     — gövde metni, üst bar metni
+    #939598  soğuk gri      — çizgi ve ikincil metnin türetildiği aile
+
+  Üst bar (menünün olduğu alan) tam kırmızı, sayfa gövdesi beyaz kalır.
+
+  Dört nokta bilinçli:
+
+  0. Kırmızı barda seçili menü sekmesi BEYAZ zemin + kırmızı metin. Sayfa
+     gövdesindeki seçim vurgusu (`secili-zemin`) kırmızı olmak zorunda — beyaz
+     kartta beyaz bir vurgu görünmezdi. Bu yüzden üst bar seçimi ayrı bir token
+     çiftinden okunur: `ust-bar-secili-zemin` / `ust-bar-secili-metin`. Diğer üç
+     temada bu çift kendi `secili-*` değerlerine eşit, yani görünümleri değişmez.
+
+  1. Sayfa zemini saf beyaz DEĞİL, #f7f7f8. Ekranlar `bg-zemin`i yalnızca sayfa
+     arka planı için değil, kart içinde ikincil yüzey olarak da kullanıyor
+     (tablo başlığı, ikincil düğme hover'ı, dosya seçici, pasif rozet). Zemin
+     de kart da saf beyaz olsaydı bu yüzeyler görünmez olurdu. Kartlar beyaz
+     (#ffffff), zemin bir tık altında: göz beyaz görüyor, yüzeyler ayrışıyor.
+
+  2. Paletin üç rengi de birebir kullanılır: kırmızı (#c4161c) üst bar, düğme,
+     bağlantı ve vurguda; nötr siyah (#414042) gövde metni ve başlıkta; soğuk
+     gri (#939598) çizgide. Gri yalnızca çizgide çünkü beyaz üstünde 3.1:1 —
+     metin için gereken 4.5:1'i geçmiyor, ama çizgi/kenarlık için gereken
+     3:1'i geçiyor. İkincil metin bu yüzden aynı aileden koyultuldu (#6d6e71,
+     5.1:1); zemin tonları da (#f7f7f8, rol rozetleri) bu üç renkten türetildi.
+
+  3. Hata rengi vurgu renginden AYRI: tema zaten kırmızı olduğu için hata
+     kutusu daha doygun pembe zeminle ayrışır (Tema C ile aynı gerekçe), aksi
+     halde hata mesajı sıradan bir kırmızı etiketten ayırt edilemezdi.
+*/
+:root,
+[data-tema="d"] {
+  --renk-zemin: #f7f7f8;
+  --renk-kart: #ffffff;
+  --renk-cizgi: #939598;
+  --renk-metin: #414042;
+  --renk-metin-yumusak: #6d6e71;
+  --renk-baslik: #414042;
+
+  --renk-ust-bar: #c4161c;
+  --renk-ust-bar-metin: #ffffff;
+  --renk-ust-bar-metin-yumusak: #f8dcdc;
+  --renk-ust-bar-cizgi: #efb0b2;
+  --renk-ust-bar-secili-zemin: #ffffff;
+  --renk-ust-bar-secili-metin: #c4161c;
+
+  --renk-birincil: #c4161c;
+  --renk-birincil-koyu: #9e1116;
+  --renk-birincil-metin: #ffffff;
+
+  --renk-vurgu: #c4161c;
+  --renk-vurgu-zemin: #fdeceb;
+  --renk-vurgu-metin: #a01217;
+
+  --renk-secili-zemin: #c4161c;
+  --renk-secili-metin: #ffffff;
+
+  --renk-olumlu-zemin: #e8f4ee;
+  --renk-olumlu-cizgi: #1f7a4d;
+  --renk-olumlu-metin: #14563a;
+
+  --renk-uyari-zemin: #fdf3dc;
+  --renk-uyari-cizgi: #d99b06;
+  --renk-uyari-metin: #7a5504;
+
+  --renk-hata-zemin: #fbd9d8;
+  --renk-hata-cizgi: #c4161c;
+  --renk-hata-metin: #8e1014;
+
+  --renk-rol-ogrenci-zemin: #fdeceb;
+  --renk-rol-ogrenci-metin: #a01217;
+  --renk-rol-danisman-zemin: #e8f4ee;
+  --renk-rol-danisman-metin: #14563a;
+  --renk-rol-koordinator-zemin: #ebebec;
+  --renk-rol-koordinator-metin: #414042;
+  --renk-rol-yonetici-zemin: #fdf3dc;
+  --renk-rol-yonetici-metin: #7a5504;
+
+  --yaricap-kart: 0.5rem;
+}
+
+/* --- Tema A: GençTek kurumsal ---------------------------------------------- */
+[data-tema="a"] {
+  --renk-zemin: #f6f5f1;
+  --renk-kart: #ffffff;
+  --renk-cizgi: #e4e1d8;
+  --renk-metin: #171a21;
+  --renk-metin-yumusak: #5b6272;
+  --renk-baslik: #10192e;
+
+  --renk-ust-bar: #10192e;
+  --renk-ust-bar-metin: #ffffff;
+  --renk-ust-bar-metin-yumusak: #a9b3c9;
+  --renk-ust-bar-cizgi: #233258;
+  --renk-ust-bar-secili-zemin: #e8a33d;
+  --renk-ust-bar-secili-metin: #10192e;
+
+  --renk-birincil: #182543;
+  --renk-birincil-koyu: #10192e;
+  --renk-birincil-metin: #ffffff;
+
+  --renk-vurgu: #e8a33d;
+  --renk-vurgu-zemin: #fbedd4;
+  --renk-vurgu-metin: #8a5a16;
+
+  --renk-secili-zemin: #e8a33d;
+  --renk-secili-metin: #10192e;
+
+  --renk-olumlu-zemin: #dcefea;
+  --renk-olumlu-cizgi: #1e7f6b;
+  --renk-olumlu-metin: #0f4a3c;
+
+  --renk-uyari-zemin: #fbedd4;
+  --renk-uyari-cizgi: #e8a33d;
+  --renk-uyari-metin: #8a5a16;
+
+  --renk-hata-zemin: #f7e4e2;
+  --renk-hata-cizgi: #b8433c;
+  --renk-hata-metin: #8f2f29;
+
+  --renk-rol-ogrenci-zemin: #fbedd4;
+  --renk-rol-ogrenci-metin: #8a5a16;
+  --renk-rol-danisman-zemin: #dcefea;
+  --renk-rol-danisman-metin: #0f4a3c;
+  --renk-rol-koordinator-zemin: #e7eaf2;
+  --renk-rol-koordinator-metin: #132038;
+  --renk-rol-yonetici-zemin: #ebe3f5;
+  --renk-rol-yonetici-metin: #3a2560;
+
+  --yaricap-kart: 0.75rem;
+}
+
+/* --- Tema B: Sade kurumsal ------------------------------------------------- */
+[data-tema="b"] {
+  --renk-zemin: #f8fafc;
+  --renk-kart: #ffffff;
+  --renk-cizgi: #e2e8f0;
+  --renk-metin: #0f172a;
+  --renk-metin-yumusak: #64748b;
+  --renk-baslik: #12294a;
+
+  --renk-ust-bar: #ffffff;
+  --renk-ust-bar-metin: #0f172a;
+  --renk-ust-bar-metin-yumusak: #64748b;
+  --renk-ust-bar-cizgi: #e2e8f0;
+  --renk-ust-bar-secili-zemin: #245a96;
+  --renk-ust-bar-secili-metin: #ffffff;
+
+  --renk-birincil: #245a96;
+  --renk-birincil-koyu: #1c4576;
+  --renk-birincil-metin: #ffffff;
+
+  --renk-vurgu: #2f6fb5;
+  --renk-vurgu-zemin: #eef4fb;
+  --renk-vurgu-metin: #1c4576;
+
+  --renk-secili-zemin: #245a96;
+  --renk-secili-metin: #ffffff;
+
+  --renk-olumlu-zemin: #ecfdf5;
+  --renk-olumlu-cizgi: #6ee7b7;
+  --renk-olumlu-metin: #065f46;
+
+  --renk-uyari-zemin: #fffbeb;
+  --renk-uyari-cizgi: #fcd34d;
+  --renk-uyari-metin: #92400e;
+
+  --renk-hata-zemin: #fef2f2;
+  --renk-hata-cizgi: #fca5a5;
+  --renk-hata-metin: #991b1b;
+
+  --renk-rol-ogrenci-zemin: #eef4fb;
+  --renk-rol-ogrenci-metin: #1c4576;
+  --renk-rol-danisman-zemin: #ecfdf5;
+  --renk-rol-danisman-metin: #065f46;
+  --renk-rol-koordinator-zemin: #eef2ff;
+  --renk-rol-koordinator-metin: #3730a3;
+  --renk-rol-yonetici-zemin: #f5f3ff;
+  --renk-rol-yonetici-metin: #5b21b6;
+
+  --yaricap-kart: 0.5rem;
+}
+
+/* --- Tema C: MEB kırmızı --------------------------------------------------- */
+/*
+  Üst bar bordo (#6b0f13), düğme ve bağlantılar MEB kırmızısı (#b3161c).
+
+  Seçim vurgusu (aktif menü sekmesi, tema düğmesi) bilinçli olarak KIRMIZI
+  DEĞİL altın: aynı aileden bir ton hem bordo bara hem beyaz karta karşı yeterli
+  kontrast veremiyordu — biri okunurken diğeri kayboluyordu. Altın ikisinde de
+  ayırt edilir (bara karşı 6.7:1, beyaza karşı belirgin) ve kırmızıyla birlikte
+  kurumsal bir eşleşmedir.
+
+  Hata rengi vurgu renginden AYRI tutuldu: tema kırmızı olduğu için hata
+  kutuları koyu kırmızı metin + daha doygun pembe zeminle ("bu bir uyarı değil")
+  ayrışıyor. Aynı tonu paylaşsalardı hata mesajı sıradan bir etiketten
+  ayırt edilemezdi.
+*/
+[data-tema="c"] {
+  --renk-zemin: #faf7f6;
+  --renk-kart: #ffffff;
+  --renk-cizgi: #e8dedd;
+  --renk-metin: #1c1517;
+  --renk-metin-yumusak: #6b5a5c;
+  --renk-baslik: #6b0f13;
+
+  --renk-ust-bar: #6b0f13;
+  --renk-ust-bar-metin: #ffffff;
+  --renk-ust-bar-metin-yumusak: #eab8ba;
+  --renk-ust-bar-cizgi: #8d2226;
+  --renk-ust-bar-secili-zemin: #f2b705;
+  --renk-ust-bar-secili-metin: #5c0f11;
+
+  --renk-birincil: #b3161c;
+  --renk-birincil-koyu: #8c1114;
+  --renk-birincil-metin: #ffffff;
+
+  --renk-vurgu: #b3161c;
+  --renk-vurgu-zemin: #fbeaea;
+  --renk-vurgu-metin: #8c1114;
+
+  --renk-secili-zemin: #f2b705;
+  --renk-secili-metin: #5c0f11;
+
+  --renk-olumlu-zemin: #e4f1ea;
+  --renk-olumlu-cizgi: #1f7a4d;
+  --renk-olumlu-metin: #14563a;
+
+  --renk-uyari-zemin: #fdf3dc;
+  --renk-uyari-cizgi: #d99b06;
+  --renk-uyari-metin: #7a5504;
+
+  --renk-hata-zemin: #fdd9d7;
+  --renk-hata-cizgi: #b3161c;
+  --renk-hata-metin: #7d0f12;
+
+  --renk-rol-ogrenci-zemin: #fdf3dc;
+  --renk-rol-ogrenci-metin: #7a5504;
+  --renk-rol-danisman-zemin: #dcefea;
+  --renk-rol-danisman-metin: #0f4a3c;
+  --renk-rol-koordinator-zemin: #e3e8f2;
+  --renk-rol-koordinator-metin: #1b2b4d;
+  --renk-rol-yonetici-zemin: #fbeaea;
+  --renk-rol-yonetici-metin: #8c1114;
+
+  --yaricap-kart: 0.5rem;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--renk-zemin);
+  color: var(--renk-metin);
+  -webkit-font-smoothing: antialiased;
+}

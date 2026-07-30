@@ -1,0 +1,63 @@
+# GençTek uygulama servisi — /etc/systemd/system/genctek.service
+#
+# Kurulum:
+#   sudo cp dagitim/genctek.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now genctek
+#
+# Günlükler:  journalctl -u genctek -f
+
+[Unit]
+Description=GençTek Bilgi Sistemi
+Documentation=file:/opt/genctek/DAGITIM.md
+# Veritabanı hazır olmadan açılırsa uygulama ilk isteklerde hata verir.
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+# Açılışta çöküp duran bir sürüm sonsuz döngüye girmesin. Bu iki anahtar
+# [Unit] bölümüne aittir; [Service] altında systemd onları yok sayar.
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=genctek
+Group=genctek
+WorkingDirectory=/opt/genctek
+
+# Ortam değişkenleri .env'den okunur. Dosya 600 izinli ve genctek kullanıcısına
+# ait olmalı: içinde veritabanı şifresi ve oturum imza anahtarı var.
+EnvironmentFile=/opt/genctek/.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# Yalnızca yerel arayüzü dinler; dışarıya nginx açar. Uygulamayı 0.0.0.0'a
+# bağlamak, güvenlik duvarı yanlış yapılandırılırsa paneli doğrudan internete
+# açardı.
+Environment=HOSTNAME=127.0.0.1
+
+# Standalone çıktı çalıştırılır (next.config.ts · output: "standalone").
+# guncelle.sh derlemeden sonra .next/static'i buraya kopyalar.
+ExecStart=/usr/bin/node /opt/genctek/.next/standalone/server.js
+
+Restart=on-failure
+RestartSec=5
+
+# --- Sıkılaştırma ---------------------------------------------------------
+# Uygulamanın yazması gereken TEK dizin dosya deposudur; gerisi salt okunur.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/genctek/depolama
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=genctek
+
+[Install]
+WantedBy=multi-user.target

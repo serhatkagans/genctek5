@@ -1,0 +1,95 @@
+1. Rol adı düzeltmesi
+
+"İl Yöneticisi" yanlış yazılmıştı, doğrusu "İl Temsilcisi". Kod, veri tabanı (rol_kodu değeri IL_YONETICISI → IL_TEMSILCISI), ve tüm ekran metinlerinde bu düzeltilmeli.
+
+2. Öğrenci çalışma grubu seçim sınırı
+
+Öğrenci başına seçilebilecek çalışma grubu sayısında üst sınır yok. Sınırsız seçime izin ver, "en fazla 3" gibi bir kısıt varsa kaldır.
+
+3. Danışman öğretmen il koordinatörü olursa (kesinleşti, artık varsayım değil)
+
+Bir danışman öğretmen il koordinatörü olarak atandığında:
+
+Atama engellenmez.
+Öğretmenin üzerindeki öğrenciler otomatik olarak yeniden dağıtılır: okulda tek danışman kaldıysa ona, birden fazla danışman varsa öğrenciye "yeniden seç" bildirimi gider (seçim yapılana kadar geçici il koordinatörüne bağlı kalır), hiç danışman kalmadıysa il koordinatörüne devredilir.
+İşlemi yapan proje yöneticisine "X öğrenci yeniden dağıtıldı" uyarısı gösterilir.
+4. Yeni sistem: Etkinlik Kategorisi (Kapsam'dan ayrı bir alan)
+
+Faaliyetlerde Kapsam (Okul/İl/Ulusal — kimin başvurabileceğini belirler) ile Etkinlik Kategorisi (etkinliğin niteliğini belirler) artık iki ayrı, bağımsız alan. Üç kategori:
+
+Temel Etkinlik — GençTek'in ulusal düzeyde her yıl tekrarlanan, isimleri sabit programları.
+Çalışma Grubu Etkinliği — çalışma grubu öğrencileri tarafından yıl boyunca planlanıp yürütülen, isimleri sabit programlar.
+İl Etkinliği — il koordinatörlerinin kendi illerine özel, temalı olarak tasarladığı etkinlikler. Bunların sabit bir isim listesi yok — il koordinatörü faaliyet adını serbestçe girer (Robot Futbol Ligi, Yapay Zekâ ile Hikâyeni Anlat gibi örnekler sadece örnektir, referans listesi değildir).
+
+Veri modeli: Temel Etkinlik ve Çalışma Grubu Etkinliği için yeni bir referans tablosu aç: temel_etkinlik_programi (id, ad, grup: TEMEL_ETKINLIK/CALISMA_GRUBU_ETKINLIGI, sira_no, aktif — çalışma_grubu tablosuyla aynı mantık, silme yok, pasife alma var). Faaliyet tablosuna iki alan ekle: etkinlik_kategorisi (zorunlu, üç değerden biri) ve temel_etkinlik_programi_id (FK, nullable — yalnızca Temel Etkinlik/Çalışma Grubu Etkinliği kategorisinde doldurulur, İl Etkinliği'nde boş kalır çünkü faaliyetin ad alanı zaten temayı taşır).
+
+Bu, faaliyetin mevcut çalışma grubu etiketi (konu alanı: Yapay Zekâ, Robotik vb.) ile karıştırılmamalı — o ayrı bir etiketleme, hâlâ karar bekliyor (filtre mi kısıt mı olacağı).
+
+Başlangıç seed listesi (kullanıcı tam listeyi ayrıca iletecek, bu yalnızca ilk aktarım):
+
+Temel Etkinlik: Genç Gölge, Sahne Senin, G2S Genç Sektör Buluşmaları, Sınır Ötesi (Beyond The Borders), Öğrenci Forumu, Hack The Idea, Akran Öğretimi, Dijital Yürüyüş STEM, Oyunun e Hâli, Tek Maraton, Misafir Öğretmenlik/Öğrencilik, GençTek Zirvesi
+Çalışma Grubu Etkinliği: EğitiJAM, Capture The Flag (Bayrağı Yakala), Mobil Uygulama Geliştirme Yarışması, Teknik Gezi, Master Tek, E-Ticaret Ideathonu
+5. Rozet / Katkı kategorileri (hâlâ Faz 2 — kod yazma, sadece kayıt altına al)
+
+Rozet sisteminin uygulanması hâlâ sonraki faza bırakılmış durumda, ama kategori listesi netleşti:
+
+İl Temsilcisi
+Okul Temsilcisi
+Verdiği akran eğitimleri
+Çalışma grubu yöneticisi / organizasyon ekibi üyesi (bu madde kullanıcı tarafından da belirsiz bırakıldı, Faz 2'de netleşecek)
+Moderatörlük yaptığı etkinlikler
+Derece aldığı yarışmalar (EğitiJAM gibi GençTek etkinlikleri ya da GençTek dışı yarışmalar)
+
+Bu liste mevcut ogrenci_kazanim tablosundaki tip alanıyla (DIS_ETKINLIK/URUN/AKRAN_EGITIMI/YARISMA_DERECESI) kısmen örtüşüyor — Faz 2 açıldığında yeni tablo yerine bu tabloyu genişletmek daha az iş çıkarır.
+
+6. Proje Yöneticisi — Rol/Atama Envanteri
+
+Sorun: Proje yöneticisi tüm öğrencileri ve öğretmenleri tek tek görebiliyor, ama şunları toplu göremiyor:
+
+Hangi ilde İl Koordinatörü atanmış, hangi il boş
+Hangi okulda Danışman Öğretmen var, hangi okul danışmansız (öğrencileri il koordinatörüne düşmüş)
+
+Bu, proje yöneticisinin asıl işlerinden biri (il koordinatörü atamak, boşlukları görmek) için gerekli bir ekran — eksikti.
+
+Eklenecek gereksinim — Yeni ekran: Rol/Atama Envanteri (yalnızca Proje Yöneticisi erişebilir). İki liste gösterir:
+
+İl Koordinatörü durumu — 81 il, her biri için: atanmış mı, atandıysa kim, atanma tarihi. Boş olanlar görsel olarak öne çıkarılmalı.
+Danışman Öğretmen durumu — kurum bazında: kaç danışman öğretmen var, öğrenci sayısı, danışmansız kalmış okullar (bu okulların öğrencileri hangi il koordinatörüne düştüğü ile birlikte gösterilmeli).
+
+Yetki matrisine eklenecek satır: references/permissions.md'deki tabloya yeni satır: "Rol/atama envanterini görüntüleme" — yalnızca Proje Yöneticisi (✓), diğer üç rol için ✗. Bu, mevcut "Öğrenci/öğretmen verisi görüntüleme" satırından ayrı bir yetki — biri tekil profil erişimi, diğeri toplu/yönetimsel görünüm.
+
+Veri modeli notu: Yeni bir tablo gerekmiyor — bu ekran mevcut kullanici_rol (aktif İl Koordinatörü atamaları, il bazında) ve danisman_atama (aktif atamalar, kurum bazında) tablolarının üzerine yazılan bir sorgu/rapor katmanı. İl koordinatörünün kendi ilinde zaten gördüğü "danışmansız okullar" listesiyle aynı sorgu mantığı, sadece proje yöneticisi için il filtresi olmadan (tüm iller) çalıştırılıyor.
+
+Kenar durum: İl koordinatörü boşaldığında (proje yöneticisi rolü kaldırdığında), o ildeki danışmansız okulların öğrencileri "atanmamış" durumda kalır ve proje yöneticisine Rol/Atama Envanteri ekranında uyarı (kırmızı/dikkat çekici) olarak gösterilir. Yeni il koordinatörü atandığı anda bu öğrenciler otomatik olarak ona bağlanır — ayrı bir onay adımına gerek yok.
+
+7. Faaliyet Düzenleme/İptal, Kontenjan Modeli, Serbest Danışman Değişikliği
+
+A) Faaliyet düzenleme
+
+Faaliyeti açan kullanıcı (danışman/koordinatör/proje yöneticisi, kendi açtığı faaliyette) tarih ve kontenjanı düzenleyebilir.
+Kontenjan, mevcut "Seçildi" sayısının altına düşürülemez — bu bir validasyon kuralı, engellenmeli (ör. 40 kişi seçilmişse kontenjan 30'a indirilemez).
+Kontenjan artırılabilir her zaman; bu yeni başvuruların önünü tekrar açar (bkz. madde C).
+Onaylanmış ulusal faaliyette tarih veya kapsam gibi kritik alanlar değişirse, faaliyet otomatik olarak yeniden onay_durumu=BEKLIYOR'a düşer — proje yöneticisi tekrar onaylamalı. Yalnızca kontenjan artırımı bunu tetiklemez.
+
+B) Faaliyet iptali
+
+Faaliyeti açan kullanıcı veya proje yöneticisi faaliyeti iptal edebilir.
+faaliyet tablosuna durum alanı eklenir: AKTIF / IPTAL_EDILDI.
+Faaliyet iptal edildiğinde, o faaliyete bağlı tüm aktif başvurular (BEKLIYOR, SECILDI, YEDEK) otomatik olarak yeni bir başvuru durumuna geçer: IPTAL_EDILDI (bu basvuru.durum enum'ına eklenecek yeni bir değer, geri çekmeyle karıştırılmasın — öğrencinin kendi geri çekmesinden farklı, sistem tarafından tetiklenir).
+İptal edilen faaliyete başvurmuş tüm öğrencilere bildirim gider.
+İptal edilen faaliyet listelerde görünmeye devam eder ("İptal edildi" etiketiyle) ama yeni başvuru kabul etmez, yorum/dosya ekleme kapanır; mevcut yorum/dosyalar geçmiş kaydı olarak görünür kalır.
+İptal gerekçesi isteğe bağlı bir metin alanı olarak eklenebilir (zorunlu değil).
+
+C) Kontenjan modeli
+
+Kontenjan, toplam aktif başvuru sayısını sınırlar (yalnızca seçilenleri değil). "Aktif başvuru" = durum GERI_CEKILDI ve REDDEDILDI dışındaki tüm başvurular (yani BEKLIYOR, SECILDI, YEDEK).
+Kontenjan dolduğunda (aktif başvuru sayısı = kontenjan) sistem yeni başvuruyu kabul etmez, öğrenciye "kontenjan doldu" mesajı gösterilir.
+Bir başvuru reddedildiğinde veya geri çekildiğinde o slot açılır, kontenjan sayacı buna göre yeniden hesaplanır (statik bir sayaç tutma, her başvuru denemesinde aktif başvuruları say).
+Dikkat: kontenjan sayımı canlı hesaplanmalı — her başvuru denemesinde COUNT(*) WHERE faaliyet_id=? AND durum NOT IN ('GERI_CEKILDI','REDDEDILDI') sorgusuyla kontrol edilmeli, aksi halde red/geri çekme sonrası açılan slotlar sistemde "dolu" görünmeye devam eder.
+
+D) Öğrenci kendi isteğiyle danışman değiştirebilir
+
+Önceki kural yalnızca danışman ayrıldığında yeniden seçim tetikliyordu; artık öğrenci istediği zaman danışman değiştirme ekranına erişebilir.
+Kısıt: yalnızca kendi kurum kodundaki ve danışman olarak işaretli öğretmenler arasından seçim yapabilir.
+Değişiklik anında etkili olur, onay gerekmez (ilk seçimle aynı mantık).
+Veri modelinde bu, danisman_atama tablosuna yeni kayıt olarak işlenir: eski kayıt kapanır (kapanma_nedeni = 'OGRENCI_ISTEGI'), yeni kayıt açılır (atama_tipi = 'OGRENCI_SECTI'). Sıklık sınırı yok — istersen sonradan bir bekleme süresi (ör. dönemde 1 kez) eklenebilir, şimdilik sınırsız kabul edildi.

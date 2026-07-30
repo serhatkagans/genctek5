@@ -1,0 +1,502 @@
+# GençTek — VPS Dağıtım Rehberi
+
+AlmaLinux / Rocky Linux 9 için. Ubuntu kullanıyorsanız paket komutları (`dnf` →
+`apt`) ve SELinux adımları değişir; gerisi aynıdır.
+
+Hedef mimari:
+
+```
+İnternet → ters vekil (443, TLS) → 127.0.0.1:PORT (Node, systemd) → PostgreSQL
+                                                                  → depolama/
+```
+
+Uygulama **dışarıyı dinlemez**; yalnızca vekil üzerinden erişilir. Güvenlik
+duvarında uygulama portu ve 5432 açılmaz.
+
+> ## Bu projenin canlı kurulumu
+>
+> `aiotechs.cloud` sunucusundaki kurulum bu rehberin **varsayılanlarından
+> ayrılır**, çünkü sunucu boş değildi. Fiilî değerler:
+>
+> | | Rehber varsayılanı | aiotechs.cloud |
+> |---|---|---|
+> | Adres | Kendi alan adı | `https://aiotechs.cloud/genctek` (alt dizin) |
+> | Ters vekil | nginx | **Apache** (DirectAdmin yönetiminde) |
+> | Vekil yapılandırması | `/etc/nginx/conf.d/` | `…/data/users/admin/domains/aiotechs.cloud.cust_httpd` |
+> | Uygulama portu | 3000 | **3010** (3000'i docker tutuyor) |
+> | Node | Sistem paketi | **`/opt/node24`** (sistem Node'u 16, dokunulmadı) |
+> | PostgreSQL | Yeni kurulum | Sunucuda zaten vardı (13.23) |
+> | TLS | certbot | DirectAdmin'in mevcut apex sertifikası |
+> | SELinux | `setsebool` gerekli | Kapalı, gerek yok |
+>
+> Ayrıntılar için Bölüm 13'e bakın.
+
+İçindekiler:
+1. Ön hazırlık ve kullanıcı
+2. Node.js
+3. PostgreSQL
+4. Kodun sunucuya alınması
+5. Ortam değişkenleri
+6. İlk derleme ve veritabanı kurulumu
+7. systemd servisi
+8. nginx ve HTTPS
+9. Gecelik senkron ve yedekleme
+10. Doğrulama kontrol listesi
+11. Sürüm güncelleme
+12. Sorun giderme
+
+---
+
+## 1. Ön hazırlık ve kullanıcı
+
+```bash
+sudo dnf update -y
+sudo dnf install -y git curl tar policycoreutils-python-utils
+```
+
+Uygulama **kendi kullanıcısıyla** çalışır; root ile çalıştırmayın. Bir açık,
+tüm sunucuyu değil yalnızca bu hesabı verir.
+
+```bash
+sudo useradd --system --home-dir /opt/genctek --shell /sbin/nologin genctek
+sudo mkdir -p /opt/genctek
+sudo chown genctek:genctek /opt/genctek
+```
+
+Güvenlik duvarı — yalnızca HTTP/HTTPS:
+
+```bash
+sudo firewall-cmd --permanent --add-service=http --add-service=https
+sudo firewall-cmd --reload
+sudo firewall-cmd --list-services      # ssh dhcpv6-client http https görünmeli
+```
+
+---
+
+## 2. Node.js
+
+Proje Node.js 24 ister. AlmaLinux depolarındaki `nodejs` modülü daha eskidir,
+NodeSource kullanın:
+
+```bash
+curl -fsSL https://rpm.nodesource.com/setup_24.x | sudo bash -
+sudo dnf install -y nodejs
+node --version      # v24.x olmalı
+```
+
+---
+
+## 3. PostgreSQL
+
+AlmaLinux 9'un varsayılan modülü PostgreSQL 13'tür ve proje için yeterlidir.
+Daha yeni bir sürüm isterseniz PGDG deposunu ekleyin.
+
+```bash
+sudo dnf install -y postgresql-server postgresql-contrib
+sudo postgresql-setup --initdb
+sudo systemctl enable --now postgresql
+```
+
+Uygulamaya **özel** kullanıcı ve veritabanı açın — `postgres` veya `template1`
+gibi sistem veritabanlarını kullanmayın:
+
+```bash
+sudo -u postgres createuser genctek --pwprompt      # şifreyi not alın
+sudo -u postgres createdb genctek --owner=genctek
+```
+
+### TCP erişimi ve şifre doğrulaması
+
+`DATABASE_URL` `localhost:5432` üzerinden bağlanır. RHEL ailesinde yerel TCP
+bağlantıları varsayılan olarak `ident` ile doğrulanır ve uygulama şifreyle
+bağlanamaz. `/var/lib/pgsql/data/pg_hba.conf` içindeki **IPv4/IPv6 local**
+satırlarını `scram-sha-256` yapın:
+
+```
+host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             ::1/128                 scram-sha-256
+```
+
+```bash
+sudo systemctl restart postgresql
+```
+
+Doğrulayın (şifre sorması ve bağlanması gerekir):
+
+```bash
+psql "postgresql://genctek:SIFRE@localhost:5432/genctek" -c '\conninfo'
+```
+
+---
+
+## 4. Kodun sunucuya alınması
+
+Proje yerelde henüz git deposu değildi; `git init` ile hazırlandı. Yerel
+makinenizde özel bir depo oluşturup gönderin:
+
+```powershell
+# Yerel makinede (Windows)
+git remote add origin git@github.com:KURUM/genctek.git
+git push -u origin main
+```
+
+> Depo **özel (private)** olmalı. İçinde gerçek kişisel veri yok ama yetki
+> mantığı, veritabanı şeması ve iş kuralları var; kamuya açmanın bir faydası
+> yok. `.env` zaten `.gitignore` içinde — sunucudaki gerçek şifreler asla
+> depoya girmez.
+
+Sunucuda:
+
+```bash
+sudo -u genctek git clone git@github.com:KURUM/genctek.git /opt/genctek
+```
+
+`genctek` kullanıcısının kabuğu `nologin` olduğu için `sudo -u genctek <komut>`
+biçimini kullanın. Dağıtım anahtarı (deploy key) gerekiyorsa GitHub deposunda
+**Deploy keys** bölümünden salt okunur bir anahtar tanımlayın.
+
+---
+
+## 5. Ortam değişkenleri
+
+```bash
+sudo -u genctek cp /opt/genctek/.env.example /opt/genctek/.env
+sudo chmod 600 /opt/genctek/.env
+sudo chown genctek:genctek /opt/genctek/.env
+sudo -u genctek vi /opt/genctek/.env
+```
+
+Doldurulması **zorunlu** olanlar:
+
+| Değişken | Değer |
+|---|---|
+| `DATABASE_URL` | `postgresql://genctek:SIFRE@localhost:5432/genctek?schema=public` |
+| `OTURUM_GIZLI_ANAHTARI` | Aşağıdaki komutun ürettiği 64 karakter |
+| `DEPOLAMA_YEREL_DIZIN` | `/opt/genctek/depolama` |
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+> Örnek anahtar bırakılırsa uygulama `NODE_ENV=production` altında **açılmayı
+> reddeder**. Bu bir arıza değil, kasıtlı bir korumadır: imza anahtarı tahmin
+> edilebilir olursa herkes kendine oturum çerezi üretebilir.
+
+Şimdilik `AUTH_PROVIDER="mock"` kalır (EBA SSO erişimi gelene kadar) ve
+`EPOSTA_SAGLAYICI="gunluk"` bırakılır — kurum posta sunucusu bağlanana kadar
+gerçek öğrencilere e-posta gitmez, bildirimler yalnızca panelde görünür.
+
+Dosya deposu dizini:
+
+```bash
+sudo -u genctek mkdir -p /opt/genctek/depolama
+sudo chmod 700 /opt/genctek/depolama
+```
+
+---
+
+## 6. İlk derleme ve veritabanı kurulumu
+
+```bash
+cd /opt/genctek
+sudo -u genctek npm ci
+sudo -u genctek npx prisma generate
+sudo -u genctek npm run build
+
+# Statik dosyalar standalone çıktısına kopyalanır (bu adım atlanırsa sayfalar
+# stilsiz gelir).
+sudo -u genctek cp -r .next/static .next/standalone/.next/static
+
+sudo -u genctek npx prisma migrate deploy
+sudo -u genctek npm run db:seed
+```
+
+`db:seed` şunları yükler: 81 il, örnek ilçe/kurum, 12 çalışma grubu, 18 etkinlik
+programı, sistem ayarları, bildirim şablonları ve üç proje yöneticisi.
+
+> `npm run veri:ornek` **çalıştırmayın**. O komut 300 sahte öğrenci üretir ve
+> üretim veritabanında işi yoktur.
+
+Doğrulama:
+
+```bash
+sudo -u genctek npm run test:duman     # 36 kontrolün hepsi geçmeli
+```
+
+---
+
+## 7. systemd servisi
+
+```bash
+sudo cp /opt/genctek/dagitim/genctek.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now genctek
+sudo systemctl status genctek
+```
+
+Yanıt verdiğini doğrulayın:
+
+```bash
+curl -I http://127.0.0.1:3000/        # HTTP/1.1 200 OK
+```
+
+Günlükler: `sudo journalctl -u genctek -f`
+
+---
+
+## 8. nginx ve HTTPS
+
+```bash
+sudo dnf install -y nginx
+sudo systemctl enable --now nginx
+
+sudo cp /opt/genctek/dagitim/nginx-genctek.conf /etc/nginx/conf.d/genctek.conf
+sudo sed -i 's/ALAN_ADI/genctek.example.gov.tr/' /etc/nginx/conf.d/genctek.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### SELinux — atlanırsa 502 alırsınız
+
+SELinux varsayılan olarak nginx'in ağa bağlanmasını engeller. Bu, RHEL
+ailesinde en sık karşılaşılan dağıtım hatasıdır:
+
+```bash
+sudo setsebool -P httpd_can_network_connect 1
+```
+
+### Sertifika
+
+Alan adının VPS IP adresine yönlendirilmiş olması gerekir (`dig +short ALAN_ADI`).
+
+```bash
+sudo dnf install -y epel-release
+sudo dnf install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d genctek.example.gov.tr
+```
+
+Certbot 443 bloğunu ve HTTP→HTTPS yönlendirmesini kendisi yazar. Yenileme
+zamanlayıcısını doğrulayın:
+
+```bash
+sudo systemctl enable --now certbot-renew.timer
+sudo certbot renew --dry-run
+```
+
+---
+
+## 9. Gecelik senkron ve yedekleme
+
+```bash
+sudo cp /opt/genctek/dagitim/genctek-senkron.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now genctek-senkron.timer
+systemctl list-timers genctek-senkron.timer
+```
+
+Yedekleme betiğini kurun ve **geri yüklemeyi bir kez deneyin** — denenmemiş
+yedek, yedek değildir:
+
+```bash
+sudo install -m 700 /opt/genctek/dagitim/yedek.sh /usr/local/bin/genctek-yedek
+sudo crontab -e
+# 0 2 * * * sudo -u postgres /usr/local/bin/genctek-yedek >> /var/log/genctek-yedek.log 2>&1
+```
+
+---
+
+## 10. Doğrulama kontrol listesi
+
+Yayına açmadan önce hepsi işaretlenmeli:
+
+- [ ] `https://ALAN_ADI` açılıyor, sertifika geçerli
+- [ ] `http://ALAN_ADI` HTTPS'e yönlendiriyor
+- [ ] `curl -I https://ALAN_ADI` çıktısında `x-frame-options: DENY` ve
+      `x-content-type-options: nosniff` var
+- [ ] Sunucu dışından `nc -zv SUNUCU_IP 3000` ve `5432` **başarısız** oluyor
+- [ ] Giriş ekranı açılıyor, proje yöneticisiyle panele girilebiliyor
+- [ ] Rol/Atama Envanteri 81 ili listeliyor
+- [ ] Bir faaliyet açılıp dosya yüklenebiliyor (depolama izinleri doğru)
+- [ ] `sudo systemctl restart genctek` sonrası uygulama kendiliğinden geliyor
+- [ ] Sunucu yeniden başlatıldığında (`sudo reboot`) her şey açılıyor
+- [ ] `sudo -u postgres /usr/local/bin/genctek-yedek` çalışıyor ve dosya üretiyor
+- [ ] `.env` izinleri 600 ve sahibi `genctek`
+
+---
+
+## 11. Sürüm güncelleme
+
+Sunucuda elle komut dizmeyin; sıra hatası (migration'ı derlemeden önce
+çalıştırmak gibi) çalışan sistemi bozar. Betik doğru sırayı uygular:
+
+```bash
+sudo -u genctek /opt/genctek/dagitim/guncelle.sh
+```
+
+Betik `systemctl restart` için sudo ister. `genctek` kullanıcısına yalnızca bu
+komut için izin verin:
+
+```bash
+sudo visudo -f /etc/sudoers.d/genctek
+```
+```
+genctek ALL=(root) NOPASSWD: /usr/bin/systemctl restart genctek, /usr/bin/journalctl -u genctek *
+```
+
+Betik açılışı 30 saniye bekler; uygulama gelmezse günlüğü basar ve geri dönüş
+komutunu yazar.
+
+---
+
+## 12. Sorun giderme
+
+| Belirti | Sebep |
+|---|---|
+| nginx **502 Bad Gateway** | SELinux (`setsebool -P httpd_can_network_connect 1`) ya da servis çalışmıyor (`systemctl status genctek`) |
+| Açılışta `OTURUM_GIZLI_ANAHTARI hâlâ örnek değerde` | `.env` içindeki anahtar değiştirilmemiş (Bölüm 5) |
+| `P1001: Can't reach database server` | PostgreSQL kapalı ya da `pg_hba.conf` `scram-sha-256` yapılmamış (Bölüm 3) |
+| Sayfalar stilsiz geliyor | `.next/static` standalone çıktısına kopyalanmamış (Bölüm 6) |
+| Dosya yükleme başarısız | `depolama` dizini yok ya da `genctek` kullanıcısına ait değil |
+| Erişim logunda herkes 127.0.0.1 | nginx `X-Forwarded-For` başlığı gönderilmiyor |
+| `413 Request Entity Too Large` | nginx `client_max_body_size` uygulama sınırının altında |
+
+Günlükler:
+
+```bash
+sudo journalctl -u genctek -n 100 --no-pager     # uygulama
+sudo tail -f /var/log/nginx/genctek-error.log    # vekil
+sudo tail -f /var/lib/pgsql/data/log/*.log       # veritabanı
+```
+
+---
+
+## 13. Canlı kurulum: aiotechs.cloud/genctek
+
+Sunucuda başka üretim uygulamaları çalışıyor (IoT platformu, MQTT paneli,
+Node-RED, apartman aidat uygulaması). Aşağıdaki tercihlerin hepsi **onları
+bozmamak** için yapıldı.
+
+### Node sürümü — sistem Node'una dokunulmadı
+
+Sistemde `nodejs-16` RPM'i kurulu ve başka bileşenler ona bağlı olabilir.
+Next.js 16 ise Node 20+ ister. RPM'i yükseltmek yerine Node 24 ayrı bir dizine
+kuruldu:
+
+```bash
+/opt/node24/bin/node --version   # v24.11.1
+```
+
+Sunucuda zaten aynı desen vardı (`/opt/node22`). **Her npm/node komutunda mutlak
+yolu kullanın**; `npm`'in shebang'i `/usr/bin/env node` olduğu için PATH'siz
+çağrılırsa Node 16 ile çalışır ve hata verir:
+
+```bash
+sudo -u genctek env PATH=/opt/node24/bin:$PATH npm ci
+```
+
+### Port
+
+3000 portunu bir docker konteyneri tutuyor; uygulama **3010**'da çalışır ve
+yalnızca `127.0.0.1`'i dinler.
+
+### Ters vekil — Apache, nginx değil
+
+`dagitim/nginx-genctek.conf` bu sunucuda **kullanılmaz**. Apex alan adı
+DirectAdmin tarafından yönetildiği için vhost dosyası doğrudan düzenlenemez
+(yeniden üretilince kaybolur). Kalıcı yer:
+
+```
+/usr/local/directadmin/data/users/admin/domains/aiotechs.cloud.cust_httpd
+```
+
+Eklenen blok:
+
+```apache
+ProxyPass /genctek/ http://127.0.0.1:3010/genctek/
+ProxyPassReverse /genctek/ http://127.0.0.1:3010/genctek/
+ProxyPass /genctek http://127.0.0.1:3010/genctek
+ProxyPassReverse /genctek http://127.0.0.1:3010/genctek
+```
+
+Değişiklikten sonra DirectAdmin'e vhost'ları yeniden ürettirin, sonra
+**graceful** reload edin (restart etmeyin, diğer siteler kesilir):
+
+```bash
+echo "action=rewrite&value=httpd" >> /usr/local/directadmin/data/task.queue
+/usr/local/directadmin/dataskq d
+httpd -t && apachectl graceful
+```
+
+### Kurulum sırasında çıkan iki tuzak
+
+**1. Sonsuz yönlendirme döngüsü.** Önce `RedirectMatch 301 ^/genctek$ /genctek/`
+eklenmişti (sunucudaki diğer uygulamanın deseni). Next.js `trailingSlash: false`
+ile çalıştığı için `/genctek/` adresini 308 ile `/genctek`'e atıyor; Apache de
+tersini yapınca döngü oluştu. Çözüm: yönlendirme yok, **iki biçim de doğrudan
+proxy edilir** (uzun olan önce).
+
+**2. Oturum çerezinin yolu eziliyordu.** Vhost genelinde şu satır vardı:
+
+```apache
+ProxyPassReverseCookiePath / /merveapartmani/
+```
+
+Bu yönerge vhost kapsamlıdır ve **aynı alan adındaki her proxy yanıtının**
+`Set-Cookie` yolunu değiştirir. GençTek oturum çerezi `Path=/merveapartmani/`
+olarak yazıldığı için giriş yapılıyor ama sonraki istekte oturum kayboluyordu.
+Yönerge kendi konumuna sınırlandırıldı:
+
+```apache
+<Location /merveapartmani/>
+    ProxyPassReverseCookiePath / /merveapartmani/
+</Location>
+```
+
+Diğer uygulamanın davranışı değişmedi; yalnızca kapsamı daraldı.
+
+### Alt dizin kurulumu (`TEMEL_YOL`)
+
+`.env` içinde `TEMEL_YOL="/genctek"`. Bu değer:
+
+- `next.config.ts` içinde `basePath` olur — **derleme zamanında sabitlenir**,
+  değiştirince yeniden derlemek şart;
+- oturum ve tema çerezlerinin `path`'ini belirler. Alan adı başka uygulamalarla
+  paylaşıldığı için bu güvenlik gereğidir: `path="/"` ile yazılan bir oturum
+  çerezi `/mqtt`, `/merveapartmani` gibi ilgisiz uygulamalara da gönderilirdi.
+
+### Sürüm güncelleme — bu sunucudaki komut
+
+Bölüm 11'deki çıplak `guncelle.sh` çağrısı bu sunucuda **çalışmaz**: sistem
+Node'u 16 olduğu için `npm ci` düşer, sağlık kontrolü de rehber varsayılanı olan
+`127.0.0.1:3000/` adresine gider ve uygulama 3010'da `/genctek` altında
+çalıştığı için 404 alır — başarılı bir güncelleme "başarısız" raporlanır. Betik
+bu iki değeri ortam değişkeninden okur:
+
+```bash
+sudo -u genctek env \
+  NODE_BIN_DIZINI=/opt/node24/bin \
+  SAGLIK_URL=http://127.0.0.1:3010/genctek \
+  /opt/genctek/dagitim/guncelle.sh
+```
+
+Farklı bir daldan kurmak için `DAL=dal-adi` ekleyin; varsayılan `main`'dir.
+Betik `git pull --ff-only` kullandığı için dalın uzakta güncel olması gerekir.
+
+> **Şema değiştiren bir sürümden önce yedek alın.** Bu sunucuda yedekleme betiği
+> henüz cron'a bağlanmadı (aşağıya bakın); `migrate deploy` geri alınamaz bir
+> adımdır ve altında 18 yaş altı öğrenci verisi vardır. Elle bir kez almak
+> yeterli:
+>
+> ```bash
+> sudo /opt/genctek/dagitim/yedek.sh
+> ```
+
+### Duman testi üretimde çalıştırılmaz
+
+`npm run test:duman` veritabanına test kaydı yazar. Üretim veritabanında
+**çalıştırmayın**; doğrulamayı Bölüm 10'daki kontrol listesiyle yapın.
+
+### Yedekleme
+
+Bu sunucuda yedekleme betiği **henüz kurulmadı**. `dagitim/yedek.sh` hazır;
+Bölüm 9'daki adımlarla cron'a eklenmeli. Sistemde 18 yaş altı öğrenci verisi
+tutulacağı için bu, yayına açmadan önce tamamlanması gereken bir maddedir.
