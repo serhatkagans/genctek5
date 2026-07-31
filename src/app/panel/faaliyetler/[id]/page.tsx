@@ -1,4 +1,5 @@
 import {
+  Award,
   Ban,
   CalendarDays,
   CheckCircle2,
@@ -1251,6 +1252,16 @@ export default async function FaaliyetDetaySayfasi({
             Rapor kendi sayfasında: katılım özeti, katılımcı listesi, görseller
             ve değerlendirme metni bir arada. İndirme bağlantıları da orada.
           */}
+          {faaliyetRaporuYazabilirMi(kullanici, kapsamBilgisi) && (
+            <Link
+              href={`/panel/faaliyetler/${faaliyet.id}/belgeler`}
+              className={`${SINIF_IKINCIL_BUTON} mb-4 ml-2`}
+            >
+              <Award size={16} aria-hidden />
+              Katılım / teşekkür belgesi
+            </Link>
+          )}
+
           {faaliyetRaporuYazabilirMi(kullanici, kapsamBilgisi) && (
             <Link
               href={`/panel/faaliyetler/${faaliyet.id}/rapor`}
