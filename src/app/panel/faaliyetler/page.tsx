@@ -34,7 +34,7 @@ import {
   kontenjanDurumu,
 } from "@/lib/faaliyet/kurallar";
 import { tarihYaz } from "@/lib/tarih";
-import { ogrenciMi } from "@/lib/yetki/izinler";
+import { basvuruYapabilirMi, ogrenciMi } from "@/lib/yetki/izinler";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import {
   type SorguParametreleri,
@@ -112,11 +112,13 @@ export default async function FaaliyetlerSayfasi({
     }),
   ]);
 
-  // Öğrenci kendi başvuru durumunu listede görür; başkasının başvurusu okunmaz.
-  const kendiBasvurulari = ogrenciMi(kullanici)
+  // Kişi kendi başvuru durumunu listede görür; başkasının başvurusu okunmaz.
+  // Katılımcı öğretmen de olabildiği için koşul "öğrenci mi" değil
+  // "başvurabilir mi" sorusudur.
+  const kendiBasvurulari = basvuruYapabilirMi(kullanici)
     ? await prisma.basvuru.findMany({
         where: {
-          ogrenciId: kullanici.id,
+          katilimciId: kullanici.id,
           faaliyetId: { in: faaliyetler.map((faaliyet) => faaliyet.id) },
         },
         orderBy: { basvuruTarihi: "asc" },

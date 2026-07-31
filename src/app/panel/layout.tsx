@@ -65,6 +65,12 @@ export default async function PanelDuzeni({
   ) {
     baglantilar.push(
       { yol: "/panel/ogrenciler", etiket: "Öğrenciler" },
+      // Öğretmen envanteri öğrenciyle aynı kapıdan geçmez ama aynı kişilere
+      // açıktır; kapsamı ogretmenKapsamFiltresi belirler.
+      { yol: "/panel/ogretmenler", etiket: "Öğretmenler" },
+      // İl bazlı paydaş envanteri: danışman öğretmen görür, kayıt açmayı
+      // ilin koordinatörü yapar.
+      { yol: "/panel/paydaslar", etiket: "Paydaşlar" },
       // Görev rolü atama: il koordinatörü kendi ilinde İl Temsilcisi, danışman
       // öğretmen kendi okulunda Okul Temsilcisi belirler.
       { yol: "/panel/gorev-rolleri", etiket: "Görev Rolleri" },

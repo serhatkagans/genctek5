@@ -63,6 +63,17 @@ const semaOrtam = z.object({
   SMTP_PORT: z.string().optional(),
   SMTP_KULLANICI: z.string().optional(),
   SMTP_SIFRE: z.string().optional(),
+
+  /**
+   * SMS bildirimi. Varsayılan "kapali" — e-postadan farklı olarak "gunluk"
+   * bile değil. SMS ücretli, geri alınamaz ve alıcılarının çoğu 18 yaş altı;
+   * bu kanalın yanlışlıkla açık kalması, kapalı kalmasından pahalıdır.
+   */
+  SMS_SAGLAYICI: z.enum(["kapali", "gunluk", "http"]).default("kapali"),
+  SMS_API_URL: z.string().optional(),
+  SMS_API_ANAHTARI: z.string().optional(),
+  /** Operatörde tanımlı gönderen başlığı (ör. "MEB"). */
+  SMS_BASLIK: z.string().optional(),
 });
 
 const sonuc = semaOrtam.safeParse(process.env);
@@ -133,6 +144,16 @@ if (veri.EPOSTA_SAGLAYICI === "smtp") {
     if (!veri[anahtar]) {
       yapilandirmaHatalari.push(
         `${anahtar} tanımlı değil (EPOSTA_SAGLAYICI="smtp" seçildiğinde zorunlu).`,
+      );
+    }
+  }
+}
+
+if (veri.SMS_SAGLAYICI === "http") {
+  for (const anahtar of ["SMS_API_URL", "SMS_API_ANAHTARI"] as const) {
+    if (!veri[anahtar]) {
+      yapilandirmaHatalari.push(
+        `${anahtar} tanımlı değil (SMS_SAGLAYICI="http" seçildiğinde zorunlu).`,
       );
     }
   }

@@ -2,6 +2,7 @@ import {
   CalendarRange,
   Layers,
   Mail,
+  MessageSquare,
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
@@ -14,15 +15,17 @@ import {
   SINIF_GIRDI,
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
-import type { EpostaDurumu } from "@/generated/prisma/enums";
+import type { GonderimDurumu } from "@/generated/prisma/enums";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { YONETILEBILIR_AYARLAR } from "@/lib/ayar";
+import { BILDIRIM_SABLON_TANIMLARI } from "@/lib/bildirim/sablon";
 import { prisma } from "@/lib/db";
 import { ortam } from "@/lib/ortam";
 import { tarihSaatYaz } from "@/lib/tarih";
 import { sistemAyarlariniYonetebilirMi } from "@/lib/yetki/izinler";
 import {
   ayarKaydetEylemi,
+  bildirimSablonuKaydetEylemi,
   calismaGrubuDurumEylemi,
   calismaGrubuEkleEylemi,
   programDurumEylemi,
@@ -37,6 +40,12 @@ const EPOSTA_SAGLAYICI_ETIKETLERI: Record<string, string> = {
   smtp: "SMTP — kurum posta sunucusu",
 };
 
+const SMS_SAGLAYICI_ETIKETLERI: Record<string, string> = {
+  kapali: "Kapalı — SMS hiç denenmez (varsayılan)",
+  gunluk: "Günlük — ileti gönderilmez, sunucu günlüğüne yazılır",
+  http: "Operatör servisi — toplu SMS uç noktasına gönderilir",
+};
+
 const DURUM_MESAJLARI: Record<string, string> = {
   kaydedildi: "Ayar kaydedildi.",
   varsayilan: "Ayar varsayılan değerine döndürüldü.",
@@ -46,6 +55,7 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "program-eklendi": "Etkinlik programı eklendi.",
   "program-pasif": "Etkinlik programı pasife alındı; geçmiş faaliyetler korunuyor.",
   "program-aktif": "Etkinlik programı yeniden aktifleştirildi.",
+  "sablon-kaydedildi": "Bildirim şablonu kaydedildi.",
 };
 
 /**
@@ -74,29 +84,60 @@ export default async function AyarlarSayfasi({
     );
   }
 
-  const [ayarlar, gruplar, programlar, epostaSayimlari, sonHata] =
-    await Promise.all([
-      prisma.sistemAyari.findMany(),
-      prisma.calismaGrubu.findMany({
-        orderBy: [{ aktif: "desc" }, { siraNo: "asc" }],
-      }),
-      prisma.temelEtkinlikProgrami.findMany({
-        orderBy: [{ grup: "asc" }, { aktif: "desc" }, { siraNo: "asc" }],
-      }),
-      prisma.bildirim.groupBy({
-        by: ["epostaDurumu"],
-        _count: { _all: true },
-      }),
-      prisma.bildirim.findFirst({
-        where: { epostaDurumu: "BASARISIZ" },
-        orderBy: { olusturmaTarihi: "desc" },
-        select: { olusturmaTarihi: true, epostaHatasi: true },
-      }),
-    ]);
+  const [
+    ayarlar,
+    gruplar,
+    programlar,
+    epostaSayimlari,
+    smsSayimlari,
+    sonHata,
+    sonSmsHatasi,
+    sablonKayitlari,
+  ] = await Promise.all([
+    prisma.sistemAyari.findMany(),
+    prisma.calismaGrubu.findMany({
+      orderBy: [{ aktif: "desc" }, { siraNo: "asc" }],
+    }),
+    prisma.temelEtkinlikProgrami.findMany({
+      orderBy: [{ grup: "asc" }, { aktif: "desc" }, { siraNo: "asc" }],
+    }),
+    prisma.bildirim.groupBy({
+      by: ["epostaDurumu"],
+      _count: { _all: true },
+    }),
+    prisma.bildirim.groupBy({
+      by: ["smsDurumu"],
+      _count: { _all: true },
+    }),
+    prisma.bildirim.findFirst({
+      where: { epostaDurumu: "BASARISIZ" },
+      orderBy: { olusturmaTarihi: "desc" },
+      select: { olusturmaTarihi: true, epostaHatasi: true },
+    }),
+    prisma.bildirim.findFirst({
+      where: { smsDurumu: "BASARISIZ" },
+      orderBy: { olusturmaTarihi: "desc" },
+      select: { olusturmaTarihi: true, smsHatasi: true },
+    }),
+    prisma.bildirimSablonu.findMany(),
+  ]);
 
-  const epostaSayisi = (durum: EpostaDurumu) =>
+  const epostaSayisi = (durum: GonderimDurumu) =>
     epostaSayimlari.find((satir) => satir.epostaDurumu === durum)?._count
       ._all ?? 0;
+
+  const smsSayisi = (durum: GonderimDurumu) =>
+    smsSayimlari.find((satir) => satir.smsDurumu === durum)?._count._all ?? 0;
+
+  /*
+   * Şablon listesi KODDAN gelir, veritabanından değil: veritabanında karşılığı
+   * olmayan bir kod da ekranda görünmeli ki yönetici metnini ilk kez yazabilsin
+   * (kayıt ilk kaydetmede oluşur).
+   */
+  const sablonlar = BILDIRIM_SABLON_TANIMLARI.map((tanim) => ({
+    tanim,
+    kayit: sablonKayitlari.find((satir) => satir.kod === tanim.kod) ?? null,
+  }));
 
   const ayarDegeri = (anahtar: string) =>
     ayarlar.find((ayar) => ayar.anahtar === anahtar)?.deger ?? "";
@@ -207,6 +248,141 @@ export default async function AyarlarSayfasi({
             {sonHata.epostaHatasi ?? "gerekçe kaydedilmemiş"}
           </BilgiKutusu>
         )}
+      </Kart>
+
+      <Kart>
+        <KartBasligi
+          baslik="SMS bildirimi"
+          aciklama="E-postadan bağımsız bir kopyadır ve varsayılan olarak KAPALIDIR: SMS ücretli, geri alınamaz ve alıcıların çoğu 18 yaş altı. Sağlayıcı ortam değişkeniyle seçilir."
+          Ikon={MessageSquare}
+        />
+        <dl className="grid gap-4 sm:grid-cols-4">
+          <div>
+            <dt className="text-sm text-metin-yumusak">Sağlayıcı</dt>
+            <dd className="mt-0.5 font-medium text-metin">
+              {SMS_SAGLAYICI_ETIKETLERI[ortam.SMS_SAGLAYICI]}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-metin-yumusak">Gönderildi</dt>
+            <dd className="mt-0.5 font-medium text-metin">
+              {smsSayisi("GONDERILDI")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-metin-yumusak">Başarısız</dt>
+            <dd className="mt-0.5 font-medium text-metin">
+              {smsSayisi("BASARISIZ")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-metin-yumusak">
+              Gönderilmedi (numara yok / kapalı)
+            </dt>
+            <dd className="mt-0.5 font-medium text-metin">
+              {smsSayisi("GEREKMIYOR")}
+            </dd>
+          </div>
+        </dl>
+        {sonSmsHatasi && (
+          <BilgiKutusu cesit="hata" className="mt-4">
+            Son başarısız gönderim{" "}
+            {tarihSaatYaz(sonSmsHatasi.olusturmaTarihi)}:{" "}
+            {sonSmsHatasi.smsHatasi ?? "gerekçe kaydedilmemiş"}
+          </BilgiKutusu>
+        )}
+      </Kart>
+
+      <Kart>
+        <div id="bildirim-sablonlari" className="scroll-mt-6">
+          <KartBasligi
+            baslik="Bildirim şablonları"
+            aciklama="Bildirim metinleri koda gömülü değildir, buradan yönetilir. Kod listesi sabittir: şablonu tetikleyen olay kodda yaşar, buraya yeni satır eklemek yeni bildirim üretmez."
+            Ikon={MessageSquare}
+          />
+        </div>
+
+        <div className="space-y-6">
+          {sablonlar.map(({ tanim, kayit }) => (
+            <form
+              key={tanim.kod}
+              action={bildirimSablonuKaydetEylemi}
+              className="border-t border-cizgi pt-5 first:border-t-0 first:pt-0"
+            >
+              <input type="hidden" name="kod" value={tanim.kod} />
+
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="font-semibold text-baslik">
+                  {tanim.baslik}
+                  {kayit === null && (
+                    <span className="ml-2 rounded-full bg-uyari-zemin px-2 py-0.5 text-xs font-normal text-uyari-metin">
+                      henüz tanımlanmadı
+                    </span>
+                  )}
+                  {kayit && !kayit.aktif && (
+                    <span className="ml-2 rounded-full bg-zemin px-2 py-0.5 text-xs font-normal text-metin-yumusak">
+                      pasif
+                    </span>
+                  )}
+                </h3>
+                <code className="text-xs text-metin-yumusak">{tanim.kod}</code>
+              </div>
+
+              <p className="mb-3 text-sm text-metin-yumusak">
+                {tanim.aciklama}
+              </p>
+
+              <div className="space-y-3">
+                <label className="block">
+                  <span className="text-sm font-medium text-metin">Konu</span>
+                  <input
+                    type="text"
+                    name="konu"
+                    required
+                    maxLength={200}
+                    defaultValue={kayit?.konu ?? ""}
+                    className={SINIF_GIRDI}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-medium text-metin">Gövde</span>
+                  <textarea
+                    name="govdeSablonu"
+                    required
+                    rows={5}
+                    defaultValue={kayit?.govdeSablonu ?? ""}
+                    className={`${SINIF_GIRDI} font-mono text-xs`}
+                  />
+                </label>
+              </div>
+
+              <p className="mt-2 text-sm text-metin-yumusak">
+                {tanim.degiskenler.length === 0
+                  ? "Bu şablonda değişken yoktur; metin olduğu gibi gönderilir."
+                  : `Kullanılabilir değişkenler: ${tanim.degiskenler
+                      .map((ad) => `{{${ad}}}`)
+                      .join(", ")}`}
+              </p>
+
+              <div className="mt-3 flex flex-wrap items-center gap-4">
+                <label className="flex items-center gap-2 text-sm text-metin">
+                  <input
+                    type="checkbox"
+                    name="aktif"
+                    value="evet"
+                    defaultChecked={kayit?.aktif ?? true}
+                    className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+                  />
+                  Bu bildirim gönderilsin
+                </label>
+                <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                  Kaydet
+                </button>
+              </div>
+            </form>
+          ))}
+        </div>
       </Kart>
 
       <Kart>

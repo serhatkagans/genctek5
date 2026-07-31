@@ -1,4 +1,4 @@
-import type { EpostaDurumu } from "@/generated/prisma/enums";
+import type { GonderimDurumu } from "@/generated/prisma/enums";
 import { prisma } from "../db";
 import { eposta, epostaEtkinMi } from "../eposta";
 
@@ -48,7 +48,7 @@ export async function epostaKopyasiGonder(istek: KopyaIstegi): Promise<void> {
   // kişinin tercihidir.
   if (!adres) return;
 
-  let durum: EpostaDurumu = "GONDERILDI";
+  let durum: GonderimDurumu = "GONDERILDI";
   let hataMetni: string | null = null;
 
   try {

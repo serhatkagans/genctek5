@@ -29,7 +29,9 @@ export function ogrenciFiltreleriniCoz(
     ilKodu: tekil(parametreler.il),
     ilceKodu: tekil(parametreler.ilce),
     kurumKodu: sayiVeyaNull(tekil(parametreler.okul)),
+    okulTuru: tekil(parametreler.okulTuru),
     sinif: tekil(parametreler.sinif),
+    egitimOgretimYili: tekil(parametreler.yil),
     calismaGrubuId: sayiVeyaNull(tekil(parametreler.grup)),
     ara: tekil(parametreler.ara),
     danismansizMi: tekil(parametreler.danismansiz) === "1",
@@ -38,7 +40,7 @@ export function ogrenciFiltreleriniCoz(
 
 export function filtreVarMi(filtreler: OgrenciListeFiltreleri): boolean {
   return Object.values(filtreler).some(
-    (deger) => deger !== null && deger !== false,
+    (deger) => deger !== null && deger !== false && deger !== undefined,
   );
 }
 

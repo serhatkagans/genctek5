@@ -1,4 +1,7 @@
 import {
+  KATILIMCI_TIPI_ETIKETLERI,
+  katilimciTipi,
+  vekaletenBasvuruGecerliMi,
   FaaliyetKuralHatasi,
   basvuruPenceresi,
   basvuruYapilabilirMi,
@@ -501,5 +504,64 @@ describe("danışmana kopya bildirim", () => {
         duzenleyenIlKodu: "34",
       }),
     ).toBe(false);
+  });
+});
+
+/**
+ * Katılımcı tipi ve vekaleten başvuru — analiz dokümanı 4.2.
+ */
+describe("katılımcı tipi", () => {
+  /*
+   * Tip veride TUTULMAZ, aktif rolden okunur: kopyalanan bir tip alanı öğrenci
+   * mezun olduğunda ya da öğretmen görev değiştirdiğinde eskirdi.
+   */
+  it("aktif öğrenci rolü olan kişi öğrencidir", () => {
+    expect(katilimciTipi([{ rolKodu: "OGRENCI" }])).toBe("OGRENCI");
+  });
+
+  it("öğrenci rolü olmayan herkes öğretmen sayılır", () => {
+    expect(katilimciTipi([{ rolKodu: "DANISMAN" }])).toBe("OGRETMEN");
+    expect(katilimciTipi([{ rolKodu: "IL_KOORDINATOR" }])).toBe("OGRETMEN");
+    // Görev almamış öğretmenin hiç rolü yoktur.
+    expect(katilimciTipi([])).toBe("OGRETMEN");
+  });
+
+  it("her katılımcı tipinin ekran etiketi vardır", () => {
+    expect(KATILIMCI_TIPI_ETIKETLERI.OGRENCI).toBeTruthy();
+    expect(KATILIMCI_TIPI_ETIKETLERI.OGRETMEN).toBeTruthy();
+  });
+});
+
+describe("vekaleten başvuru", () => {
+  it("öğrenci adına başvuru yapılabilir", () => {
+    const karar = vekaletenBasvuruGecerliMi({
+      hedefTipi: "OGRENCI",
+      vekilKullaniciId: 200,
+      hedefKullaniciId: 100,
+    });
+    expect(karar.olurMu).toBe(true);
+  });
+
+  /*
+   * Analiz dokümanı vekaleti öğrenci adına başvuru olarak tanımlıyor; bir
+   * öğretmenin başka bir öğretmen adına başvurması katılımın kişisel karar
+   * olmasına aykırı olurdu.
+   */
+  it("öğretmen adına başvuru yapılamaz", () => {
+    const karar = vekaletenBasvuruGecerliMi({
+      hedefTipi: "OGRETMEN",
+      vekilKullaniciId: 200,
+      hedefKullaniciId: 201,
+    });
+    expect(karar.olurMu).toBe(false);
+  });
+
+  it("kişi kendi adına vekaleten başvuramaz", () => {
+    const karar = vekaletenBasvuruGecerliMi({
+      hedefTipi: "OGRENCI",
+      vekilKullaniciId: 100,
+      hedefKullaniciId: 100,
+    });
+    expect(karar.olurMu).toBe(false);
   });
 });

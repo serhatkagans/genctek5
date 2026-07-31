@@ -4,6 +4,7 @@ import type {
   FaaliyetDurumu,
   Kapsam,
   OnayDurumu,
+  RolKodu,
   TemelEtkinlikGrubu,
 } from "@/generated/prisma/enums";
 import {
@@ -389,6 +390,65 @@ export function basvuruYapilabilirMi(girdi: {
     return {
       olurMu: false,
       neden: "Kontenjan doldu; bu faaliyete yeni başvuru alınamıyor.",
+    };
+  }
+  return { olurMu: true };
+}
+
+// ---------------------------------------------------------------------------
+// Katılımcı tipi ve vekaleten başvuru
+// ---------------------------------------------------------------------------
+
+/**
+ * Katılımcının öğrenci mi öğretmen mi olduğu VERİDE TUTULMAZ, aktif rolünden
+ * okunur (bkz. prisma/schema.prisma · Basvuru). Kopyalanan bir tip alanı,
+ * öğrenci mezun olduğunda ya da öğretmen görev değiştirdiğinde eskirdi.
+ */
+export type KatilimciTipi = "OGRENCI" | "OGRETMEN";
+
+export const KATILIMCI_TIPI_ETIKETLERI: Record<KatilimciTipi, string> = {
+  OGRENCI: "Öğrenci",
+  OGRETMEN: "Öğretmen",
+};
+
+export function katilimciTipi(
+  roller: readonly { rolKodu: RolKodu }[],
+): KatilimciTipi {
+  return roller.some((rol) => rol.rolKodu === "OGRENCI")
+    ? "OGRENCI"
+    : "OGRETMEN";
+}
+
+/**
+ * Danışman öğretmen / il koordinatörü başkasının adına başvurabilir mi?
+ *
+ * Üç sınır var:
+ *   1. Vekaleten başvuru YALNIZCA ÖĞRENCİ için yapılır. Analiz dokümanı 4.2
+ *      bunu öğrenci adına başvuru olarak tanımlıyor; bir öğretmenin başka bir
+ *      öğretmen adına başvurması, katılımın kişisel kararı olmasına aykırı.
+ *   2. Kişi kendi adına "vekaleten" başvuramaz — o zaten normal başvurudur ve
+ *      veritabanında da kısıtla (ck_basvuru_vekalet_baskasi) engellenir.
+ *   3. Öğrencinin o faaliyete aktif başvurusu varsa ikincisi açılmaz; bu
+ *      kontrol basvuruYapilabilirMi'de, mevcut başvuru durumu üzerinden yapılır.
+ *
+ * Kapsam kontrolü (öğrenci bu kişinin kapsamında mı) BURADA YOKTUR ve
+ * çağıranın sorumluluğundadır: bu dosya veritabanına bakmaz.
+ */
+export function vekaletenBasvuruGecerliMi(girdi: {
+  hedefTipi: KatilimciTipi;
+  vekilKullaniciId: number;
+  hedefKullaniciId: number;
+}): { olurMu: boolean; neden?: string } {
+  if (girdi.hedefTipi !== "OGRENCI") {
+    return {
+      olurMu: false,
+      neden: "Adına başvuru yalnızca öğrenciler için yapılabilir.",
+    };
+  }
+  if (girdi.vekilKullaniciId === girdi.hedefKullaniciId) {
+    return {
+      olurMu: false,
+      neden: "Kendi adınıza başvuruyu doğrudan yapabilirsiniz.",
     };
   }
   return { olurMu: true };

@@ -42,6 +42,8 @@ export const LOG_HEDEF_ETIKETLERI: Record<LogHedefTip, string> = {
   SISTEM_AYARI: "Sistem ayarı",
   CALISMA_GRUBU: "Çalışma grubu",
   ETKINLIK_PROGRAMI: "Etkinlik programı",
+  PAYDAS: "Paydaş kaydı",
+  BILDIRIM_SABLONU: "Bildirim şablonu",
 };
 
 /**

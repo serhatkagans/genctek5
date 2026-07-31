@@ -130,6 +130,8 @@ enum LogHedefTip {
   SISTEM_AYARI
   CALISMA_GRUBU
   ETKINLIK_PROGRAMI
+  PAYDAS
+  BILDIRIM_SABLONU
 }
 
 enum GonderimKanali {
@@ -138,13 +140,27 @@ enum GonderimKanali {
   SISTEM
 }
 
-/// Bildirimin e-posta kopyasının akıbeti. Panel bildirimi her koşulda yazılır;
-/// bu alan yalnızca kopyanın ne olduğunu anlatır.
-enum EpostaDurumu {
-  /// Gönderilmedi: e-posta kapalı ya da kişinin adresi yok. Hata değildir.
+/// Bildirim kopyasının (e-posta ya da SMS) akıbeti. Panel bildirimi her koşulda
+/// yazılır; bu alan yalnızca kopyanın ne olduğunu anlatır. İki kanal için TEK
+/// enum kullanılır: durumlar birebir aynı ve ayrı tutmak, aynı listeyi iki
+/// yerde güncel tutma yükü getirirdi.
+enum GonderimDurumu {
+  /// Gönderilmedi: kanal kapalı ya da kişinin adresi/numarası yok. Hata değildir.
   GEREKMIYOR
   GONDERILDI
   BASARISIZ
+}
+
+/// İl bazlı iş birliği yapılabilecek paydaş kurumun türü. Liste sabittir:
+/// çalışma grupları gibi büyüyen bir liste değil, kurumsal sınıflandırmadır.
+enum PaydasTuru {
+  UNIVERSITE
+  OZEL_SEKTOR
+  STK
+  KAMU_KURUMU
+  MESLEK_KURULUSU
+  BELEDIYE
+  DIGER
 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +177,7 @@ model Il {
   roller           KullaniciRol[]
   faaliyetler      Faaliyet[]
   ogrenciGorevleri OgrenciGorevRolu[]
+  paydaslar        Paydas[]
 
   @@map("il")
 }
@@ -250,8 +267,11 @@ model Kullanici {
   yorumlar               Yorum[]      @relation("YorumYazan")
   sildigiYorumlar        Yorum[]      @relation("YorumSilen")
 
-  basvurular            Basvuru[] @relation("BasvuruOgrencisi")
+  basvurular                Basvuru[] @relation("BasvuruKatilimcisi")
+  adinaYaptigiBasvurular    Basvuru[] @relation("BasvuruAdinaBasvuran")
   degerlendirdigiBasvurular Basvuru[] @relation("BasvuruDegerlendiren")
+
+  ekledigiPaydaslar Paydas[] @relation("PaydasEkleyen")
 
   erisimLoglari Erisimlogu[]
   bildirimler   Bildirim[]
@@ -528,6 +548,7 @@ model Faaliyet {
   ekler           FaaliyetEk[]
   yorumlar        Yorum[]
   basvurular      Basvuru[]
+  paydaslar       FaaliyetPaydas[]
 
   @@index([kapsam, onayDurumu])
   @@index([etkinlikKategorisi])
@@ -605,13 +626,27 @@ model Yorum {
 // 7. Başvuru
 // ---------------------------------------------------------------------------
 
-/// Başvuruyu yalnızca öğrencinin kendisi yapar; gerekçe zorunludur. Aynı
-/// faaliyete aktif ikinci başvuru kısmi unique index ile engellenir, geri
-/// çekilmiş başvurular kısıt dışıdır (kontenjan dolmadıysa yeniden başvurulur).
+/// Faaliyete katılım başvurusu. Gerekçe zorunludur; aynı faaliyete aktif ikinci
+/// başvuru kısmi unique index ile engellenir, geri çekilmiş başvurular kısıt
+/// dışıdır (kontenjan dolmadıysa yeniden başvurulur).
+///
+/// KATILIMCI ÖĞRENCİ OLMAK ZORUNDA DEĞİLDİR: öğretmenler de faaliyetlere
+/// başvurur (alan adı bu yüzden `ogrenciId` değil `katilimciId`). Katılımcının
+/// öğrenci mi öğretmen mi olduğu ayrı bir sütunda tutulmaz, kişinin aktif
+/// rolünden okunur — rol zaten tek doğru kaynaktır ve kopyalanan bir tip alanı
+/// öğrenci mezun olduğunda ya da öğretmen görev değiştirdiğinde eskir.
 model Basvuru {
   id                        Int           @id @default(autoincrement())
   faaliyetId                Int           @map("faaliyet_id")
-  ogrenciId                 Int           @map("ogrenci_id")
+  /// Faaliyete KATILACAK kişi. Başvuruyu yapan kişi değildir: danışman
+  /// öğretmen öğrencisi adına başvurduğunda burada öğrenci durur.
+  katilimciId               Int           @map("katilimci_id")
+  /// Başvuruyu katılımcının YERİNE yapan kişi (danışman öğretmen ya da il
+  /// koordinatörü). NULL ise başvuruyu katılımcının kendisi yapmıştır.
+  ///
+  /// Ayrı bir "başvuru tipi" enum'u tutulmaz: bu alanın dolu olması zaten
+  /// vekaleten başvuru demektir ve kimin yaptığını da söyler.
+  adinaBasvuranKullaniciId  Int?          @map("adina_basvuran_kullanici_id")
   gerekce                   String        @db.Text
   durum                     BasvuruDurumu @default(BEKLIYOR)
   basvuruTarihi             DateTime      @default(now()) @map("basvuru_tarihi") @db.Timestamptz(6)
@@ -619,13 +654,75 @@ model Basvuru {
   degerlendirenKullaniciId  Int?          @map("degerlendiren_kullanici_id")
   degerlendirmeTarihi       DateTime?     @map("degerlendirme_tarihi") @db.Timestamptz(6)
 
-  faaliyet      Faaliyet   @relation(fields: [faaliyetId], references: [id], onDelete: Cascade)
-  ogrenci       Kullanici  @relation("BasvuruOgrencisi", fields: [ogrenciId], references: [id])
-  degerlendiren Kullanici? @relation("BasvuruDegerlendiren", fields: [degerlendirenKullaniciId], references: [id])
+  faaliyet       Faaliyet   @relation(fields: [faaliyetId], references: [id], onDelete: Cascade)
+  katilimci      Kullanici  @relation("BasvuruKatilimcisi", fields: [katilimciId], references: [id])
+  adinaBasvuran  Kullanici? @relation("BasvuruAdinaBasvuran", fields: [adinaBasvuranKullaniciId], references: [id])
+  degerlendiren  Kullanici? @relation("BasvuruDegerlendiren", fields: [degerlendirenKullaniciId], references: [id])
 
   @@index([faaliyetId, durum])
-  @@index([ogrenciId])
+  @@index([katilimciId])
   @@map("basvuru")
+}
+
+// ---------------------------------------------------------------------------
+// 7b. İl bazlı paydaş envanteri
+// ---------------------------------------------------------------------------
+
+/// GençTek faaliyetlerinde iş birliği yapılabilecek kurum ve kuruluşlar.
+///
+/// Kayıt İLE bağlıdır ve ilin koordinatörü tarafından yönetilir: paydaş
+/// listesinin değeri yerelliğindedir, merkezden tutulan bir kurum listesi
+/// il koordinatörünün gerçekten arayabileceği kişiyi göstermez.
+///
+/// SİLME YOKTUR: iş birliği biten paydaş `aktif=false` yapılır. Geçmiş
+/// faaliyetlerin paydaş bağlantısı bozulmamalı.
+model Paydas {
+  id                 Int        @id @default(autoincrement())
+  ilKodu             String     @map("il_kodu") @db.Char(2)
+  ad                 String     @db.VarChar(250)
+  tur                PaydasTuru
+  /// İrtibat kişisi ve unvanı; kurumun santralı yerine gerçek muhatap.
+  yetkiliKisi        String?    @map("yetkili_kisi") @db.VarChar(150)
+  eposta             String?    @db.VarChar(150)
+  telefon            String?    @db.VarChar(20)
+  adres              String?    @db.Text
+  /// İş birliği alanı / potansiyeli — serbest metin. Sabit liste tutulmaz:
+  /// bir üniversitenin sunduğu imkân ile bir yazılım firmasınınki aynı
+  /// kategorilere sığmıyor.
+  isBirligiAlani     String     @map("is_birligi_alani") @db.Text
+  notlar             String?    @db.Text
+  aktif              Boolean    @default(true)
+  ekleyenKullaniciId Int        @map("ekleyen_kullanici_id")
+  olusturmaTarihi    DateTime   @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi   DateTime   @default(now()) @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  il      Il        @relation(fields: [ilKodu], references: [ilKodu])
+  ekleyen Kullanici @relation("PaydasEkleyen", fields: [ekleyenKullaniciId], references: [id])
+
+  faaliyetler FaaliyetPaydas[]
+
+  @@index([ilKodu, aktif])
+  @@index([tur])
+  @@map("paydas")
+}
+
+/// Faaliyetin paydaş bilgisi (faaliyet sonuç alanlarındaki "paydaş (varsa)").
+/// Bağlantıyı faaliyeti açan kullanıcı kurar; paydaşın ili faaliyetin iliyle
+/// aynı olmak ZORUNDA DEĞİLDİR — ulusal faaliyete başka ilden bir üniversite
+/// destek verebilir.
+model FaaliyetPaydas {
+  faaliyetId Int      @map("faaliyet_id")
+  paydasId   Int      @map("paydas_id")
+  /// Bu faaliyetteki katkısı ("mekân", "eğitmen", "ödül desteği" gibi).
+  katkisi    String?  @db.VarChar(250)
+  eklemeTarihi DateTime @default(now()) @map("ekleme_tarihi") @db.Timestamptz(6)
+
+  faaliyet Faaliyet @relation(fields: [faaliyetId], references: [id], onDelete: Cascade)
+  paydas   Paydas   @relation(fields: [paydasId], references: [id])
+
+  @@id([faaliyetId, paydasId])
+  @@index([paydasId])
+  @@map("faaliyet_paydas")
 }
 
 // ---------------------------------------------------------------------------
@@ -660,10 +757,15 @@ model Bildirim {
   okunduMu        Boolean        @default(false) @map("okundu_mu")
   gonderimKanali  GonderimKanali @default(SISTEM) @map("gonderim_kanali")
   olusturmaTarihi DateTime       @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
-  epostaDurumu    EpostaDurumu   @default(GEREKMIYOR) @map("eposta_durumu")
+  epostaDurumu    GonderimDurumu @default(GEREKMIYOR) @map("eposta_durumu")
   /// Gönderim başarısızsa sağlayıcının verdiği gerekçe. Sessiz başarısızlık,
   /// hiç göndermemekten kötüdür: kimse eksiği fark etmez.
   epostaHatasi    String?        @map("eposta_hatasi") @db.Text
+  /// SMS kopyası e-postadan BAĞIMSIZ izlenir: biri gitmiş öbürü gitmemiş
+  /// olabilir ve "bildirim ulaşmadı" şikâyetinde hangi kanalın düştüğü
+  /// bilinmeden bakılacak yer yoktur.
+  smsDurumu       GonderimDurumu @default(GEREKMIYOR) @map("sms_durumu")
+  smsHatasi       String?        @map("sms_hatasi") @db.Text
 
   kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
 
@@ -671,12 +773,18 @@ model Bildirim {
   @@map("bildirim")
 }
 
-/// Bildirim metinleri koda gömülmez, buradan yönetilir.
+/// Bildirim metinleri koda gömülmez, buradan yönetilir. Kod sabittir ve
+/// uygulamadan gelir (bkz. src/lib/bildirim/sablon.ts); Yönetim ekranından
+/// yalnızca konu, gövde ve aktiflik değiştirilir — yeni kod eklemek koda
+/// dokunmayı gerektirir, çünkü şablonu tetikleyen olay kodda yaşar.
 model BildirimSablonu {
   id            Int     @id @default(autoincrement())
   kod           String  @unique @db.VarChar(60)
   konu          String  @db.VarChar(200)
   govdeSablonu  String  @map("govde_sablonu") @db.Text
+  /// Şablonun hangi olayda gittiği. Kod adı ("BASVURU_SONUCU") tek başına
+  /// yeterince anlatıcı değil; yönetim ekranında bu metin gösterilir.
+  aciklama      String? @db.Text
   aktif         Boolean @default(true)
 
   @@map("bildirim_sablonu")

@@ -1,9 +1,13 @@
 import {
-  DEGERLENDIRME_OGRENCI_ALANLARI,
+  DEGERLENDIRME_KATILIMCI_ALANLARI,
   danismanAdayiFiltresi,
   faaliyetKapsamFiltresi,
   ogrenciKapsamFiltresi,
   ogrenciListeFiltresi,
+  ogretmenKapsamFiltresi,
+  ogretmenListeFiltresi,
+  paydasKapsamFiltresi,
+  paydasListeFiltresi,
   ulusalBasvuranFiltresi,
 } from "@/lib/yetki/kapsam";
 import {
@@ -147,7 +151,7 @@ describe("ulusal faaliyet istisnası", () => {
   });
 
   it("değerlendirme ekranında telefon ve e-posta gösterilmez", () => {
-    const alanlar = Object.keys(DEGERLENDIRME_OGRENCI_ALANLARI);
+    const alanlar = Object.keys(DEGERLENDIRME_KATILIMCI_ALANLARI);
     expect(alanlar).not.toContain("telefon");
     expect(alanlar).not.toContain("eposta");
     expect(alanlar).not.toContain("ogrenciProfil");
@@ -186,5 +190,132 @@ describe("danışman adayı filtresi", () => {
     expect(metne(filtre)).toContain("danismanOlmakIstiyor");
     expect(metne(filtre)).toContain("IL_KOORDINATOR");
     expect(metne(filtre)).toContain("NOT");
+  });
+});
+
+/**
+ * Öğretmen envanteri kapsamı — analiz dokümanı Bölüm 2.
+ */
+describe("öğretmen kapsam filtresi", () => {
+  it("öğrenci hiçbir öğretmen kaydı göremez (fail closed)", () => {
+    expect(ogretmenKapsamFiltresi(ogrenciYap())).toEqual({ id: { in: [] } });
+  });
+
+  it("görev almamış öğretmen de envanteri göremez", () => {
+    expect(ogretmenKapsamFiltresi(rolsuzOgretmenYap())).toEqual({
+      id: { in: [] },
+    });
+  });
+
+  it("il koordinatörü kendi ilinin öğretmenlerini görür", () => {
+    const filtre = ogretmenKapsamFiltresi(koordinatorYap({ ilKodu: "34" }));
+    expect(metne(filtre)).toContain('"ilKodu":"34"');
+  });
+
+  it("danışman öğretmen kendi okuluyla sınırlıdır", () => {
+    const filtre = ogretmenKapsamFiltresi(danismanYap({ kurumKodu: 750001 }));
+    expect(metne(filtre)).toContain('"kurumKodu":750001');
+  });
+
+  /*
+   * "Öğretmen" = aktif öğrenci rolü olmayan kullanıcı. YEĞİTEK personeli de
+   * dışarıda: okulda görevli bir öğretmen değildir, listede okulsuz satır
+   * olarak görünmesi envanteri kirletir.
+   */
+  it("öğrenciler ve merkez personeli envanterin dışındadır", () => {
+    const filtre = metne(ogretmenKapsamFiltresi(projeYoneticisiYap()));
+    expect(filtre).toContain("none");
+    expect(filtre).toContain("OGRENCI");
+    expect(filtre).toContain("PROJE_YONETICISI");
+  });
+
+  it("görev yılı filtresi aralık ÇAKIŞMASI arar, kapsanma değil", () => {
+    const filtre = ogretmenListeFiltresi(projeYoneticisiYap(), {
+      gorevAraligi: {
+        baslangic: new Date(2024, 8, 1),
+        bitis: new Date(2025, 7, 31),
+      },
+    });
+    const metin = metne(filtre);
+    // Süren görev (bitisTarihi null) de o yıla dahil olmalı.
+    expect(metin).toContain('"bitisTarihi":null');
+    expect(metin).toContain("baslangicTarihi");
+  });
+});
+
+/**
+ * Paydaş envanteri kapsamı — analiz dokümanı Bölüm 3.
+ */
+describe("paydaş kapsam filtresi", () => {
+  it("proje yöneticisine il kısıtı uygulanmaz", () => {
+    expect(paydasKapsamFiltresi(projeYoneticisiYap())).toEqual({});
+  });
+
+  it("il koordinatörü kendi iliyle sınırlıdır", () => {
+    expect(paydasKapsamFiltresi(koordinatorYap({ ilKodu: "34" }))).toEqual({
+      ilKodu: "34",
+    });
+  });
+
+  it("danışman öğretmen kendi ilinin paydaşlarını görür", () => {
+    // İş birliği il düzeyinde kurulur; okul kırılımı yoktur.
+    expect(paydasKapsamFiltresi(danismanYap({ ilKodu: "34" }))).toEqual({
+      ilKodu: "34",
+    });
+  });
+
+  it("öğrenci hiçbir paydaş göremez", () => {
+    expect(paydasKapsamFiltresi(ogrenciYap({ ilKodu: "34" }))).toEqual({
+      id: { in: [] },
+    });
+  });
+
+  it("pasif kayıtlar varsayılan olarak listelenmez", () => {
+    const filtre = metne(paydasListeFiltresi(projeYoneticisiYap()));
+    expect(filtre).toContain('"aktif":true');
+  });
+
+  it("pasifleri göster seçilirse aktif kısıtı düşer", () => {
+    const filtre = metne(
+      paydasListeFiltresi(projeYoneticisiYap(), { pasifleriDeGoster: true }),
+    );
+    expect(filtre).not.toContain('"aktif":true');
+  });
+
+  /*
+   * Seçilen filtreler kapsamın YERİNE geçmez, üstüne eklenir: adres çubuğuna
+   * başka bir il kodu yazan koordinatör o ilin paydaşlarını göremez.
+   */
+  it("il filtresi kapsamı genişletmez", () => {
+    const filtre = paydasListeFiltresi(koordinatorYap({ ilKodu: "34" }), {
+      ilKodu: "06",
+    });
+    const metin = metne(filtre);
+    expect(metin).toContain('"ilKodu":"34"');
+    expect(metin).toContain('"ilKodu":"06"');
+  });
+});
+
+/**
+ * Öğrenci listesinin yeni filtreleri — analiz dokümanı 1.2.
+ */
+describe("öğrenci liste filtreleri: okul türü ve eğitim-öğretim yılı", () => {
+  it("okul türü öğrencide değil bağlı olduğu kurumda aranır", () => {
+    const filtre = metne(
+      ogrenciListeFiltresi(projeYoneticisiYap(), {
+        okulTuru: "Anadolu Lisesi",
+      }),
+    );
+    expect(filtre).toContain('"kurum":{"okulTuru":"Anadolu Lisesi"}');
+  });
+
+  it("eğitim-öğretim yılı filtresi kapsamla birlikte uygulanır", () => {
+    const filtre = metne(
+      ogrenciListeFiltresi(koordinatorYap({ ilKodu: "34" }), {
+        egitimOgretimYili: "2024-2025",
+      }),
+    );
+    expect(filtre).toContain('"egitimOgretimYili":"2024-2025"');
+    expect(filtre).toContain('"ilKodu":"34"');
   });
 });

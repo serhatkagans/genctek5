@@ -1,4 +1,5 @@
 import {
+  CalendarRange,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -9,6 +10,10 @@ import Link from "next/link";
 import { Kart, KartBasligi, SayfaBasligi, SINIF_BIRINCIL_BUTON } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import {
+  egitimOgretimYillariGetir,
+  okulTurleriGetir,
+} from "@/lib/rapor/secenekler";
 import { ogrenciListeFiltresi as ogrenciListesiFiltresi } from "@/lib/yetki/kapsam";
 import {
   danismanMi,
@@ -89,31 +94,53 @@ export default async function OgrencilerSayfasi({
   const koordinatorIli = koordinatorIlKodu(kullanici);
   const seciliIl = filtreler.ilKodu ?? koordinatorIli;
 
-  const [iller, ilceler, okullar, gruplar] = await Promise.all([
-    projeYoneticisiMi(kullanici)
-      ? prisma.il.findMany({ orderBy: { ad: "asc" } })
-      : koordinatorIli
-        ? prisma.il.findMany({ where: { ilKodu: koordinatorIli } })
+  const [iller, ilceler, okullar, gruplar, okulTurleri, yilSecenekleri] =
+    await Promise.all([
+      projeYoneticisiMi(kullanici)
+        ? prisma.il.findMany({ orderBy: { ad: "asc" } })
+        : koordinatorIli
+          ? prisma.il.findMany({ where: { ilKodu: koordinatorIli } })
+          : [],
+      seciliIl
+        ? prisma.ilce.findMany({
+            where: { ilKodu: seciliIl },
+            orderBy: { ad: "asc" },
+          })
         : [],
-    seciliIl
-      ? prisma.ilce.findMany({
-          where: { ilKodu: seciliIl },
-          orderBy: { ad: "asc" },
-        })
-      : [],
-    seciliIl
-      ? prisma.kurum.findMany({
-          where: { ilKodu: seciliIl, aktif: true },
-          orderBy: { ad: "asc" },
-          select: { kurumKodu: true, ad: true },
-        })
-      : [],
-    prisma.calismaGrubu.findMany({
-      where: { aktif: true },
-      orderBy: { siraNo: "asc" },
-      select: { id: true, ad: true },
-    }),
-  ]);
+      seciliIl
+        ? prisma.kurum.findMany({
+            where: { ilKodu: seciliIl, aktif: true },
+            orderBy: { ad: "asc" },
+            select: { kurumKodu: true, ad: true },
+          })
+        : [],
+      prisma.calismaGrubu.findMany({
+        where: { aktif: true },
+        orderBy: { siraNo: "asc" },
+        select: { id: true, ad: true },
+      }),
+      okulTurleriGetir(seciliIl ?? null),
+      egitimOgretimYillariGetir(),
+    ]);
+
+  /*
+   * Yıllara göre karşılaştırma (analiz dokümanı 1.2).
+   *
+   * Sayım, seçili yıl filtresi DIŞINDAKİ filtrelerle yapılır: "İstanbul'daki
+   * oyun tasarımı öğrencileri yıllara göre nasıl değişti" sorusu ancak yıl
+   * kısıtı kaldırıldığında cevaplanır. Aksi halde tablo tek satıra düşer ve
+   * karşılaştırma diye bir şey kalmazdı.
+   */
+  const karsilastirmaFiltresi = ogrenciListesiFiltresi(kullanici, {
+    ...filtreler,
+    egitimOgretimYili: null,
+  });
+  const yilDagilimi = await prisma.kullanici.groupBy({
+    by: ["egitimOgretimYili"],
+    where: karsilastirmaFiltresi,
+    _count: { _all: true },
+    orderBy: { egitimOgretimYili: "desc" },
+  });
 
   /*
    * Sayfalama. Liste tek sayfada dökülmez: envanter büyüdüğünde hem ekran
@@ -274,6 +301,22 @@ export default async function OgrencilerSayfasi({
           )}
 
           <label className="block">
+            <span className={SINIF_ETIKET}>Okul türü</span>
+            <select
+              name="okulTuru"
+              defaultValue={filtreler.okulTuru ?? ""}
+              className={SINIF_SECIM}
+            >
+              <option value="">Tüm okul türleri</option>
+              {okulTurleri.map((tur) => (
+                <option key={tur} value={tur}>
+                  {tur}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
             <span className={SINIF_ETIKET}>Sınıf</span>
             <input
               type="text"
@@ -282,6 +325,22 @@ export default async function OgrencilerSayfasi({
               defaultValue={filtreler.sinif ?? ""}
               className={SINIF_SECIM}
             />
+          </label>
+
+          <label className="block">
+            <span className={SINIF_ETIKET}>Eğitim-öğretim yılı</span>
+            <select
+              name="yil"
+              defaultValue={filtreler.egitimOgretimYili ?? ""}
+              className={SINIF_SECIM}
+            >
+              <option value="">Tüm yıllar</option>
+              {yilSecenekleri.map((yil) => (
+                <option key={yil} value={yil}>
+                  {yil}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="block">
@@ -341,6 +400,75 @@ export default async function OgrencilerSayfasi({
           )}
         </div>
       </form>
+
+      {/*
+        Yıllara göre karşılaştırma. Yıl filtresi dışındaki filtreler uygulanmış
+        hâliyle sayılır; tek yıl varsa tablo gösterilmez, karşılaştıracak bir
+        şey yoktur.
+      */}
+      {yilDagilimi.length > 1 && (
+        <Kart>
+          <KartBasligi
+            baslik="Eğitim-öğretim yıllarına göre karşılaştırma"
+            aciklama="Seçili yıl filtresi dışındaki filtrelerle sayılmıştır."
+            Ikon={CalendarRange}
+          />
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-cizgi text-metin-yumusak">
+                <tr>
+                  <th className="py-2 pr-4 font-medium">Eğitim-öğretim yılı</th>
+                  <th className="py-2 pr-4 font-medium">Öğrenci sayısı</th>
+                  <th className="py-2 font-medium">Bir önceki yıla göre</th>
+                </tr>
+              </thead>
+              <tbody>
+                {yilDagilimi.map((satir, sira) => {
+                  // Liste yeniden eskiye sıralı; "önceki yıl" bir sonraki satır.
+                  const oncekiYil = yilDagilimi[sira + 1];
+                  const fark = oncekiYil
+                    ? satir._count._all - oncekiYil._count._all
+                    : null;
+
+                  return (
+                    <tr
+                      key={satir.egitimOgretimYili}
+                      className="border-b border-cizgi last:border-0"
+                    >
+                      <td className="py-2 pr-4 font-medium text-metin">
+                        <Link
+                          href={`/panel/ogrenciler?${(() => {
+                            const sorgu = new URLSearchParams(
+                              sorguMetni(parametreler, ["sayfa", "yil"]),
+                            );
+                            sorgu.set("yil", satir.egitimOgretimYili);
+                            return sorgu.toString();
+                          })()}`}
+                          className="transition hover:text-vurgu-metin hover:underline"
+                        >
+                          {satir.egitimOgretimYili}
+                        </Link>
+                      </td>
+                      <td className="py-2 pr-4 text-metin-yumusak">
+                        {satir._count._all}
+                      </td>
+                      <td className="py-2 text-metin-yumusak">
+                        {fark === null
+                          ? "—"
+                          : fark === 0
+                            ? "değişmedi"
+                            : fark > 0
+                              ? `+${fark}`
+                              : String(fark)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Kart>
+      )}
 
       {ogrenciler.length === 0 ? (
         <Kart className="text-metin-yumusak">

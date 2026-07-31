@@ -16,10 +16,15 @@ import {
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
 } from "@/components/ui";
+import { DuyuruSeridi } from "@/components/DuyuruSeridi";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { aktifAtamaGetir } from "@/lib/danisman/atama";
 import { prisma } from "@/lib/db";
+import { KAPSAM_ETIKETLERI } from "@/lib/faaliyet/kurallar";
+import { seritteGosterilecekler, takvimeAyir } from "@/lib/faaliyet/takvim";
+import { tarihYaz } from "@/lib/tarih";
 import {
+  basvuruYapabilirMi,
   danismanMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
@@ -95,27 +100,61 @@ export default async function PanelSayfasi() {
       })
     : 0;
 
-  // Öğrencinin geri çekilmemiş başvuruları.
-  const basvuruSayisi = ogrenciMi(kullanici)
+  /*
+   * Kişinin kendi başvuruları. Katılımcı öğretmen de olabildiği için koşul
+   * "öğrenci mi" değil "başvurabilir mi" sorusudur (analiz dokümanı 4.2).
+   */
+  const basvuruSayisi = basvuruYapabilirMi(kullanici)
     ? await prisma.basvuru.count({
-        where: { ogrenciId: kullanici.id, durum: { not: "GERI_CEKILDI" } },
+        where: { katilimciId: kullanici.id, durum: { not: "GERI_CEKILDI" } },
       })
     : 0;
 
-  // Kapsamdaki başvuruya açık faaliyetler. Filtre merkezi kapsamdan gelir.
   const simdi = new Date();
-  const acikFaaliyetSayisi = await prisma.faaliyet.count({
+
+  /*
+   * Etkinlik takvimi (analiz dokümanı Bölüm 6): kapsamdaki faaliyetler
+   * geçmiş / bugün / yaklaşan olarak ayrılır. Ayırma işi saf bir fonksiyonda
+   * (lib/faaliyet/takvim.ts), burada yalnızca veri çekiliyor.
+   *
+   * Geçmiş liste sınırsız büyümesin diye pencere daraltılıyor: yaklaşanların
+   * hepsi, geçmişin son 90 günü. Takvim bir arşiv değil, "şu sıralar ne var"
+   * ekranıdır; arşive Faaliyetler ekranından bakılır.
+   */
+  const doksanGunOnce = new Date(simdi.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const takvimFaaliyetleri = await prisma.faaliyet.findMany({
     where: {
-      AND: [
-        faaliyetKapsamFiltresi(kullanici),
-        {
-          basvuruBaslangic: { lte: simdi },
-          basvuruBitis: { gte: simdi },
-          onayDurumu: { in: ["ONAY_GEREKMEZ", "ONAYLANDI"] },
-        },
-      ],
+      AND: [faaliyetKapsamFiltresi(kullanici), { tarih: { gte: doksanGunOnce } }],
+    },
+    orderBy: { tarih: "asc" },
+    select: {
+      id: true,
+      ad: true,
+      tarih: true,
+      kapsam: true,
+      durum: true,
+      onayDurumu: true,
+      duzenleyenBirim: true,
+      basvuruBaslangic: true,
+      basvuruBitis: true,
     },
   });
+
+  const takvim = takvimeAyir(takvimFaaliyetleri, simdi);
+
+  /*
+   * Şeride yalnızca YAYINDAKİ faaliyetler girer: onay bekleyen bir faaliyet
+   * düzenleyenine görünüyor olabilir ama "başvuru açık" demek yanıltıcı olurdu.
+   */
+  const seritKayitlari = seritteGosterilecekler(
+    takvimFaaliyetleri.filter(
+      (faaliyet) =>
+        faaliyet.onayDurumu === "ONAY_GEREKMEZ" ||
+        faaliyet.onayDurumu === "ONAYLANDI",
+    ),
+    simdi,
+  );
+  const acikFaaliyetSayisi = seritKayitlari.length;
 
   const onayBekleyenSayisi = projeYoneticisiMi(kullanici)
     ? await prisma.faaliyet.count({ where: { onayDurumu: "BEKLIYOR" } })
@@ -129,6 +168,10 @@ export default async function PanelSayfasi() {
         baslik={`Hoş geldiniz, ${kullanici.ad}`}
         aciklama={`${kullanici.egitimOgretimYili} eğitim-öğretim yılı`}
       />
+
+      {/* Başvurusu açık faaliyetler, takvimden ÖNCE ve akan şerit hâlinde:
+          kaçırılırsa geri dönüşü olmayan tek bilgi budur. */}
+      <DuyuruSeridi kayitlar={seritKayitlari} simdi={simdi} />
 
       {rolsuzMu && (
         <div className="rounded-kart border border-uyari-cizgi bg-uyari-zemin p-6">
@@ -217,6 +260,90 @@ export default async function PanelSayfasi() {
           yol="/panel/faaliyetler?acik=1"
         />
       </div>
+
+      <section>
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">
+          <CalendarDays size={18} className="text-vurgu-metin" aria-hidden />
+          Etkinlik takvimi
+        </h2>
+
+        {takvimFaaliyetleri.length === 0 ? (
+          <Kart className="text-metin-yumusak">
+            Kapsamınızda son 90 günün ve önümüzdeki dönemin faaliyet kaydı yok.
+          </Kart>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-3">
+            {[
+              {
+                baslik: "Bugün",
+                liste: takvim.bugun,
+                bos: "Bugün planlanmış faaliyet yok.",
+                vurgulu: true,
+              },
+              {
+                baslik: "Yaklaşan",
+                liste: takvim.yaklasan,
+                bos: "Yaklaşan faaliyet yok.",
+                vurgulu: false,
+              },
+              {
+                baslik: "Geçmiş (son 90 gün)",
+                liste: takvim.gecmis,
+                bos: "Son 90 günde faaliyet yok.",
+                vurgulu: false,
+              },
+            ].map((bolum) => (
+              <div
+                key={bolum.baslik}
+                className={`rounded-kart border bg-kart p-5 ${
+                  bolum.vurgulu && bolum.liste.length > 0
+                    ? "border-vurgu"
+                    : "border-cizgi"
+                }`}
+              >
+                <h3 className="text-sm font-semibold text-baslik">
+                  {bolum.baslik}
+                  <span className="ml-2 font-normal text-metin-yumusak">
+                    {bolum.liste.length}
+                  </span>
+                </h3>
+
+                {bolum.liste.length === 0 ? (
+                  <p className="mt-3 text-sm text-metin-yumusak">{bolum.bos}</p>
+                ) : (
+                  <ul className="mt-3 space-y-3">
+                    {/* Her bölümde en fazla beş kayıt: takvim özet, arşiv
+                        değil. Tamamı Faaliyetler ekranında. */}
+                    {bolum.liste.slice(0, 5).map((faaliyet) => (
+                      <li key={faaliyet.id}>
+                        <Link
+                          href={`/panel/faaliyetler/${faaliyet.id}`}
+                          className="text-sm font-medium text-metin transition hover:text-vurgu-metin hover:underline"
+                        >
+                          {faaliyet.ad}
+                        </Link>
+                        <p className="text-xs text-metin-yumusak">
+                          {tarihYaz(faaliyet.tarih)} ·{" "}
+                          {KAPSAM_ETIKETLERI[faaliyet.kapsam]}
+                          {faaliyet.durum === "IPTAL_EDILDI"
+                            ? " · iptal edildi"
+                            : ""}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {bolum.liste.length > 5 && (
+                  <p className="mt-3 text-xs text-metin-yumusak">
+                    +{bolum.liste.length - 5} kayıt daha
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

@@ -244,7 +244,8 @@ Faaliyeti açan kullanıcı veya proje yöneticisi faaliyeti iptal edebilir. `fa
 
 ## 8. Başvuru ve değerlendirme
 
-- Başvuruyu **öğrenci kendisi** yapar. Öğretmen öğrenci adına başvuru yapamaz.
+- Başvuruyu **katılımcının kendisi** yapar. Katılımcı öğrenci de öğretmen de olabilir; proje yöneticisi (YEĞİTEK) katılımcı olamaz.
+- **Danışman öğretmen ve il koordinatörü, kapsamındaki bir ÖĞRENCİ adına başvuru yapabilir.** Öğretmen adına vekaleten başvuru yapılamaz. Öğrenciye bildirim gider ve başvuruyu kendisi geri çekebilir; başvuruyu yapan öğretmen de geri çekebilir ve sonuç bildirimini alır.
 - Başvuru formunda **"Bu faaliyete neden başvuruyorum / bu alandaki ilgim"** alanı yer alır ve **zorunludur**.
 - Aynı faaliyete aktif ikinci başvuru **engellenir**.
 - Öğrenci başvurusunu **geri çekebilir**; gerekçe istenmez.
@@ -258,7 +259,9 @@ Faaliyeti açan kullanıcı veya proje yöneticisi faaliyeti iptal edebilir. `fa
 
 ## 9. Bildirimler
 
-E-posta ve/veya SMS. Şablonlar yönetilebilir olmalı (koda gömme).
+Panel bildirimi **her koşulda** yazılır; e-posta ve SMS yalnızca birer kopyadır ve gitmemeleri bildirimi geçersiz kılmaz. İki kanalın durumu bildirim kaydında ayrı ayrı tutulur — sessiz başarısızlık, hiç göndermemekten kötüdür.
+
+Şablon **metinleri** veritabanındadır ve Yönetim ekranından düzenlenir; şablon **kodları** koddadır, çünkü şablonu tetikleyen olay uygulamada yaşar. Metin kaydedilirken yer tutucular doğrulanır: tanımsız bir `{{degisken}}` kabul edilmez.
 
 Bildirim gereken olaylar:
 - Başvuru sonucu (seçildi / reddedildi / yedek)
@@ -267,6 +270,10 @@ Bildirim gereken olaylar:
 - Proje yöneticisine: onay bekleyen ulusal faaliyet
 - Danışmana kopya: öğrencisi başka ilin ulusal faaliyetine başvurdu
 - Faaliyete başvurmuş öğrencilere: faaliyet iptal edildi
+- Öğrenciye: adına başvuru yapıldı / adına yapılan başvuru geri çekildi
+- Adına başvuran öğretmene: başvuru sonuçlandı
+
+**Etkinlik takvimi ve duyuru şeridi.** Panelde ilk görülen şey, başvurusu açık faaliyetlerin aktığı şerit ve geçmiş/bugün/yaklaşan takvimidir. Takvim ayrımı **gün** bazındadır: sabah yapılan etkinlik öğleden sonra "geçmiş" görünürse o günün programı kaybolur. Şerit, üzerine gelindiğinde ve klavyeyle odaklanıldığında durur; `prefers-reduced-motion` açıksa hiç akmaz.
 
 ---
 
@@ -378,3 +385,29 @@ Kurallar:
 `/panel/ogrenciler/:id` ekranı danışman öğretmen, il koordinatörü ve proje yöneticisine açıktır; **erişim merkezi kapsam filtresinden geçer** ve kapsam dışı öğrencide "yetkiniz yok" değil **404** döner (kaydın varlığı bile sızmaz). Öğrenci kendi id'siyle bu adrese girebilir çünkü kapsam filtresi ona "yalnızca kendisi" diyor; düzenleme yolları ise kendi profilindedir.
 
 Bu ekran listeden **daha fazla** kişisel veri gösterdiği için (iletişim bilgisi, CV, kazanım beyanları) her görüntülemede erişim logu yazılır.
+
+---
+
+## 15. Danışman öğretmen envanteri
+
+`/panel/ogretmenler` ekranı, analiz dokümanı Bölüm 2'nin karşılığıdır.
+
+- **"Öğretmen" ayrı bir kullanıcı tipi değildir**: aktif öğrenci rolü olmayan kullanıcıdır. Görev almamış öğretmen de envanterdedir — listenin en çok işe yarayan satırı, henüz danışmanlık işaretlememiş öğretmendir. YEĞİTEK personeli listeden çıkarılır: okulda görevli bir öğretmen değildir.
+- Kapsam: danışman öğretmen **kendi okulu**, il koordinatörü **kendi ili**, proje yöneticisi **tüm iller**. Öğrenci hiçbir koşulda göremez.
+- Danışmanın kapsamı okuldur, "kendi danışmanlığındakiler" değil (öğrenci envanterinden farkı budur): meslektaş listesi kişisel veri bakımından daha dar ve okuldaki diğer danışmanı görmek iş birliğinin ön koşulu.
+- **Görev aldığı eğitim-öğretim yılları ayrı bir alanda tutulmaz**, `kullanici_rol` kayıtlarının tarihlerinden türetilir. İkinci bir yer tutulsaydı rol devrinde ikisi ayrışır ve hangisinin doğru olduğu bilinemezdi. Yıl sınırı **1 Eylül**'dür.
+- Tekil kayıtta gösterilen **öğrenci ve faaliyet listeleri, bakan kişinin kendi kapsamından yeniden geçer**. Aksi halde bir danışman, meslektaşının profilini açarak onun öğrencilerinin adlarını görebilirdi.
+- Ulusal/uluslararası etkinlikler için ayrı tablo yoktur: GençTek'in ulusal programları zaten `kapsam = ULUSAL` olan faaliyetlerdir, liste oradan türetilir.
+
+---
+
+## 16. İl bazlı paydaş envanteri
+
+`/panel/paydaslar` ekranı, analiz dokümanı Bölüm 3'ün karşılığıdır.
+
+- Kayıt **ile** bağlıdır ve **ilin koordinatörü** ile proje yöneticisi tarafından yönetilir. Danışman öğretmen listeyi **görür** ve kendi faaliyetine bağlar ama kayıt ekleyemez: her öğretmen ekleseydi aynı kurum onlarca kez farklı yazımla girilir ve "il bazlı iş birliği haritası" kullanılamaz hâle gelirdi.
+- Zorunlu alanlar: kurum adı, tür, il, **iş birliği alanı** ve **en az bir iletişim bilgisi**. Ne için iş birliği yapılacağı yazılmayan kayıt listeyi kalabalıklaştırmaktan başka işe yaramaz; ulaşılamayan paydaş da paydaş değildir.
+- Aynı ilde aynı adla ikinci **aktif** kayıt açılamaz. Pasif kayıt engel değildir — kurum gerçekten yeniden iş birliğine dönebilir.
+- **Silme yoktur**: iş birliği bitince kayıt pasife alınır, geçmiş faaliyet bağlantıları korunur.
+- Kaydın **ili değiştirilemez**: başka ile taşımak, o ilin envanterine haberi olmadan satır eklemek olurdu.
+- Faaliyete paydaş bağlamak, paydaş kaydını yönetmekten **ayrı** bir yetkidir ve faaliyetin sahipliğine bakar (ek yükleme kapısıyla aynı). Paydaşın ili faaliyetin iliyle aynı olmak zorunda değildir.

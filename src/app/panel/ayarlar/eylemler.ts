@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { ayarDegeriGecerliMi, YONETILEBILIR_AYARLAR } from "@/lib/ayar";
+import {
+  sablonMetniGecerliMi,
+  sablonTanimiGetir,
+} from "@/lib/bildirim/sablon";
 import { prisma } from "@/lib/db";
 import { sistemAyarlariniYonetebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
@@ -243,4 +247,73 @@ export async function programDurumEylemi(veri: FormData): Promise<void> {
   revalidatePath(YOL);
   revalidatePath("/panel/faaliyetler/yeni");
   redirect(`${YOL}?durum=${aktif ? "program-aktif" : "program-pasif"}`);
+}
+
+// ---------------------------------------------------------------------------
+// Bildirim şablonları
+// ---------------------------------------------------------------------------
+
+/**
+ * Şablon metnini günceller.
+ *
+ * KOD DEĞİŞTİRİLEMEZ ve yeni kod EKLENEMEZ: şablonu tetikleyen olay kodda
+ * yaşıyor (bkz. src/lib/bildirim/sablon.ts), veritabanına elle eklenen bir
+ * satır kendiliğinden bildirim üretmez. Yönetilen şey metnin kendisidir.
+ *
+ * Yer tutucular kaydetmeden ÖNCE doğrulanır: metne yazılan {{ogrenci}} gibi
+ * tanımsız bir değişken hiçbir zaman dolmayacağı için, hata ancak bildirim
+ * kullanıcıya ham süslü parantezle ulaştığında fark edilirdi.
+ */
+export async function bildirimSablonuKaydetEylemi(
+  veri: FormData,
+): Promise<void> {
+  const kullanici = await yoneticiZorunlu();
+
+  const kod = String(veri.get("kod") ?? "").trim();
+  const tanim = sablonTanimiGetir(kod);
+  if (!tanim) throw new BulunamadiHatasi("Tanımsız bildirim şablonu.");
+
+  const konu = String(veri.get("konu") ?? "").trim();
+  const govde = String(veri.get("govdeSablonu") ?? "").trim();
+
+  for (const [alan, metin] of [
+    ["Konu", konu],
+    ["Gövde", govde],
+  ] as const) {
+    const karar = sablonMetniGecerliMi(metin, tanim.degiskenler);
+    if (!karar.olurMu) {
+      redirect(
+        `${YOL}?hata=${encodeURIComponent(
+          `${tanim.baslik} · ${alan}: ${karar.neden}`,
+        )}#bildirim-sablonlari`,
+      );
+    }
+  }
+
+  const aktif = veri.get("aktif") === "evet";
+
+  await prisma.bildirimSablonu.upsert({
+    where: { kod },
+    update: { konu, govdeSablonu: govde, aciklama: tanim.aciklama, aktif },
+    create: {
+      kod,
+      konu,
+      govdeSablonu: govde,
+      aciklama: tanim.aciklama,
+      aktif,
+    },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "BILDIRIM_SABLONU",
+    hedefId: kod,
+    detay: `Bildirim şablonu güncellendi: ${tanim.baslik}${
+      aktif ? "" : " (pasif)"
+    }`,
+  });
+
+  revalidatePath(YOL);
+  redirect(`${YOL}?durum=sablon-kaydedildi#bildirim-sablonlari`);
 }

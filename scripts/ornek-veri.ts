@@ -148,7 +148,7 @@ async function uretilenleriSil() {
   await prisma.basvuru.deleteMany({
     where: {
       OR: [
-        { ogrenciId: { in: idler } },
+        { katilimciId: { in: idler } },
         { degerlendirenKullaniciId: { in: idler } },
       ],
     },

@@ -1,8 +1,13 @@
 import {
+  baskasiAdinaBasvurabilirMi,
   basvuruDegerlendirebilirMi,
   basvuruYapabilirMi,
   calismaGrubuTanimlayabilirMi,
   ekYukleyebilirMi,
+  faaliyetPaydasiYonetebilirMi,
+  ogretmenEnvanteriGorebilirMi,
+  paydasGorebilirMi,
+  paydasYonetebilirMi,
   faaliyetAcabilirMi,
   faaliyetGorunurMu,
   faaliyetIptalEdebilirMi,
@@ -189,11 +194,29 @@ describe("yorumlar", () => {
 });
 
 describe("başvuru", () => {
-  it("başvuruyu yalnızca öğrenci yapar", () => {
+  /*
+   * Analiz dokümanı 4.2: katılımcı "öğretmen/öğrenci" olabilir. Öğretmenin
+   * katılımcı olması istisna değil, kuralın kendisidir; dışarıda kalan tek rol
+   * faaliyetleri düzenleyip onaylayan merkezdir.
+   */
+  it("öğrenci ve öğretmenler katılımcı olarak başvurabilir", () => {
     expect(basvuruYapabilirMi(ogrenciYap())).toBe(true);
-    expect(basvuruYapabilirMi(danismanYap())).toBe(false);
-    expect(basvuruYapabilirMi(koordinatorYap())).toBe(false);
+    expect(basvuruYapabilirMi(danismanYap())).toBe(true);
+    expect(basvuruYapabilirMi(koordinatorYap())).toBe(true);
+    expect(basvuruYapabilirMi(rolsuzOgretmenYap())).toBe(true);
+  });
+
+  it("proje yöneticisi kendi düzenlediği etkinliğe katılımcı olamaz", () => {
     expect(basvuruYapabilirMi(projeYoneticisiYap())).toBe(false);
+  });
+
+  it("öğrenci adına başvuruyu yalnızca görevli öğretmenler yapabilir", () => {
+    expect(baskasiAdinaBasvurabilirMi(danismanYap())).toBe(true);
+    expect(baskasiAdinaBasvurabilirMi(koordinatorYap())).toBe(true);
+    expect(baskasiAdinaBasvurabilirMi(projeYoneticisiYap())).toBe(true);
+    // Öğrenci ve görev almamış öğretmen başkası adına başvuramaz.
+    expect(baskasiAdinaBasvurabilirMi(ogrenciYap())).toBe(false);
+    expect(baskasiAdinaBasvurabilirMi(rolsuzOgretmenYap())).toBe(false);
   });
 
   it("başvuruyu yalnızca faaliyeti açan kullanıcı değerlendirir", () => {
@@ -389,5 +412,68 @@ describe("öğrenci görev rolleri ek yetki vermez", () => {
       basvuruYapabilirMi(sıradanOgrenci),
     );
     expect(faaliyetAcabilirMi(ilTemsilcisiOgrenci, "OKUL")).toBe(false);
+  });
+});
+
+/**
+ * Öğretmen ve paydaş envanterleri — analiz dokümanı Bölüm 2 ve 3.
+ *
+ * İkisinde de GÖRME ile YÖNETME ayrı kapılardır; testler bu ayrımın
+ * kapanmadığını doğrular.
+ */
+describe("öğretmen envanteri", () => {
+  it("öğrenci ve görev almamış öğretmen envanteri göremez", () => {
+    expect(ogretmenEnvanteriGorebilirMi(ogrenciYap())).toBe(false);
+    expect(ogretmenEnvanteriGorebilirMi(rolsuzOgretmenYap())).toBe(false);
+  });
+
+  it("danışman, koordinatör ve merkez envanteri görür", () => {
+    expect(ogretmenEnvanteriGorebilirMi(danismanYap())).toBe(true);
+    expect(ogretmenEnvanteriGorebilirMi(koordinatorYap())).toBe(true);
+    expect(ogretmenEnvanteriGorebilirMi(projeYoneticisiYap())).toBe(true);
+  });
+});
+
+describe("paydaş envanteri", () => {
+  it("öğrenci paydaş listesini göremez", () => {
+    expect(paydasGorebilirMi(ogrenciYap())).toBe(false);
+  });
+
+  it("faaliyet düzenleyen roller listeyi görür", () => {
+    expect(paydasGorebilirMi(danismanYap())).toBe(true);
+    expect(paydasGorebilirMi(koordinatorYap())).toBe(true);
+    expect(paydasGorebilirMi(projeYoneticisiYap())).toBe(true);
+  });
+
+  it("kayıt açma yetkisi görmekten dardır: danışman öğretmen yönetemez", () => {
+    expect(paydasYonetebilirMi(danismanYap(), "34")).toBe(false);
+    expect(paydasYonetebilirMi(ogrenciYap(), "34")).toBe(false);
+  });
+
+  it("il koordinatörü YALNIZCA kendi ilinin paydaşını yönetir", () => {
+    const koordinator = koordinatorYap({ ilKodu: "34" });
+    expect(paydasYonetebilirMi(koordinator, "34")).toBe(true);
+    expect(paydasYonetebilirMi(koordinator, "06")).toBe(false);
+  });
+
+  it("proje yöneticisi her ilin paydaşını yönetir", () => {
+    expect(paydasYonetebilirMi(projeYoneticisiYap(), "06")).toBe(true);
+  });
+
+  /*
+   * Faaliyete paydaş BAĞLAMAK, paydaş kaydını yönetmekten farklıdır: kendi
+   * faaliyetini açan danışman öğretmen bağlantıyı kurabilmeli.
+   */
+  it("faaliyete paydaş bağlamak faaliyetin sahipliğine bakar", () => {
+    const faaliyet = faaliyetYap({ duzenleyenKullaniciId: 200 });
+    expect(faaliyetPaydasiYonetebilirMi(danismanYap({ id: 200 }), faaliyet)).toBe(
+      true,
+    );
+    expect(faaliyetPaydasiYonetebilirMi(danismanYap({ id: 201 }), faaliyet)).toBe(
+      false,
+    );
+    expect(faaliyetPaydasiYonetebilirMi(projeYoneticisiYap(), faaliyet)).toBe(
+      true,
+    );
   });
 });

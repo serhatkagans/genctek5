@@ -24,8 +24,14 @@
 | Okul temsilcisi atama | ✗ | ✓ (kendi okulu) | ✗ | ✓ |
 | İl temsilcisi atama | ✗ | ✗ | ✓ (kendi ili) | ✓ |
 | Çalışma grubu tanımlama | ✗ | ✗ | ✗ | ✓ |
-| Faaliyete başvuru | ✓ | ✗ | ✗ | ✗ |
+| Faaliyete katılımcı olarak başvuru | ✓ | ✓ | ✓ | ✗ |
+| Öğrenci ADINA başvuru | ✗ | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller |
 | Faaliyet düzenleme / iptal etme | ✗ | Kendi açtığı faaliyette | Kendi açtığı faaliyette | Her faaliyette |
+| Öğretmen envanterini görüntüleme | ✗ | Kendi okulu | Kendi ili | Tüm iller |
+| Paydaş envanterini görüntüleme | ✗ | Kendi ili | Kendi ili | Tüm iller |
+| Paydaş kaydı ekleme / düzenleme | ✗ | ✗ | Kendi ili | Tüm iller |
+| Faaliyete paydaş bağlama | ✗ | Kendi açtığı faaliyete | Kendi açtığı faaliyete | Her faaliyete |
+| Bildirim şablonu düzenleme | ✗ | ✗ | ✗ | ✓ |
 | Rol/atama envanterini görüntüleme | ✗ | ✗ | ✗ | ✓ |
 
 **Rol/atama envanteri**, "Öğrenci/öğretmen verisi görüntüleme" satırından **ayrı** bir yetkidir: o tekil profil erişimi, bu toplu/yönetimsel görünüm. İl koordinatörü kendi ilindeki danışmansız okulları zaten görür; envanter aynı sorguyu **il filtresi olmadan** çalıştırdığı için yalnızca proje yöneticisine açıktır.
@@ -34,16 +40,36 @@
 
 **"Öğrenciyi çalışma grubuna ekleme"** ile **"çalışma grubu tanımlama"** ayrı satırlardır: ilki mevcut bir gruba öğrenci yazmak, ikincisi grup listesini yönetmektir (yalnızca proje yöneticisi).
 
+**Faaliyete başvuruyu öğretmen de yapar.** Katılımcı "öğrenci" değil "kişi"dir; dışarıda kalan tek rol, ulusal faaliyetleri düzenleyip onaylayan proje yöneticisidir. **Öğrenci adına başvuru** ayrı bir satırdır ve yalnızca öğrenciler için geçerlidir: bir öğretmen başka bir öğretmen adına başvuramaz. Hedef öğrenci, başvuranın kapsam filtresinden geçmek zorundadır ve öğrenciye bildirim gider — başvuruyu kendisi geri çekebilir.
+
+**Paydaş envanterinde görme ile yönetme ayrı satırlardır.** Danışman öğretmen kendi ilinin paydaşlarını görür ve faaliyetine bağlar ama listeye kayıt ekleyemez: her öğretmen ekleyebilseydi aynı kurum onlarca kez farklı yazımla girilir ve il bazlı iş birliği haritası kullanılamaz hâle gelirdi.
+
+**Öğretmen envanterinde danışmanın kapsamı okuldur**, öğrencide olduğu gibi "kendi danışmanlığındakiler" değil: meslektaş listesi kişisel veri bakımından daha dardır (sınıf, çalışma grubu, kazanım yoktur) ve okuldaki diğer danışmanı görmek iş birliğinin ön koşuludur.
+
 ## 2. Kapsam filtresi
 
 Yetki rolden değil, rolün **bağlı olduğu kurum/ilden** gelir. Öğrenci sorgulayan her endpoint bu filtreden geçmeli — istisna yok.
 
 ```
+# Öğrenci envanteri (ogrenciKapsamFiltresi)
 PROJE_YONETICISI  → filtre yok
 IL_KOORDINATOR    → WHERE ogrenci.il_kodu = @kullanicininIlKodu
 DANISMAN          → WHERE ogrenci.kurum_kodu = @kullanicininKurumKodu
                       AND aktif_danisman_atama.danisman_kullanici_id = @kullaniciId
 OGRENCI           → WHERE ogrenci.id = @kullaniciId
+
+# Öğretmen envanteri (ogretmenKapsamFiltresi)
+# "Öğretmen" = aktif OGRENCI rolü olmayan kullanıcı; YEĞİTEK personeli listede yok.
+PROJE_YONETICISI  → filtre yok
+IL_KOORDINATOR    → WHERE kullanici.il_kodu = @kullanicininIlKodu
+DANISMAN          → WHERE kullanici.kurum_kodu = @kullanicininKurumKodu
+diğer             → hiçbir kayıt (fail closed)
+
+# Paydaş envanteri (paydasKapsamFiltresi)
+PROJE_YONETICISI  → filtre yok
+IL_KOORDINATOR    → WHERE paydas.il_kodu = @koordinatorunIli
+DANISMAN          → WHERE paydas.il_kodu = @kullanicininIlKodu
+OGRENCI           → hiçbir kayıt
 ```
 
 Bunu her sorguya elle yazma — merkezi bir yetki servisi ya da ORM'in query-scoping mekanizması (ör. Prisma middleware) kullan. Elle yazılan filtreler er geç bir endpoint'te unutulur ve veri sızar.

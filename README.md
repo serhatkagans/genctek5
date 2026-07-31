@@ -72,7 +72,7 @@ Kısa hâli: `git clone` → `.env` doldur → `npm ci && npm run build` →
 |---|---|
 | `npm run dev` | Geliştirme sunucusu |
 | `npm run build` / `npm start` | Üretim derlemesi ve sunucu |
-| `npm test` | Birim testler (209 test) |
+| `npm test` | Birim testler (287 test) |
 | `npm run test:duman` | Gerçek veritabanında uçtan uca doğrulama (40 kontrol) |
 | `npm run test:eposta` | E-posta kopyasının bildirim akışına doğru bağlandığını sınar (4 kontrol) |
 | `npm run senaryo:goruntu` | Yetki senaryolarını ve faaliyet akışını tarayıcıda gezer, ekran görüntüsü alır (`--tema=a` / `--tema=b` / `--tema=c` ile diğer temalar) |
@@ -340,22 +340,28 @@ src/lib/
   depolama/              DepolamaSaglayici soyutlaması (yerel disk / S3)
   yetki/                 izin matrisi, kapsam filtresi, log
   danisman/              atama ve devir (karar.ts saf, atama.ts veritabanı)
-  faaliyet/              kurallar.ts + ek-kurallar.ts saf kurallar, erisim.ts görünürlük
+  faaliyet/              kurallar.ts + ek-kurallar.ts + takvim.ts saf kurallar, erisim.ts görünürlük
   kullanici/             ilk giriş sağlama, salt okunur alanlar, senkron
   ogrenci/               profil erişimi, kazanım ve CV kuralları (kurallar saf, cv.ts depolama)
-  ogretmen/              danışmanlık görevi işaretleme
-  bildirim/              şablonlu bildirim + e-posta kopyası
+  ogretmen/              danışmanlık görevi, görev yılı hesabı (gorev-yillari.ts saf)
+  paydas/                il bazlı paydaş envanteri kuralları (saf)
+  bildirim/              şablonlu bildirim + e-posta ve SMS kopyası
   eposta/                EpostaSaglayici soyutlaması (günlük / SMTP)
+  sms/                   SmsSaglayici soyutlaması (kapalı / günlük / operatör)
   kazanim/               rozet kuralları (rozetler.ts saf, getir.ts veritabanı)
-  rapor/                 rol envanteri ve CSV üretimi
+  rapor/                 rol envanteri, CSV üretimi ve filtre seçenekleri
 src/app/page.tsx         açılış ekranı (EBA ile giriş kapısı)
 src/app/giris/           kimlik seçimi (mock aşama) ve giriş eylemi
 src/app/panel/           Next.js ekranları ve sunucu eylemleri
-  faaliyetler/           liste, açma formu, detay + başvuru + değerlendirme
+  faaliyetler/           liste, açma formu, detay + başvuru + değerlendirme + paydaş
   gorev-rolleri/         İl Temsilcisi / Okul Temsilcisi atama
   rol-envanteri/         il koordinatörü / danışman boşlukları + koordinatör atama
   ogrenciler/            öğrenci envanteri, filtreler ve CSV çıktısı
   ogrenciler/[id]/       tekil öğrenci profili, çalışma grubu ekleme, CV indirme
+  ogretmenler/           öğretmen envanteri, filtreler ve CSV çıktısı
+  ogretmenler/[id]/      tekil öğretmen kaydı: görev yılları, etkinlikleri
+  paydaslar/             il bazlı paydaş envanteri + CSV
+  paydaslar/[id]/        tekil paydaş kaydı ve düzenleme
   profil/                kendi profili: iletişim, kazanım girişi, CV yükleme
   kazanimlarim/          öğrencinin katılım geçmişi ve rozetleri
 src/app/globals.css      dört temanın renk değişkenleri
@@ -381,8 +387,13 @@ Skill'deki 13 adımlık geliştirme sırasına göre:
 | 9 | Başvuru ve değerlendirme | Tamam |
 | 10 | Raporlama ve filtreleme | Tamam (filtreler + CSV dışa aktarma) |
 | 11 | KVKK aydınlatma ve saklama süresi | Tamam |
-| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (181 test) |
+| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (287 test) |
 | 13 | Gerçek EBA SSO entegrasyonu | Erişim bekleniyor |
+| 14 | Danışman öğretmen envanteri (analiz Bölüm 2) | Tamam |
+| 15 | İl bazlı paydaş bilgi sistemi (analiz Bölüm 3) | Tamam |
+| 16 | Öğretmen ve vekaleten başvuru (analiz 4.2) | Tamam |
+| 17 | Etkinlik takvimi ve duyuru şeridi (analiz Bölüm 6) | Tamam |
+| 18 | Bildirim şablonu yönetimi ve SMS kanalı (analiz 6.1) | Tamam |
 
 ### Tanıtıcı görsel
 
@@ -450,8 +461,137 @@ fonksiyonları hazır, eksik olan iş akışı/ekran katmanı:
 | Eksik | Nerede duruyor | Etki |
 |---|---|---|
 | **Gerçek EBA SSO** (adım 13) | `eba-provider.ts` boş, `mock` etkin | Yüksek ama dışa bağımlı: erişim gelene kadar yapılabilecek her şey yapıldı |
-| **SMS bildirimi** | `GonderimKanali` enum'unda var, uygulaması yok | Düşük: e-posta kopyası devrede; SMS için operatör anlaşması gerekiyor |
+| **Mezun modülü** (analiz 1.3) | Yok; bilinçli olarak kapsam dışı | Kullanıcı kararıyla ertelendi |
+| **SMS operatör anlaşması** | Sağlayıcı ve akış hazır (`src/lib/sms/`), `SMS_SAGLAYICI="kapali"` | Düşük: uç nokta ve anahtar girildiğinde kanal kod değişikliği olmadan açılır |
 | **PDF çıktısı** | CSV var, PDF yok | Düşük: listeler tabloya dökülüyor; imzalı belge ihtiyacı ortaya çıkarsa eklenir |
+
+### Danışman öğretmen envanteri
+
+`/panel/ogretmenler` — analiz dokümanı Bölüm 2. Kapsamı öğrenci envanteriyle
+aynı mantıkta kurulur (`ogretmenKapsamFiltresi`): danışman öğretmen kendi
+okulunu, il koordinatörü kendi ilini, YEĞİTEK tüm ülkeyi görür. Öğrenci bu
+ekrana hiçbir koşulda giremez.
+
+"Öğretmen" ayrı bir tip DEĞİLDİR: aktif öğrenci rolü olmayan kullanıcıdır.
+YEĞİTEK personeli listeden çıkarılır — okulda görevli bir öğretmen değildir.
+
+**Görev aldığı eğitim-öğretim yılları** ayrı bir sütunda tutulmaz; `kullanici_rol`
+kayıtlarının başlangıç/bitiş tarihlerinden türetilir
+(`src/lib/ogretmen/gorev-yillari.ts`). İkinci bir yer tutulsaydı rol devri
+sırasında ikisi ayrışır ve hangisinin doğru olduğu bilinemezdi. Yıl sınırı
+**1 Eylül**'dür: Ağustos'ta yapılan atama önceki yıla sayılır.
+
+Tekil kayıtta (`/panel/ogretmenler/[id]`) branş, okul, görev geçmişi, iletişim
+bilgisi, danışmanlığındaki öğrenciler, düzenlediği ve katıldığı etkinlikler
+görünür. **Öğrenci ve faaliyet listeleri bakan kişinin KENDİ kapsamından
+yeniden geçer**: bir danışman, meslektaşının profilini açarak onun
+öğrencilerinin adlarını göremez.
+
+Ulusal/uluslararası etkinlikler için ayrı bir tablo açılmadı: GençTek'in ulusal
+programları (Zirve, Sınır Ötesi, G2S, EğitiJAM) zaten `kapsam = ULUSAL` olan
+faaliyetlerdir ve liste oradan türetilir.
+
+### Paydaş envanteri
+
+`/panel/paydaslar` — analiz dokümanı Bölüm 3. Kayıt **ile** bağlıdır; il
+koordinatörü ve YEĞİTEK yönetir, danışman öğretmen görür ve kendi faaliyetine
+bağlar.
+
+Görme ile yönetme AYRI kapılardır (`paydasGorebilirMi` / `paydasYonetebilirMi`).
+Her öğretmen de ekleyebilseydi aynı üniversite onlarca kez farklı yazımla
+girilir ve "il bazlı iş birliği haritası" kullanılamaz hâle gelirdi.
+
+- Zorunlu alanlar: kurum adı, tür, il, **iş birliği alanı** ve en az bir
+  iletişim bilgisi (yetkili kişi / e-posta / telefon). Ulaşılamayan paydaş,
+  paydaş değildir.
+- Aynı ilde aynı adla ikinci **aktif** kayıt açılamaz (kısmi unique index).
+- **Silme yoktur**: iş birliği bitince kayıt pasife alınır, geçmiş faaliyet
+  bağlantıları bozulmaz.
+- İl DEĞİŞTİRİLEMEZ: kaydı başka ile taşımak, o ilin envanterine haberi olmadan
+  satır eklemek olurdu.
+
+Faaliyet detayındaki **Paydaş bilgisi** kartı, analiz dokümanı 4.3'teki
+"paydaş bilgisi (varsa)" sonuç alanının karşılığıdır. Bağlantıyı faaliyeti açan
+kullanıcı kurar; paydaşın ili faaliyetin iliyle aynı olmak zorunda değildir.
+
+### Öğretmen ve vekaleten başvuru
+
+Analiz dokümanı 4.2 iki maddeyi birden istiyor: "öğrenci ve öğretmenler
+başvurabilmeli" ve "danışman öğretmen öğrenci adına başvurabilir". İkisi de
+`basvuru` tablosunun katılımcı temeline geçmesiyle karşılandı:
+
+- `ogrenci_id` → **`katilimci_id`**. Katılımcı öğrenci de öğretmen de olabilir.
+- Yeni `adina_basvuran_kullanici_id`: NULL ise başvuruyu katılımcı kendisi
+  yapmıştır, doluysa öğretmen öğrenci adına yapmıştır.
+
+Katılımcının öğrenci mi öğretmen mi olduğu **sütunda tutulmaz**, aktif rolünden
+okunur: kopyalanan bir tip alanı, öğrenci mezun olduğunda ya da öğretmen görev
+değiştirdiğinde eskirdi.
+
+Vekaleten başvurunun sınırları:
+
+- Yalnızca **öğrenci** adına yapılır; öğretmen adına yapılamaz.
+- Hedef öğrenci, başvuranın **kapsam filtresinden** geçmek zorundadır — rol
+  kontrolü tek başına yeterli olsaydı bir danışman ilin öbür ucundaki öğrenci
+  adına başvurabilirdi.
+- Öğrenciye **bildirim gider** ve başvuruyu kendisi geri çekebilir. Katılım
+  kişinin kendi zamanını bağlayan bir karardır; habersiz bırakılamaz.
+- Başvuruyu, katılımcı ile onun adına başvuran kişi geri çekebilir.
+  Değerlendirme sonucu ikisine de bildirilir.
+
+Proje yöneticisi (YEĞİTEK) katılımcı olamaz: ulusal faaliyetleri düzenleyen ve
+onaylayan taraf kendi etkinliğine başvurmaz.
+
+### Etkinlik takvimi ve duyuru şeridi
+
+Analiz dokümanı Bölüm 6: "Sisteme ilk girişte etkinlik takvimi görülecek
+(geçmiş/aktif/yaklaşan). Başvurusu aktif olan faaliyetler ayrıca şerit halinde
+aksın."
+
+Panelin üstünde **akan şerit** başvurusu açık faaliyetleri gösterir; başvurusu
+önce kapanacak olan başta durur. Şeridin altında **üç sütunlu takvim** vardır:
+bugün / yaklaşan / geçmiş (son 90 gün). Takvim bir arşiv değildir; tamamı
+Faaliyetler ekranındadır.
+
+İki ayrıntı kasıtlı:
+
+- Takvim karşılaştırması **gün** bazındadır, an bazında değil. Sabah 10'da
+  yapılan etkinlik öğleden sonra "geçmiş" görünseydi, o günün programını takip
+  eden kullanıcı etkinliği listede kaybederdi.
+- Şerit, **üzerine gelindiğinde ve klavyeyle odaklanıldığında durur**;
+  `prefers-reduced-motion` açıksa hiç akmaz. Akan bir bağlantıya tıklamaya
+  çalışmak kullanılabilirlik hatasıdır, sürekli hareket ise vestibüler
+  duyarlılığı olan kullanıcıda rahatsızlık yaratır.
+
+### Bildirim şablonları ve SMS
+
+Şablon metinleri `bildirim_sablonu` tablosundadır ve **Yönetim** ekranından
+düzenlenir (analiz dokümanı 6.1). Kod listesi sabittir ve koddan gelir
+(`src/lib/bildirim/sablon.ts`): şablonu tetikleyen olay kodda yaşar, veritabanına
+elle eklenen bir satır kendiliğinden bildirim üretmez.
+
+Ekran, metni **kaydetmeden önce doğrular**: her şablonun kullanabileceği
+değişkenler tanımlıdır ve metne yazılan `{{ogrenci}}` gibi tanımsız bir yer
+tutucu reddedilir. Aksi halde hata ancak bildirim kullanıcıya ham süslü
+parantezle ulaştığında fark edilirdi.
+
+SMS, e-postanın ikizi olan ikinci bir kopya kanalıdır (`src/lib/sms/`):
+
+| Sağlayıcı | Davranış |
+|---|---|
+| `kapali` | Hiç denenmez — **varsayılan** |
+| `gunluk` | Gönderilmez, sunucu günlüğüne yazılır |
+| `http` | Operatör/toplu SMS servisinin uç noktasına gönderilir |
+
+Varsayılan e-postadan farklı olarak "gunluk" bile değil, tamamen kapalıdır: SMS
+ücretli, geri alınamaz ve alıcıların çoğu 18 yaş altı. Operatör anlaşması
+yapıldığında `SMS_SAGLAYICI="http"`, `SMS_API_URL` ve `SMS_API_ANAHTARI`
+girilir; kod değişmez. Gönderim sonucu bildirim kaydına yazılır (`sms_durumu`,
+`sms_hatasi`) ve Yönetim ekranında sayılır — sessiz başarısızlık, hiç
+göndermemekten kötüdür.
+
+Panel bildirimi her koşulda yazılır; iki kanal da yalnızca birer kopyadır ve
+gitmemeleri bildirimi geçersiz kılmaz.
 
 ### Rapor dışa aktarma (CSV)
 
@@ -864,8 +1004,14 @@ ayar değil, uygulanmış kural hâline geldiler:
 
 ## Kapsam dışı
 
-Mezun modülü, çalışma grubu sohbet odaları, il bazlı paydaş bilgi sistemi ve
-faaliyete toplu öğrenci ekleme bilinçli olarak yapılmadı.
+Mezun modülü (analiz dokümanı 1.3), çalışma grubu sohbet odaları ve faaliyete
+TOPLU öğrenci ekleme bilinçli olarak yapılmadı. Tek tek öğrenci adına başvuru
+yapılabiliyor (bkz. *Öğretmen ve vekaleten başvuru*); toplu ekleme, kontenjan
+kilidini tek tek başvuruyla aynı güvenlikte tutmayı zorlaştırdığı için ayrı bir
+faz olarak bırakıldı.
+
+İl bazlı paydaş bilgi sistemi ARTIK kapsam dışı DEĞİL: uygulandı (bkz.
+*Paydaş envanteri*).
 
 Rozet sistemi kapsam dışı **değil**: türetilmiş rozetlerle uygulandı (bkz.
 *Kazanımlar ve rozetler*). `domain-rules.md` Bölüm 13'teki elle verilen kazanım

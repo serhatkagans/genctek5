@@ -33,6 +33,8 @@ import {
   type FaaliyetYeri,
   faaliyetYeriBelirle,
   kapsamSecenekleri,
+  katilimciTipi,
+  vekaletenBasvuruGecerliMi,
   kontenjanDegisikligiGecerliMi,
   kontenjanDurumu,
   onayDurumuBelirle,
@@ -41,6 +43,7 @@ import {
 } from "@/lib/faaliyet/kurallar";
 import { gunBasi, gunSonu, yerelTarihSaat } from "@/lib/tarih";
 import {
+  baskasiAdinaBasvurabilirMi,
   basvuruDegerlendirebilirMi,
   basvuruYapabilirMi,
   ekYukleyebilirMi,
@@ -48,6 +51,7 @@ import {
   faaliyetOnaylayabilirMi,
   koordinatorIlKodu,
 } from "@/lib/yetki/izinler";
+import { ogrenciKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
 
@@ -428,7 +432,7 @@ export async function faaliyetIptalEylemi(veri: FormData): Promise<void> {
 
     const kapatilacaklar = await islem.basvuru.findMany({
       where: { faaliyetId: faaliyet.id, durum: { in: ["BEKLIYOR", "SECILDI", "YEDEK"] } },
-      select: { id: true, ogrenciId: true },
+      select: { id: true, katilimciId: true },
     });
 
     await islem.basvuru.updateMany({
@@ -445,7 +449,7 @@ export async function faaliyetIptalEylemi(veri: FormData): Promise<void> {
 
   for (const basvuru of etkilenenler) {
     await bildirimGonder({
-      kullaniciId: basvuru.ogrenciId,
+      kullaniciId: basvuru.katilimciId,
       kod: BILDIRIM_KODLARI.FAALIYET_IPTAL_EDILDI,
       degiskenler: {
         faaliyetAdi: faaliyet.ad,
@@ -527,12 +531,19 @@ export async function faaliyetOnayEylemi(veri: FormData): Promise<void> {
 // Başvuru
 // ---------------------------------------------------------------------------
 
+/**
+ * Faaliyete başvuru.
+ *
+ * ÜÇ akış tek eylemden geçer (analiz dokümanı 4.2):
+ *   1. Öğrenci kendi adına başvurur.
+ *   2. Öğretmen kendi adına başvurur — katılımcı öğrenci olmak zorunda değil.
+ *   3. Danışman öğretmen / il koordinatörü ÖĞRENCİSİ adına başvurur.
+ *
+ * Üçünü ayrı eyleme bölmek, kontenjan kilidi ve pencere kontrolü gibi asıl işi
+ * üç kez yazmak olurdu; ayrılan tek şey KİMİN adına yazıldığıdır.
+ */
 export async function basvuruYapEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
-
-  if (!basvuruYapabilirMi(kullanici)) {
-    throw new YetkiHatasi("Başvuruyu yalnızca öğrencinin kendisi yapar.");
-  }
 
   const faaliyetId = sayi(veri, "faaliyetId");
   if (faaliyetId === null) throw new BulunamadiHatasi();
@@ -545,6 +556,65 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
   const gerekce = metin(veri, "gerekce");
   if (!gerekce) {
     hataylaDon(yol, "Başvuru gerekçesi zorunludur.");
+  }
+
+  /*
+   * Vekaleten başvuru: form "katilimciId" taşıyorsa ve bu kişi başvuranın
+   * kendisi değilse, öğrenci adına başvuru yapılıyordur.
+   */
+  const istenenKatilimciId = sayi(veri, "katilimciId");
+  const vekaletenMi =
+    istenenKatilimciId !== null && istenenKatilimciId !== kullanici.id;
+
+  let katilimciId = kullanici.id;
+  let adinaBasvuranKullaniciId: number | null = null;
+  let katilimciAdSoyad = `${kullanici.ad} ${kullanici.soyad}`;
+  let katilimciIlKodu = kullanici.ilKodu;
+
+  if (vekaletenMi) {
+    if (!baskasiAdinaBasvurabilirMi(kullanici)) {
+      throw new YetkiHatasi("Başkası adına başvuru yetkiniz yok.");
+    }
+
+    /*
+     * Öğrenci KAPSAM filtresinden geçirilerek aranır: kapsam dışı bir öğrenci
+     * "bulunamaz". Rol kontrolü tek başına yeterli olsaydı bir danışman,
+     * ilinin öbür ucundaki öğrenci adına başvuru yapabilirdi.
+     */
+    const ogrenci = await prisma.kullanici.findFirst({
+      where: {
+        AND: [{ id: istenenKatilimciId }, ogrenciKapsamFiltresi(kullanici)],
+      },
+      select: {
+        id: true,
+        ad: true,
+        soyad: true,
+        ilKodu: true,
+        roller: { where: { bitisTarihi: null }, select: { rolKodu: true } },
+      },
+    });
+    if (!ogrenci) {
+      hataylaDon(yol, "Öğrenci bulunamadı ya da görüntüleme kapsamınızda değil.");
+    }
+
+    const vekaletKarari = vekaletenBasvuruGecerliMi({
+      hedefTipi: katilimciTipi(ogrenci.roller),
+      vekilKullaniciId: kullanici.id,
+      hedefKullaniciId: ogrenci.id,
+    });
+    if (!vekaletKarari.olurMu) {
+      hataylaDon(yol, vekaletKarari.neden ?? "Adına başvuru yapılamaz.");
+    }
+
+    katilimciId = ogrenci.id;
+    adinaBasvuranKullaniciId = kullanici.id;
+    katilimciAdSoyad = `${ogrenci.ad} ${ogrenci.soyad}`;
+    katilimciIlKodu = ogrenci.ilKodu;
+  } else if (!basvuruYapabilirMi(kullanici)) {
+    // Kendi adına başvuru: proje yöneticisi dışında herkes yapabilir.
+    throw new YetkiHatasi(
+      "Faaliyeti düzenleyen merkez, kendi etkinliğine katılımcı olarak başvuramaz.",
+    );
   }
 
   /*
@@ -564,7 +634,7 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
     });
 
     const mevcut = await islem.basvuru.findFirst({
-      where: { faaliyetId, ogrenciId: kullanici.id },
+      where: { faaliyetId, katilimciId },
       orderBy: { basvuruTarihi: "desc" },
       select: { durum: true },
     });
@@ -588,7 +658,7 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
     // çekilmişleri dışarıda bıraktığı için ikisi bir arada durabilir ve
     // öğrencinin başvuru geçmişi korunur.
     const olusan = await islem.basvuru.create({
-      data: { faaliyetId, ogrenciId: kullanici.id, gerekce },
+      data: { faaliyetId, katilimciId, adinaBasvuranKullaniciId, gerekce },
       select: { id: true },
     });
     return { hata: null, basvuruId: olusan.id };
@@ -612,24 +682,43 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
   if (
     danismanaKopyaGerekiyorMu({
       kapsam: faaliyet.kapsam,
-      ogrenciIlKodu: kullanici.ilKodu,
+      ogrenciIlKodu: katilimciIlKodu,
       duzenleyenIlKodu: duzenleyenMerkezMi ? null : faaliyet.duzenleyen.ilKodu,
     })
   ) {
     const atama = await prisma.danismanAtama.findFirst({
-      where: { ogrenciId: kullanici.id, bitisTarihi: null },
+      where: { ogrenciId: katilimciId, bitisTarihi: null },
       select: { danismanKullaniciId: true },
     });
-    if (atama) {
+    // Başvuruyu danışmanın kendisi yaptıysa kendine kopya göndermek gereksiz.
+    if (atama && atama.danismanKullaniciId !== kullanici.id) {
       await bildirimGonder({
         kullaniciId: atama.danismanKullaniciId,
         kod: BILDIRIM_KODLARI.DANISMANA_KOPYA_ULUSAL_BASVURU,
         degiskenler: {
-          ogrenciAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+          ogrenciAdSoyad: katilimciAdSoyad,
           faaliyetAdi: faaliyet.ad,
         },
       });
     }
+  }
+
+  /*
+   * Adına başvurulan öğrenci HABERDAR EDİLİR. Katılım kişinin kendi
+   * zamanını ve emeğini bağlayan bir karardır; öğrencinin başvurudan
+   * habersiz kalması, sonucu okunmayan bir seçim yapılması demek olurdu.
+   * Öğrenci uygun görmezse başvuruyu kendisi geri çekebilir.
+   */
+  if (vekaletenMi) {
+    await bildirimGonder({
+      kullaniciId: katilimciId,
+      kod: BILDIRIM_KODLARI.ADINA_BASVURU_YAPILDI,
+      degiskenler: {
+        ogrenciAdSoyad: katilimciAdSoyad,
+        faaliyetAdi: faaliyet.ad,
+        basvuranAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+      },
+    });
   }
 
   await erisimLogla({
@@ -637,7 +726,9 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
     islem: "DEGISIKLIK",
     hedefTip: "BASVURU",
     hedefId: basvuru.id,
-    detay: `Faaliyete başvuruldu: ${faaliyet.ad}`,
+    detay: vekaletenMi
+      ? `${katilimciAdSoyad} adına faaliyete başvuruldu: ${faaliyet.ad}`
+      : `Faaliyete başvuruldu: ${faaliyet.ad}`,
   });
 
   revalidatePath(yol);
@@ -650,10 +741,29 @@ export async function basvuruGeriCekEylemi(veri: FormData): Promise<void> {
   const basvuruId = sayi(veri, "basvuruId");
   if (basvuruId === null) throw new BulunamadiHatasi();
 
-  // Sahiplik kontrolü sorgunun içinde: başkasının başvurusu hiç bulunmaz.
+  /*
+   * Sahiplik kontrolü sorgunun içinde: başkasının başvurusu hiç bulunmaz.
+   *
+   * Başvuruyu KATILIMCI ve varsa onun adına başvuran kişi geri çekebilir.
+   * İkincisi olmasaydı, danışmanın yanlışlıkla açtığı bir başvuruyu yalnızca
+   * öğrenci kapatabilirdi; ilkini kaldırmak ise öğrenciyi kendi adına verilmiş
+   * bir karara mahkûm ederdi.
+   */
   const basvuru = await prisma.basvuru.findFirst({
-    where: { id: basvuruId, ogrenciId: kullanici.id },
-    select: { id: true, faaliyetId: true, durum: true },
+    where: {
+      id: basvuruId,
+      OR: [
+        { katilimciId: kullanici.id },
+        { adinaBasvuranKullaniciId: kullanici.id },
+      ],
+    },
+    select: {
+      id: true,
+      faaliyetId: true,
+      durum: true,
+      katilimciId: true,
+      katilimci: { select: { ad: true, soyad: true } },
+    },
   });
   if (!basvuru) throw new BulunamadiHatasi();
 
@@ -672,12 +782,27 @@ export async function basvuruGeriCekEylemi(veri: FormData): Promise<void> {
     data: { durum: "GERI_CEKILDI", geriCekmeTarihi: new Date() },
   });
 
+  // Adına başvurulan kişi, başvurunun kapandığından da haberdar olmalı.
+  if (basvuru.katilimciId !== kullanici.id) {
+    await bildirimGonder({
+      kullaniciId: basvuru.katilimciId,
+      kod: BILDIRIM_KODLARI.ADINA_BASVURU_GERI_CEKILDI,
+      degiskenler: {
+        ogrenciAdSoyad: `${basvuru.katilimci.ad} ${basvuru.katilimci.soyad}`,
+        basvuranAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+      },
+    });
+  }
+
   await erisimLogla({
     kullaniciId: kullanici.id,
     islem: "DEGISIKLIK",
     hedefTip: "BASVURU",
     hedefId: basvuru.id,
-    detay: "Başvuru geri çekildi",
+    detay:
+      basvuru.katilimciId === kullanici.id
+        ? "Başvuru geri çekildi"
+        : `${basvuru.katilimci.ad} ${basvuru.katilimci.soyad} adına yapılan başvuru geri çekildi`,
   });
 
   revalidatePath(yol);
@@ -699,8 +824,9 @@ export async function basvuruDegerlendirEylemi(veri: FormData): Promise<void> {
     select: {
       id: true,
       durum: true,
-      ogrenciId: true,
-      ogrenci: { select: { ad: true, soyad: true } },
+      katilimciId: true,
+      katilimci: { select: { ad: true, soyad: true } },
+      adinaBasvuranKullaniciId: true,
       faaliyet: {
         select: {
           id: true,
@@ -769,15 +895,37 @@ export async function basvuruDegerlendirEylemi(veri: FormData): Promise<void> {
 
   if (hata) hataylaDon(yol, hata);
 
+  const katilimciAdi = `${basvuru.katilimci.ad} ${basvuru.katilimci.soyad}`;
+
   await bildirimGonder({
-    kullaniciId: basvuru.ogrenciId,
+    kullaniciId: basvuru.katilimciId,
     kod: BILDIRIM_KODLARI.BASVURU_SONUCU,
     degiskenler: {
-      ogrenciAdSoyad: `${basvuru.ogrenci.ad} ${basvuru.ogrenci.soyad}`,
+      ogrenciAdSoyad: katilimciAdi,
       faaliyetAdi: basvuru.faaliyet.ad,
       sonuc: BASVURU_DURUMU_ETIKETLERI[yeniDurum],
     },
   });
+
+  /*
+   * Başvuruyu öğrenci adına yapan öğretmen de sonucu görür: takip ettiği
+   * başvurunun akıbetini öğrenmek için öğrenciye sormak zorunda kalmamalı.
+   * Değerlendiren kişi ile aynıysa kendine bildirim gitmez.
+   */
+  if (
+    basvuru.adinaBasvuranKullaniciId !== null &&
+    basvuru.adinaBasvuranKullaniciId !== kullanici.id
+  ) {
+    await bildirimGonder({
+      kullaniciId: basvuru.adinaBasvuranKullaniciId,
+      kod: BILDIRIM_KODLARI.ADINA_BASVURU_SONUCU,
+      degiskenler: {
+        ogrenciAdSoyad: katilimciAdi,
+        faaliyetAdi: basvuru.faaliyet.ad,
+        sonuc: BASVURU_DURUMU_ETIKETLERI[yeniDurum],
+      },
+    });
+  }
 
   await erisimLogla({
     kullaniciId: kullanici.id,

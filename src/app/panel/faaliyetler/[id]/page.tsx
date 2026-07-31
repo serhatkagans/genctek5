@@ -5,15 +5,18 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileText,
+  Handshake,
   Info,
   MapPin,
   MessageSquare,
   Paperclip,
   PencilLine,
+  Plus,
   Send,
   Star,
   Trash2,
   Upload,
+  UserPlus,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -43,22 +46,29 @@ import {
   basvuruYapilabilirMi,
   ETKINLIK_KATEGORISI_ETIKETLERI,
   faaliyetIcerikAlabilirMi,
+  KATILIMCI_TIPI_ETIKETLERI,
+  katilimciTipi,
   kontenjanAltSiniri,
   kontenjanDurumu,
 } from "@/lib/faaliyet/kurallar";
+import { PAYDAS_TURU_ETIKETLERI } from "@/lib/paydas/kurallar";
 import { girdiTarihi, girdiTarihSaati, tarihSaatYaz, tarihYaz } from "@/lib/tarih";
 import {
+  baskasiAdinaBasvurabilirMi,
   basvuruDegerlendirebilirMi,
   basvuruYapabilirMi,
   ekYukleyebilirMi,
   faaliyetIptalEdebilirMi,
   faaliyetOnaylayabilirMi,
+  faaliyetPaydasiYonetebilirMi,
   yetkiDevrolduMu,
   yorumSilebilirMi,
   yorumYazabilirMi,
 } from "@/lib/yetki/izinler";
 import {
-  DEGERLENDIRME_OGRENCI_ALANLARI,
+  DEGERLENDIRME_KATILIMCI_ALANLARI,
+  ogrenciKapsamFiltresi,
+  paydasKapsamFiltresi,
   ulusalBasvuranFiltresi,
 } from "@/lib/yetki/kapsam";
 import { erisimLogla, erisimLoglaCoklu } from "@/lib/yetki/log";
@@ -73,6 +83,8 @@ import {
 import {
   ekSilEylemi,
   ekYukleEylemi,
+  faaliyetPaydasCikarEylemi,
+  faaliyetPaydasEkleEylemi,
   kapakSecEylemi,
   yorumSilEylemi,
   yorumYazEylemi,
@@ -105,6 +117,9 @@ const DURUM_MESAJLARI: Record<string, string> = {
     "Faaliyet güncellendi. Kritik alanlar değiştiği için faaliyet yeniden proje yöneticisi onayına düştü ve onaylanana kadar öğrencilere görünmez.",
   "iptal-edildi":
     "Faaliyet iptal edildi. Aktif başvurular kapatıldı ve öğrencilere bildirim gönderildi.",
+  "paydas-eklendi": "Paydaş faaliyete bağlandı.",
+  "paydas-cikarildi":
+    "Paydaş bağlantısı kaldırıldı. Paydaş kaydının kendisi silinmedi.",
 };
 
 function Satir({
@@ -239,7 +254,9 @@ export default async function FaaliyetDetaySayfasi({
   const kontenjan = kontenjanDurumu(faaliyet.basvurular, faaliyet.kontenjan);
   const kapsamBilgisi = faaliyetKapsamiCikar(faaliyet);
 
-  const ogrenciBasvurabilir = basvuruYapabilirMi(kullanici);
+  // Katılımcı öğretmen de olabilir; kapı "öğrenci mi" değil "başvurabilir mi".
+  const kendiAdinaBasvurabilir = basvuruYapabilirMi(kullanici);
+  const vekaletenBasvurabilir = baskasiAdinaBasvurabilirMi(kullanici);
   const degerlendirebilir = basvuruDegerlendirebilirMi(kullanici, kapsamBilgisi);
   const devroldu = yetkiDevrolduMu(kullanici, kapsamBilgisi);
   const ekYonetebilir = ekYukleyebilirMi(kullanici, kapsamBilgisi);
@@ -304,21 +321,22 @@ export default async function FaaliyetDetaySayfasi({
   }
   const kokYorumlar = yorumlar.filter((yorum) => yorum.ustYorumId === null);
 
-  // Öğrencinin kendi başvurusu — başkasının başvurusu bu sorgudan gelmez.
-  const kendiBasvurum = ogrenciBasvurabilir
+  // Kişinin kendi başvurusu — başkasının başvurusu bu sorgudan gelmez.
+  const kendiBasvurum = kendiAdinaBasvurabilir
     ? await prisma.basvuru.findFirst({
-        where: { faaliyetId: faaliyet.id, ogrenciId: kullanici.id },
+        where: { faaliyetId: faaliyet.id, katilimciId: kullanici.id },
         orderBy: { basvuruTarihi: "desc" },
         select: {
           id: true,
           durum: true,
           gerekce: true,
           basvuruTarihi: true,
+          adinaBasvuran: { select: { ad: true, soyad: true } },
         },
       })
     : null;
 
-  const basvuruKarari = ogrenciBasvurabilir
+  const basvuruKarari = kendiAdinaBasvurabilir
     ? basvuruYapilabilirMi({
         pencere,
         onayDurumu: faaliyet.onayDurumu,
@@ -349,7 +367,10 @@ export default async function FaaliyetDetaySayfasi({
           durum: true,
           gerekce: true,
           basvuruTarihi: true,
-          ogrenci: { select: DEGERLENDIRME_OGRENCI_ALANLARI },
+          katilimci: { select: DEGERLENDIRME_KATILIMCI_ALANLARI },
+          // Vekaleten başvuruda değerlendiren, başvuruyu kimin yaptığını da
+          // görmeli: gerekçeyi yazan kişi öğrencinin kendisi olmayabilir.
+          adinaBasvuran: { select: { ad: true, soyad: true } },
         },
       })
     : [];
@@ -359,12 +380,73 @@ export default async function FaaliyetDetaySayfasi({
       basvuranlar.map((basvuru) => ({
         kullaniciId: kullanici.id,
         islem: "GORUNTULEME" as const,
-        hedefTip: "OGRENCI" as const,
-        hedefId: basvuru.ogrenci.id,
+        // Katılımcı öğretmen de olabildiği için hedef tipi rolden belirlenir.
+        hedefTip:
+          katilimciTipi(basvuru.katilimci.roller) === "OGRENCI"
+            ? ("OGRENCI" as const)
+            : ("OGRETMEN" as const),
+        hedefId: basvuru.katilimci.id,
         detay: `Başvuru değerlendirme ekranı: ${faaliyet.ad}`,
       })),
     );
   }
+
+  /*
+   * Vekaleten başvuru için aday öğrenciler: kapsam filtresinden geçen ve bu
+   * faaliyete aktif başvurusu OLMAYAN öğrenciler. Aktif başvurusu olanı listede
+   * bırakmak, kullanıcıyı zaten reddedilecek bir seçime davet etmek olurdu.
+   */
+  const vekaletAdaylari =
+    vekaletenBasvurabilir && basvuruPenceresi(faaliyet, simdi) === "ACIK"
+      ? await prisma.kullanici.findMany({
+          where: {
+            AND: [
+              ogrenciKapsamFiltresi(kullanici),
+              {
+                basvurular: {
+                  none: {
+                    faaliyetId: faaliyet.id,
+                    durum: { notIn: ["GERI_CEKILDI", "IPTAL_EDILDI"] },
+                  },
+                },
+              },
+            ],
+          },
+          select: { id: true, ad: true, soyad: true, sinif: true },
+          orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+          // Uzun listeyi seçim kutusuna sığdırmak anlamsız; okul ölçeğinde
+          // yeterli, il ölçeğinde kullanıcı öğrenci ekranından yönlendirilir.
+          take: 200,
+        })
+      : [];
+
+  const paydaslar = await prisma.faaliyetPaydas.findMany({
+    where: { faaliyetId: faaliyet.id },
+    orderBy: { eklemeTarihi: "asc" },
+    select: {
+      katkisi: true,
+      paydas: {
+        select: { id: true, ad: true, tur: true, il: { select: { ad: true } } },
+      },
+    },
+  });
+
+  // Paydaş seçenekleri de kapsam filtresinden geçer: kullanıcının göremediği
+  // bir kurum listede çıkmaz.
+  const paydasSecenekleri =
+    faaliyetPaydasiYonetebilirMi(kullanici, kapsamBilgisi) && icerikEklenebilir
+      ? await prisma.paydas.findMany({
+          where: {
+            AND: [
+              paydasKapsamFiltresi(kullanici),
+              { aktif: true },
+              { faaliyetler: { none: { faaliyetId: faaliyet.id } } },
+            ],
+          },
+          orderBy: { ad: "asc" },
+          select: { id: true, ad: true, tur: true },
+        })
+      : [];
 
   return (
     <div className="space-y-6">
@@ -637,7 +719,7 @@ export default async function FaaliyetDetaySayfasi({
         </Kart>
       )}
 
-      {ogrenciBasvurabilir && (
+      {kendiAdinaBasvurabilir && (
         <Kart>
           <KartBasligi baslik="Başvurum" Ikon={Send} />
 
@@ -646,9 +728,18 @@ export default async function FaaliyetDetaySayfasi({
               <div className="flex flex-wrap items-center gap-3">
                 <BasvuruRozeti durum={kendiBasvurum.durum} />
                 <span className="text-sm text-metin-yumusak">
-                  {tarihYaz(kendiBasvurum.basvuruTarihi)} tarihinde başvurdunuz
+                  {tarihYaz(kendiBasvurum.basvuruTarihi)} tarihinde
+                  {kendiBasvurum.adinaBasvuran
+                    ? ` ${kendiBasvurum.adinaBasvuran.ad} ${kendiBasvurum.adinaBasvuran.soyad} sizin adınıza başvurdu`
+                    : " başvurdunuz"}
                 </span>
               </div>
+              {kendiBasvurum.adinaBasvuran && (
+                <BilgiKutusu>
+                  Bu başvuruyu öğretmeniniz sizin adınıza yaptı. Katılmak
+                  istemiyorsanız aşağıdan geri çekebilirsiniz.
+                </BilgiKutusu>
+              )}
               <div>
                 <p className="text-sm font-medium text-metin-yumusak">
                   Gerekçeniz
@@ -707,6 +798,157 @@ export default async function FaaliyetDetaySayfasi({
           )}
         </Kart>
       )}
+
+      {vekaletenBasvurabilir && (
+        <Kart>
+          <KartBasligi
+            baslik="Öğrenci adına başvuru"
+            aciklama="Danışmanlığınızdaki / ilinizdeki bir öğrenci adına başvuru yapabilirsiniz. Öğrenciye bildirim gider ve dilerse başvurusunu kendisi geri çeker."
+            Ikon={UserPlus}
+          />
+
+          {faaliyet.durum === "IPTAL_EDILDI" ? (
+            <p className="text-sm text-metin-yumusak">
+              İptal edilmiş faaliyete başvuru alınmıyor.
+            </p>
+          ) : basvuruPenceresi(faaliyet, simdi) !== "ACIK" ? (
+            <p className="text-sm text-metin-yumusak">
+              Başvuru penceresi kapalı.
+            </p>
+          ) : vekaletAdaylari.length === 0 ? (
+            <p className="text-sm text-metin-yumusak">
+              Kapsamınızda bu faaliyete başvurmamış öğrenci kalmadı.
+            </p>
+          ) : (
+            <form action={basvuruYapEylemi} className="space-y-4">
+              <input type="hidden" name="faaliyetId" value={faaliyet.id} />
+
+              <label className="block">
+                <span className="text-sm font-medium text-metin">Öğrenci</span>
+                <select name="katilimciId" required className={SINIF_GIRDI}>
+                  {vekaletAdaylari.map((ogrenci) => (
+                    <option key={ogrenci.id} value={ogrenci.id}>
+                      {ogrenci.ad} {ogrenci.soyad}
+                      {ogrenci.sinif ? ` · ${ogrenci.sinif}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  Öğrencinin bu alandaki ilgisi / başvuru gerekçesi
+                </span>
+                <textarea
+                  name="gerekce"
+                  required
+                  rows={3}
+                  className={SINIF_GIRDI}
+                />
+              </label>
+
+              {kontenjan.doluMu && (
+                <BilgiKutusu cesit="uyari">
+                  Kontenjan dolu; yeni başvuru alınamıyor.
+                </BilgiKutusu>
+              )}
+
+              <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                <UserPlus size={16} aria-hidden />
+                Öğrenci adına başvur
+              </button>
+            </form>
+          )}
+        </Kart>
+      )}
+
+      <Kart>
+        <KartBasligi
+          baslik="Paydaş bilgisi"
+          aciklama={
+            paydasSecenekleri.length > 0 || paydaslar.length > 0
+              ? "Faaliyette iş birliği yapılan kurum ve kuruluşlar."
+              : "Faaliyette iş birliği yapılan kurum ve kuruluşlar. Kayıtlar il paydaş envanterinden gelir."
+          }
+          Ikon={Handshake}
+        />
+
+        {paydaslar.length === 0 ? (
+          <p className="text-sm text-metin-yumusak">
+            Bu faaliyete bağlı paydaş yok.
+          </p>
+        ) : (
+          <ul className="divide-y divide-cizgi">
+            {paydaslar.map((bag) => (
+              <li
+                key={bag.paydas.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-2.5"
+              >
+                <div>
+                  <Link
+                    href={`/panel/paydaslar/${bag.paydas.id}`}
+                    className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
+                  >
+                    {bag.paydas.ad}
+                  </Link>
+                  <p className="text-sm text-metin-yumusak">
+                    {PAYDAS_TURU_ETIKETLERI[bag.paydas.tur]} ·{" "}
+                    {bag.paydas.il.ad}
+                    {bag.katkisi ? ` · ${bag.katkisi}` : ""}
+                  </p>
+                </div>
+                {faaliyetPaydasiYonetebilirMi(kullanici, kapsamBilgisi) && (
+                  <form action={faaliyetPaydasCikarEylemi}>
+                    <input type="hidden" name="faaliyetId" value={faaliyet.id} />
+                    <input type="hidden" name="paydasId" value={bag.paydas.id} />
+                    <button
+                      type="submit"
+                      className="text-sm text-metin-yumusak underline underline-offset-2 transition hover:text-metin"
+                    >
+                      Bağlantıyı kaldır
+                    </button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {paydasSecenekleri.length > 0 && (
+          <form
+            action={faaliyetPaydasEkleEylemi}
+            className="mt-5 flex flex-wrap items-end gap-3 border-t border-cizgi pt-5"
+          >
+            <input type="hidden" name="faaliyetId" value={faaliyet.id} />
+            <label className="block grow">
+              <span className="text-sm font-medium text-metin">Paydaş</span>
+              <select name="paydasId" required className={SINIF_GIRDI}>
+                {paydasSecenekleri.map((paydas) => (
+                  <option key={paydas.id} value={paydas.id}>
+                    {paydas.ad} · {PAYDAS_TURU_ETIKETLERI[paydas.tur]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block grow">
+              <span className="text-sm font-medium text-metin">
+                Katkısı (isteğe bağlı)
+              </span>
+              <input
+                type="text"
+                name="katkisi"
+                maxLength={250}
+                placeholder="mekân · eğitmen · ödül desteği"
+                className={SINIF_GIRDI}
+              />
+            </label>
+            <button type="submit" className={SINIF_IKINCIL_BUTON}>
+              <Plus size={16} aria-hidden />
+              Ekle
+            </button>
+          </form>
+        )}
+      </Kart>
 
       <Kart>
         <KartBasligi
@@ -959,24 +1201,35 @@ export default async function FaaliyetDetaySayfasi({
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-medium text-metin">
-                        {basvuru.ogrenci.ad} {basvuru.ogrenci.soyad}
+                        {basvuru.katilimci.ad} {basvuru.katilimci.soyad}
                       </p>
                       <p className="text-sm text-metin-yumusak">
                         {[
-                          basvuru.ogrenci.sinif,
-                          basvuru.ogrenci.kurum?.ad,
-                          basvuru.ogrenci.il?.ad,
+                          // Katılımcı öğretmen olabildiği için sınıf yerine
+                          // branş gösterilir; ikisi aynı anda dolu olmaz.
+                          KATILIMCI_TIPI_ETIKETLERI[
+                            katilimciTipi(basvuru.katilimci.roller)
+                          ],
+                          basvuru.katilimci.sinif ?? basvuru.katilimci.brans,
+                          basvuru.katilimci.kurum?.ad,
+                          basvuru.katilimci.il?.ad,
                         ]
                           .filter(Boolean)
                           .join(" · ")}
                       </p>
+                      {basvuru.adinaBasvuran && (
+                        <p className="text-sm text-metin-yumusak">
+                          Başvuruyu {basvuru.adinaBasvuran.ad}{" "}
+                          {basvuru.adinaBasvuran.soyad} öğrenci adına yaptı.
+                        </p>
+                      )}
                     </div>
                     <BasvuruRozeti durum={basvuru.durum} />
                   </div>
 
-                  {basvuru.ogrenci.calismaGruplari.length > 0 && (
+                  {basvuru.katilimci.calismaGruplari.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {basvuru.ogrenci.calismaGruplari.map((secim) => (
+                      {basvuru.katilimci.calismaGruplari.map((secim) => (
                         <span
                           key={secim.calismaGrubu.ad}
                           className="rounded-full bg-vurgu-zemin px-2 py-0.5 text-xs text-vurgu-metin"

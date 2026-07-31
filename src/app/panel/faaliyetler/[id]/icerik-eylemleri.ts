@@ -10,11 +10,14 @@ import { ekKaydet, ekSinirlariniGetir } from "@/lib/faaliyet/ek-kaydet";
 import { yorumKabulEdilirMi } from "@/lib/faaliyet/ek-kurallar";
 import { faaliyetIcerikAlabilirMi } from "@/lib/faaliyet/kurallar";
 import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
+import { faaliyetPaydasKatkisiniCoz } from "@/lib/paydas/kurallar";
 import {
   ekYukleyebilirMi,
+  faaliyetPaydasiYonetebilirMi,
   yorumSilebilirMi,
   yorumYazabilirMi,
 } from "@/lib/yetki/izinler";
+import { paydasKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
 
@@ -309,4 +312,104 @@ export async function yorumSilEylemi(veri: FormData): Promise<void> {
 
   revalidatePath(yol);
   redirect(`${yol}?durum=yorum-silindi#yorumlar`);
+}
+
+// ---------------------------------------------------------------------------
+// Paydaş bağlantısı
+// ---------------------------------------------------------------------------
+
+/**
+ * Faaliyete paydaş bağlar (analiz dokümanı 4.3, "Paydaş bilgisi (varsa)").
+ *
+ * Bağlantı kurmak, paydaş kaydını YÖNETMEKTEN farklıdır: faaliyeti açan
+ * danışman öğretmen kendi etkinliğinin hangi kurumla yapıldığını yazabilmeli,
+ * ama bu ona il envanterini düzenleme yetkisi vermez. Seçilebilecek paydaşlar
+ * kişinin kapsam filtresinden geçer — başka ilin kaydı id ile bağlanamaz.
+ */
+export async function faaliyetPaydasEkleEylemi(veri: FormData): Promise<void> {
+  const { kullanici, faaliyet, kapsam, yol } = await gorunurFaaliyet(veri);
+
+  if (!faaliyetPaydasiYonetebilirMi(kullanici, kapsam)) {
+    throw new YetkiHatasi("Bu faaliyetin paydaş bilgisini düzenleyemezsiniz.");
+  }
+  iptalliyseDur(faaliyet, yol);
+
+  const paydasId = sayi(veri, "paydasId");
+  if (paydasId === null) hataylaDon(yol, "Paydaş seçilmelidir.");
+
+  const katkiKarari = faaliyetPaydasKatkisiniCoz(metin(veri, "katkisi"));
+  if (!katkiKarari.olurMu) hataylaDon(yol, katkiKarari.neden);
+
+  // Kapsam kontrolü: kullanıcının göremediği bir paydaş "bulunamaz".
+  const paydas = await prisma.paydas.findFirst({
+    where: { AND: [{ id: paydasId }, paydasKapsamFiltresi(kullanici)] },
+    select: { id: true, ad: true, aktif: true },
+  });
+  if (!paydas) hataylaDon(yol, "Seçilen paydaş bulunamadı.");
+  if (!paydas.aktif) {
+    hataylaDon(yol, "Pasife alınmış paydaş yeni faaliyete bağlanamaz.");
+  }
+
+  const mevcut = await prisma.faaliyetPaydas.findUnique({
+    where: { faaliyetId_paydasId: { faaliyetId: faaliyet.id, paydasId: paydas.id } },
+    select: { faaliyetId: true },
+  });
+  if (mevcut) hataylaDon(yol, "Bu paydaş faaliyete zaten bağlı.");
+
+  await prisma.faaliyetPaydas.create({
+    data: {
+      faaliyetId: faaliyet.id,
+      paydasId: paydas.id,
+      katkisi: katkiKarari.katkisi,
+    },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "FAALIYET",
+    hedefId: faaliyet.id,
+    detay: `Faaliyete paydaş eklendi: ${paydas.ad}`,
+  });
+
+  revalidatePath(yol);
+  revalidatePath(`/panel/paydaslar/${paydas.id}`);
+  redirect(`${yol}?durum=paydas-eklendi`);
+}
+
+/**
+ * Bağlantıyı kaldırır. Paydaş kaydına DOKUNULMAZ; kaldırılan yalnızca bu
+ * faaliyetle kurulan ilişkidir (yanlış kuruma bağlanmış olabilir).
+ */
+export async function faaliyetPaydasCikarEylemi(veri: FormData): Promise<void> {
+  const { kullanici, faaliyet, kapsam, yol } = await gorunurFaaliyet(veri);
+
+  if (!faaliyetPaydasiYonetebilirMi(kullanici, kapsam)) {
+    throw new YetkiHatasi("Bu faaliyetin paydaş bilgisini düzenleyemezsiniz.");
+  }
+
+  const paydasId = sayi(veri, "paydasId");
+  if (paydasId === null) throw new BulunamadiHatasi();
+
+  const bag = await prisma.faaliyetPaydas.findUnique({
+    where: { faaliyetId_paydasId: { faaliyetId: faaliyet.id, paydasId } },
+    select: { paydas: { select: { ad: true } } },
+  });
+  if (!bag) hataylaDon(yol, "Bu paydaş faaliyete bağlı değil.");
+
+  await prisma.faaliyetPaydas.delete({
+    where: { faaliyetId_paydasId: { faaliyetId: faaliyet.id, paydasId } },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "FAALIYET",
+    hedefId: faaliyet.id,
+    detay: `Faaliyetten paydaş bağlantısı kaldırıldı: ${bag.paydas.ad}`,
+  });
+
+  revalidatePath(yol);
+  revalidatePath(`/panel/paydaslar/${paydasId}`);
+  redirect(`${yol}?durum=paydas-cikarildi`);
 }

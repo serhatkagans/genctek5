@@ -146,7 +146,7 @@ async function calistir() {
     await prisma.basvuru.create({
       data: {
         faaliyetId: faaliyet.id,
-        ogrenciId: ogrenci.id,
+        katilimciId: ogrenci.id,
         gerekce: "Demo katılım kaydı.",
         durum: "SECILDI",
         basvuruTarihi: basvuruBaslangic,

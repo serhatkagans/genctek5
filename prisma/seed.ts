@@ -185,6 +185,24 @@ const BILDIRIM_SABLONLARI = [
     govdeSablonu:
       "Merhaba,\n\n{{ogrenciAdSoyad}} adlı öğrenciye danışman atanamadı: okulunda danışman öğretmen yok ve {{ilKodu}} kodlu ilin koordinatörü tanımlı değil. İl koordinatörü ataması gerekiyor.\n\nGençTek",
   },
+  {
+    kod: "ADINA_BASVURU_YAPILDI",
+    konu: "{{faaliyetAdi}} için adınıza başvuru yapıldı",
+    govdeSablonu:
+      "Merhaba {{ogrenciAdSoyad}},\n\n{{basvuranAdSoyad}}, {{faaliyetAdi}} adlı faaliyete sizin adınıza başvuru yaptı. Katılmak istemiyorsanız başvurunuzu panelinizden geri çekebilirsiniz.\n\nGençTek",
+  },
+  {
+    kod: "ADINA_BASVURU_GERI_CEKILDI",
+    konu: "Adınıza yapılan başvuru geri çekildi",
+    govdeSablonu:
+      "Merhaba {{ogrenciAdSoyad}},\n\n{{basvuranAdSoyad}}, sizin adınıza yaptığı başvuruyu geri çekti.\n\nGençTek",
+  },
+  {
+    kod: "ADINA_BASVURU_SONUCU",
+    konu: "{{ogrenciAdSoyad}} · {{faaliyetAdi}} başvuru sonucu",
+    govdeSablonu:
+      "Merhaba,\n\nAdına başvuru yaptığınız {{ogrenciAdSoyad}} için {{faaliyetAdi}} faaliyetinin sonucu: {{sonuc}}.\n\nGençTek",
+  },
 ];
 
 async function referansVerileriYukle() {

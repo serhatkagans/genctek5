@@ -26,7 +26,9 @@ export async function kazanimlariGetir(
   const [basvurular, calismaGrubuSayisi, gorevRolSayisi] = await Promise.all([
     prisma.basvuru.findMany({
       where: {
-        ogrenciId,
+        // Başvuru artık katılımcı temelli; öğrencinin kazanımı kendi
+        // katılımlarından doğar, adına başvuran kişiden değil.
+        katilimciId: ogrenciId,
         durum: "SECILDI",
         faaliyet: {
           // Gerçekleşmemiş ya da iptal edilmiş etkinlik katılım sayılmaz.

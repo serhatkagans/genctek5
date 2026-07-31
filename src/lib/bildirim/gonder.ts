@@ -4,13 +4,16 @@ import { prisma } from "../db";
 /**
  * Bildirimler — references/domain-rules.md Bölüm 9.
  *
- * Şablonlar koda gömülmez, bildirim_sablonu tablosunda tutulur ve yönetilebilir.
- * Bildirim her zaman panele yazılır; kişinin e-posta adresi varsa ve gönderim
- * açıksa bir de kopyası postalanır (bkz. eposta-kopyasi.ts). SMS henüz yok.
+ * Şablonlar koda gömülmez, bildirim_sablonu tablosunda tutulur ve Yönetim
+ * ekranından düzenlenir. Bildirim her zaman panele yazılır; kişinin e-posta
+ * adresi ya da telefonu varsa ve o kanal açıksa birer kopya da gönderilir
+ * (bkz. eposta-kopyasi.ts, sms-kopyasi.ts). Panel her zaman kaynaktır;
+ * kopyaların gitmemesi bildirimi geçersiz kılmaz.
  */
 
 import { epostaKopyasiGonder } from "./eposta-kopyasi";
 import { BILDIRIM_KODLARI, type BildirimKodu, sablonuDoldur } from "./sablon";
+import { smsKopyasiGonder } from "./sms-kopyasi";
 
 export { BILDIRIM_KODLARI, sablonuDoldur };
 export type { BildirimKodu };
@@ -77,6 +80,18 @@ export async function bildirimGonder(istek: BildirimIstegi): Promise<void> {
    * gitmemesi bildirimi geçersiz kılmaz; panel her zaman kaynaktır.
    */
   await epostaKopyasiGonder({
+    bildirimId: bildirim.id,
+    kullaniciId: istek.kullaniciId,
+    baslik,
+    icerik,
+  });
+
+  /*
+   * SMS kopyası e-postadan BAĞIMSIZ gönderilir; ikisinden birinin düşmesi
+   * öbürünü engellemez. İkisi de kapalıysa (varsayılan durum SMS için budur)
+   * fonksiyonlar hiçbir şey yapmadan döner.
+   */
+  await smsKopyasiGonder({
     bildirimId: bildirim.id,
     kullaniciId: istek.kullaniciId,
     baslik,

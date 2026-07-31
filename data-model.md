@@ -201,13 +201,18 @@ Yorum listesi sorgusu her zaman `WHERE faaliyet_id = ? ORDER BY olusturma_tarihi
 |---|---|---|
 | id | serial, PK | |
 | faaliyet_id | int, FK | |
-| ogrenci_id | int, FK | |
+| katilimci_id | int, FK | Faaliyete KATILACAK kişi; öğrenci ya da öğretmen |
+| adina_basvuran_kullanici_id | int, null, FK | Dolu ise başvuruyu katılımcı adına başka biri yaptı |
 | gerekce | text | Zorunlu |
 | durum | varchar(20) | BEKLIYOR / SECILDI / REDDEDILDI / YEDEK / GERI_CEKILDI / IPTAL_EDILDI |
 | basvuru_tarihi | timestamptz | |
 | geri_cekme_tarihi | timestamptz, null | |
 | degerlendiren_kullanici_id | int, null, FK | |
 | degerlendirme_tarihi | timestamptz, null | |
+
+**Katılımcı öğrenci olmak zorunda değildir.** Öğretmenler de faaliyetlere başvurur (alan adı bu yüzden `ogrenci_id` değil `katilimci_id`). Katılımcının öğrenci mi öğretmen mi olduğu **sütunda tutulmaz**, aktif rolünden okunur: kopyalanan bir tip alanı öğrenci mezun olduğunda ya da öğretmen görev değiştirdiğinde eskir.
+
+`adina_basvuran_kullanici_id` NULL ise başvuruyu katılımcının kendisi yapmıştır; doluysa danışman öğretmen / il koordinatörü **öğrenci adına** yapmıştır. Ayrı bir "başvuru tipi" enum'u tutma: alanın dolu olması zaten vekaleten başvuru demek ve kimin yaptığını da söylüyor. `ck_basvuru_vekalet_baskasi` kısıtı kimsenin kendi adına "vekaleten" başvurmasına izin vermez.
 
 `IPTAL_EDILDI`, faaliyet iptal edildiğinde **sistem tarafından** yazılır; öğrencinin kendi geri çekmesinden (`GERI_CEKILDI`) ayrı tutulur.
 
@@ -233,11 +238,40 @@ Statik sayaç tutulursa red/geri çekme sonrası açılan yerler sistemde "dolu"
 
 **erisim_logu** — `id`, `kullanici_id`, `islem` (GORUNTULEME / DEGISIKLIK / SILME), `hedef_tip`, `hedef_id`, `tarih`, `ip_adresi`, `detay`
 
-`hedef_tip` değerleri arasında `OGRENCI`, `OGRETMEN`, `FAALIYET`, `YORUM`, `FAALIYET_EK` bulunur — yorum ve dosya silme işlemleri de bu tabloya yazılır (ayrı bir log tablosuna gerek yok).
+`hedef_tip` değerleri arasında `OGRENCI`, `OGRETMEN`, `FAALIYET`, `YORUM`, `FAALIYET_EK`, `PAYDAS`, `BILDIRIM_SABLONU` bulunur — yorum ve dosya silme işlemleri de bu tabloya yazılır (ayrı bir log tablosuna gerek yok).
 
-**bildirim** — `id`, `kullanici_id`, `tip`, `baslik`, `icerik`, `okundu_mu`, `gonderim_kanali` (EPOSTA / SMS / SISTEM), `olusturma_tarihi`
+**bildirim** — `id`, `kullanici_id`, `tip`, `baslik`, `icerik`, `okundu_mu`, `gonderim_kanali` (EPOSTA / SMS / SISTEM), `olusturma_tarihi`, `eposta_durumu`, `eposta_hatasi`, `sms_durumu`, `sms_hatasi`
 
-**bildirim_sablonu** — `id`, `kod`, `konu`, `govde_sablonu`, `aktif`. Şablonları koda gömme.
+Kopya kanallarının durumu **ayrı ayrı** izlenir (ikisi de `GonderimDurumu`: GEREKMIYOR / GONDERILDI / BASARISIZ). Biri gitmiş öbürü gitmemiş olabilir; "bildirim ulaşmadı" şikâyetinde hangi kanalın düştüğü bilinmeden bakılacak yer yoktur.
+
+**bildirim_sablonu** — `id`, `kod`, `konu`, `govde_sablonu`, `aciklama`, `aktif`. Şablonları koda gömme; metin Yönetim ekranından düzenlenir. Kod listesi ise **kodda** yaşar (`src/lib/bildirim/sablon.ts`): şablonu tetikleyen olay uygulamadadır, tabloya elle eklenen satır kendiliğinden bildirim üretmez.
+
+---
+
+## 7b. Paydaş envanteri
+
+**paydas**
+| Alan | Tip | Not |
+|---|---|---|
+| id | serial, PK | |
+| il_kodu | char(2), FK | Kayıt ile bağlıdır; ilin koordinatörü yönetir |
+| ad | varchar(250) | Boş olamaz |
+| tur | PaydasTuru | UNIVERSITE / OZEL_SEKTOR / STK / KAMU_KURUMU / MESLEK_KURULUSU / BELEDIYE / DIGER |
+| yetkili_kisi | varchar(150), null | |
+| eposta | varchar(150), null | |
+| telefon | varchar(20), null | |
+| adres | text, null | |
+| is_birligi_alani | text | Boş olamaz |
+| notlar | text, null | |
+| aktif | boolean | Silme yok; iş birliği bitince pasife alınır |
+| ekleyen_kullanici_id | int, FK | |
+| olusturma_tarihi / guncelleme_tarihi | timestamptz | |
+
+Yetkili kişi, e-posta ve telefondan **en az biri** dolu olmalı (uygulama katmanında doğrulanır): ulaşılamayan paydaş, paydaş değildir. `ux_paydas_il_ad_aktif` kısmi unique index'i aynı ilde aynı adla ikinci **aktif** kaydı engeller; pasif kayıt aynı adın yeniden açılmasını engellemez, çünkü kurum gerçekten yeniden iş birliğine dönebilir.
+
+**faaliyet_paydas** — `faaliyet_id`, `paydas_id` (bileşik PK), `katkisi`, `ekleme_tarihi`
+
+Analiz dokümanı 4.3'teki "paydaş bilgisi (varsa)" sonuç alanının karşılığı. Paydaşın ili faaliyetin iliyle aynı olmak **zorunda değildir**: ulusal bir faaliyete başka ilden bir üniversite destek verebilir. Faaliyet silinirse bağlantı da gider (CASCADE); paydaş silinmediği için o yönde RESTRICT.
 
 ---
 

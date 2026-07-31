@@ -186,9 +186,42 @@ export function yorumSilebilirMi(
 // Başvuru
 // ---------------------------------------------------------------------------
 
-/** Başvuruyu öğrenci kendisi yapar; öğretmen öğrenci adına başvuramaz. */
+/**
+ * Kişi faaliyete KATILIMCI olarak başvurabilir mi?
+ *
+ * Öğrenciler ve öğretmenler başvurur. Öğretmenin katılımcı olması bir istisna
+ * değildir: analiz dokümanı 4.2 katılımcıyı "öğretmen/öğrenci" diye sayıyor ve
+ * eğitici etkinliklerin bir kısmı zaten öğretmene yöneliktir. Görev almamış
+ * öğretmen de başvurabilir — GençTek'e katılmanın yolu genelde buradan geçer.
+ *
+ * Proje yöneticisi (YEĞİTEK) dışarıdadır: ulusal faaliyetleri düzenleyen ve
+ * onaylayan taraf kendi açtığı etkinliğe katılımcı olarak başvurmaz.
+ */
 export function basvuruYapabilirMi(kullanici: OturumKullanicisi): boolean {
-  return ogrenciMi(kullanici) && !projeYoneticisiMi(kullanici);
+  return !projeYoneticisiMi(kullanici);
+}
+
+/**
+ * Başkası ADINA başvuru yetkisi (analiz dokümanı 4.2: "Danışman öğretmen
+ * öğrenci adına başvurabilir").
+ *
+ * Yetki danışmanla sınırlı tutulmadı: il koordinatörü de kendi ilindeki
+ * öğrencilerin faaliyet katılımını yürütüyor ve danışmanı olmayan öğrencinin
+ * başvurusunu başka kimse yapamazdı.
+ *
+ * DİKKAT: Bu fonksiyon yalnızca ROLÜ sorar. "Bu öğrenci onun kapsamında mı"
+ * sorusu ayrıca `ogrenciKapsamFiltresi` ile sorulmak zorundadır; tek başına
+ * kullanılırsa bir danışman, ilinin öbür ucundaki öğrenci adına başvuru
+ * yapabilirdi.
+ */
+export function baskasiAdinaBasvurabilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return (
+    projeYoneticisiMi(kullanici) ||
+    ilKoordinatoruMu(kullanici) ||
+    danismanMi(kullanici)
+  );
 }
 
 /**
@@ -295,4 +328,84 @@ export function sistemAyarlariniYonetebilirMi(
   kullanici: OturumKullanicisi,
 ): boolean {
   return projeYoneticisiMi(kullanici);
+}
+
+// ---------------------------------------------------------------------------
+// Öğretmen envanteri
+// ---------------------------------------------------------------------------
+
+/**
+ * Danışman öğretmen envanterini görebilir mi?
+ *
+ * Öğrenci envanterinden AYRI bir kapıdır ama kapsam mantığı aynıdır: danışman
+ * kendi okulundaki, il koordinatörü kendi ilindeki, YEĞİTEK tüm ülkedeki
+ * öğretmenleri görür (bkz. ogretmenKapsamFiltresi). Öğrenci hiçbir koşulda
+ * göremez: öğretmenin branşı ve iletişim bilgisi öğrencinin işine yaramaz,
+ * kendi danışmanını zaten "Danışmanım" ekranında görüyor.
+ *
+ * Görev almamış öğretmen de göremez — öğrenci envanterinde olduğu gibi fail
+ * closed davranılır.
+ */
+export function ogretmenEnvanteriGorebilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return (
+    projeYoneticisiMi(kullanici) ||
+    ilKoordinatoruMu(kullanici) ||
+    danismanMi(kullanici)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Paydaş envanteri
+// ---------------------------------------------------------------------------
+
+/**
+ * Paydaş listesini görebilir mi? (analiz dokümanı Bölüm 3)
+ *
+ * Liste "faaliyet planlarken hızlıca ulaşılacak kurumlar" defteridir; faaliyet
+ * düzenleyen herkes görür. Öğrenci göremez: kayıtlar kurum yetkililerinin adı
+ * ve doğrudan iletişim bilgisidir, öğrencinin bu bilgiyle yapacağı bir iş yok.
+ */
+export function paydasGorebilirMi(kullanici: OturumKullanicisi): boolean {
+  return (
+    projeYoneticisiMi(kullanici) ||
+    ilKoordinatoruMu(kullanici) ||
+    danismanMi(kullanici)
+  );
+}
+
+/**
+ * Paydaş kaydını EKLEYİP DÜZENLEYEBİLİR Mİ?
+ *
+ * Görmekten dar bir yetkidir: kayıt ilin koordinatörüne ve merkeze bırakıldı.
+ * Her danışman öğretmen de ekleyebilseydi aynı üniversite onlarca kez farklı
+ * yazımla girilir ve "il bazlı iş birliği haritası" kullanılamaz hâle gelirdi.
+ * Danışman öğretmen paydaşı görür ve faaliyetine bağlar; listeye yeni kurum
+ * eklenmesini koordinatöründen ister.
+ *
+ * İl koordinatörü YALNIZCA kendi ilinde yönetebilir; hedef ilin kodu bu yüzden
+ * parametredir ve çağıran onu kaydın kendisinden geçirmek zorundadır.
+ */
+export function paydasYonetebilirMi(
+  kullanici: OturumKullanicisi,
+  ilKodu: string,
+): boolean {
+  if (projeYoneticisiMi(kullanici)) return true;
+  return ilKoordinatoruMu(kullanici) && koordinatorIlKodu(kullanici) === ilKodu;
+}
+
+/**
+ * Faaliyete paydaş bağlayabilir mi?
+ *
+ * Bağlantı, paydaş kaydını YÖNETMEKTEN farklıdır: faaliyeti açan danışman
+ * öğretmen kendi etkinliğinin hangi kurumla yapıldığını yazabilmelidir, ama
+ * bu ona paydaş listesini düzenleme yetkisi vermez. Kapı, faaliyetin ek ve
+ * içerik kapısıyla aynıdır — ikisi de "bu faaliyet senin mi" sorusudur.
+ */
+export function faaliyetPaydasiYonetebilirMi(
+  kullanici: OturumKullanicisi,
+  faaliyet: FaaliyetKapsami,
+): boolean {
+  return ekYukleyebilirMi(kullanici, faaliyet);
 }

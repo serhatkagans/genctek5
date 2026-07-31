@@ -74,7 +74,7 @@ async function testVerisiniTemizle() {
   await prisma.basvuru.deleteMany({
     where: {
       OR: [
-        { ogrenciId: { in: idler } },
+        { katilimciId: { in: idler } },
         { degerlendirenKullaniciId: { in: idler } },
       ],
     },
@@ -451,7 +451,7 @@ async function main() {
     });
     try {
       await prisma.basvuru.create({
-        data: { faaliyetId: faaliyet.id, ogrenciId: ogrenci2, gerekce: "   " },
+        data: { faaliyetId: faaliyet.id, katilimciId: ogrenci2, gerekce: "   " },
       });
     } catch {
       bosGerekceReddedildi = true;
