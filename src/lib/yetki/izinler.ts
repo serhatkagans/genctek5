@@ -196,19 +196,26 @@ export function yetkiDevrolduMu(
 /**
  * Faaliyet raporunu yazabilir mi?
  *
- * Ek yükleme yetkisiyle AYNI kapıdır: raporu yazan kişi, faaliyetin görselini
- * de ekleyen kişidir ve ikisi aynı sorumluluğun parçasıdır. Ayrı bir kapı
- * açmak, "raporu yazabiliyor ama fotoğrafını ekleyemiyor" gibi anlamsız bir
- * durum üretirdi.
+ * Ek yükleme yetkisinden GENİŞTİR ve bu bilinçlidir: il koordinatörü, ilindeki
+ * HER biten faaliyetin raporunu yazabilir — o faaliyeti kendisi açmamış olsa
+ * bile. Raporlama ilin sorumluluğudur; okulundaki bir öğretmen etkinliği
+ * yapıp raporu yazmadan görevden ayrılırsa faaliyet raporsuz kalmamalı.
  *
- * Kapsayan roller: faaliyeti açan, yetki devrolmuşsa ilin koordinatörü ve
- * proje yöneticisi.
+ * Ek yükleme yetkisi bundan dar kalmaya devam ediyor: koordinatörün başkasının
+ * faaliyetine dosya eklemesi ayrı bir müdahaledir ve gerekmiyor.
+ *
+ * Kapsayan roller: faaliyeti açan, ilin koordinatörü, yetki devrolmuşsa
+ * koordinatör ve proje yöneticisi.
  */
 export function faaliyetRaporuYazabilirMi(
   kullanici: OturumKullanicisi,
   faaliyet: FaaliyetKapsami,
 ): boolean {
-  return ekYukleyebilirMi(kullanici, faaliyet);
+  if (ekYukleyebilirMi(kullanici, faaliyet)) return true;
+
+  if (!ilKoordinatoruMu(kullanici)) return false;
+  const faaliyetIli = faaliyet.kapsamIlKodu ?? faaliyet.ilKodu;
+  return faaliyetIli !== null && koordinatorIlKodu(kullanici) === faaliyetIli;
 }
 
 export function ekYukleyebilirMi(

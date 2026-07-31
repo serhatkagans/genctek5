@@ -599,3 +599,36 @@ export function baglantiKarariFiltresi(
   if (kosullar.length === 0) return { id: { in: [] } };
   return { OR: kosullar };
 }
+
+/**
+ * Raporlanabilecek faaliyetler — il koordinatörünün rapor modülü.
+ *
+ * Kapsam, GÖRÜNÜRLÜKTEN DAR: koordinatör başka illerin ulusal faaliyetlerini
+ * listede görebiliyor ama onların raporunu yazmaz. Filtre bu yüzden faaliyetin
+ * İLİNE bakar, görünürlük kurallarına değil.
+ *
+ * "İl" hesabı kapsam alanlarından okunamaz: okul içi faaliyette okulun ili,
+ * ulusal faaliyette düzenleyenin ili geçerlidir (bkz. faaliyetKapsamiCikar).
+ * Sorgu üçünü de kapsıyor.
+ */
+export function raporlanabilirFaaliyetFiltresi(
+  kullanici: OturumKullanicisi,
+): Prisma.FaaliyetWhereInput {
+  if (projeYoneticisiMi(kullanici)) return {};
+
+  const ilKodu = koordinatorIlKodu(kullanici);
+  if (ilKodu !== null) {
+    return {
+      OR: [
+        { ilKodu },
+        { kurum: { ilKodu } },
+        { duzenleyen: { ilKodu } },
+        // Kendi açtığı faaliyet her koşulda kendisine ait.
+        { duzenleyenKullaniciId: kullanici.id },
+      ],
+    };
+  }
+
+  // Danışman öğretmen yalnızca KENDİ açtığı faaliyetin raporunu yazar.
+  return { duzenleyenKullaniciId: kullanici.id };
+}

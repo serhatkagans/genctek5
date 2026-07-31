@@ -109,6 +109,10 @@ Durum işaretleri: `[x]` bitti · `[ ]` bekliyor · `[?]` karar/bilgi bekliyor
       değerlendirmesi zaten etkinliğin yapıldığı ilin kararıdır. Eklenen adım,
       öğrencinin kendi ilinin izni. Kaynak il karar vermeden değerlendirme
       yapılamıyor; ret gerekçesi zorunlu.
+- [x] **İl koordinatörü rapor modülü** → `/panel/raporlar`. Koordinatör
+      ilindeki HER biten faaliyetin raporunu yazabilir, kendi açmamış olsa
+      bile — raporlama ilin sorumluluğu. Rapor yetkisi bu yüzden ek yükleme
+      yetkisinden geniş tutuldu.
 - [x] Biten etkinlik için **faaliyet raporu sayfası**
       → `/panel/faaliyetler/[id]/rapor`. Katılım sayıları (toplam + tekil),
       katılımcı listesi, görseller ve değerlendirme metni bir arada; Word/Excel

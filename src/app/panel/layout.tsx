@@ -90,6 +90,9 @@ export default async function PanelDuzeni({
       // Görev rolü atama: il koordinatörü kendi ilinde İl Temsilcisi, danışman
       // öğretmen kendi okulunda Okul Temsilcisi belirler.
       { yol: "/panel/gorev-rolleri", etiket: "Görev Rolleri" },
+      // Biten faaliyetlerin rapor durumu. Koordinatör ilindeki HER faaliyetin
+      // raporunu yazabilir; danışman yalnızca kendi açtığının.
+      { yol: "/panel/raporlar", etiket: "Raporlar" },
     );
   }
 

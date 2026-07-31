@@ -14,6 +14,7 @@ import {
   faaliyetIptalEdebilirMi,
   faaliyetOnayGerekiyorMu,
   faaliyetOnaylayabilirMi,
+  faaliyetRaporuYazabilirMi,
   ilceTemsilcisiAtayabilirMi,
   ilKoordinatorAtayabilirMi,
   ilTemsilcisiAtayabilirMi,
@@ -670,5 +671,56 @@ describe("öğretmen faaliyeti onay akışı", () => {
 
   it("proje yöneticisinin açtığı faaliyet onay beklemez", () => {
     expect(faaliyetOnayGerekiyorMu(projeYoneticisiYap(), "ULUSAL")).toBe(false);
+  });
+});
+
+describe("faaliyet raporu yazma yetkisi", () => {
+  const ilFaaliyeti = (ozellikler = {}) =>
+    faaliyetYap({ duzenleyenKullaniciId: 500, kapsamIlKodu: "34", ...ozellikler });
+
+  it("faaliyeti açan kendi raporunu yazar", () => {
+    expect(
+      faaliyetRaporuYazabilirMi(danismanYap({ id: 500 }), ilFaaliyeti()),
+    ).toBe(true);
+  });
+
+  it("il koordinatörü İLİNDEKİ BAŞKASININ faaliyetinin raporunu yazabilir", () => {
+    /*
+     * Raporlama ilin sorumluluğu: okulundaki bir öğretmen etkinliği yapıp
+     * raporu yazmadan görevden ayrılırsa faaliyet raporsuz kalmamalı.
+     */
+    expect(
+      faaliyetRaporuYazabilirMi(koordinatorYap({ ilKodu: "34" }), ilFaaliyeti()),
+    ).toBe(true);
+  });
+
+  it("BAŞKA ilin koordinatörü yazamaz", () => {
+    expect(
+      faaliyetRaporuYazabilirMi(koordinatorYap({ ilKodu: "06" }), ilFaaliyeti()),
+    ).toBe(false);
+  });
+
+  it("ilgisiz danışman öğretmen yazamaz", () => {
+    expect(
+      faaliyetRaporuYazabilirMi(danismanYap({ id: 999 }), ilFaaliyeti()),
+    ).toBe(false);
+  });
+
+  it("öğrenci yazamaz", () => {
+    expect(faaliyetRaporuYazabilirMi(ogrenciYap(), ilFaaliyeti())).toBe(false);
+  });
+
+  it("proje yöneticisi her faaliyetin raporunu yazar", () => {
+    expect(
+      faaliyetRaporuYazabilirMi(projeYoneticisiYap(), ilFaaliyeti()),
+    ).toBe(true);
+  });
+
+  it("rapor yetkisi EK YÜKLEMEDEN geniştir", () => {
+    // Koordinatörün başkasının faaliyetine dosya eklemesi ayrı bir müdahale
+    // ve gerekmiyor; rapor yazmak gerekiyor.
+    const koordinator = koordinatorYap({ ilKodu: "34" });
+    expect(faaliyetRaporuYazabilirMi(koordinator, ilFaaliyeti())).toBe(true);
+    expect(ekYukleyebilirMi(koordinator, ilFaaliyeti())).toBe(false);
   });
 });
