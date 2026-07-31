@@ -1,6 +1,9 @@
 import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
-import { gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
+import {
+  faaliyetKapsamiCikar,
+  gorunurFaaliyetGetir,
+} from "@/lib/faaliyet/erisim";
 import {
   ETKINLIK_KATEGORISI_ETIKETLERI,
   faaliyetSuresiYaz,
@@ -13,7 +16,7 @@ import {
   wordYaniti,
 } from "@/lib/rapor/faaliyet-raporu";
 import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
-import { projeYoneticisiMi } from "@/lib/yetki/izinler";
+import { faaliyetRaporuYazabilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 
 export const dynamic = "force-dynamic";
@@ -21,9 +24,9 @@ export const dynamic = "force-dynamic";
 /**
  * Faaliyet raporu — Word (`?bicim=word`) ya da Excel/CSV (varsayılan).
  *
- * YETKİ: proje yöneticisi. Rapor katılımcı adlarını taşır; faaliyeti düzenleyen
- * zaten başvuru listesini kendi ekranından CSV olarak alabiliyor (bkz.
- * basvurular/disa-aktar), bu rota merkezin dönem raporu içindir.
+ * YETKİ raporu YAZABİLENLERLE aynıdır: faaliyeti açan, yetki devrolmuşsa ilin
+ * koordinatörü ve proje yöneticisi. Raporu yazan kişinin onu indirememesi
+ * anlamsız olurdu.
  *
  * Kapsam dışında 403 değil 404 döner — kaydın varlığı sızmasın.
  */
@@ -34,12 +37,16 @@ export async function GET(
   const { id } = await params;
 
   const kullanici = await oturumKullanicisi();
-  if (!kullanici || !projeYoneticisiMi(kullanici)) {
+  if (!kullanici) {
     return new Response("Bulunamadı", { status: 404 });
   }
 
   const faaliyet = await gorunurFaaliyetGetir(kullanici, Number.parseInt(id, 10));
   if (!faaliyet) {
+    return new Response("Bulunamadı", { status: 404 });
+  }
+
+  if (!faaliyetRaporuYazabilirMi(kullanici, faaliyetKapsamiCikar(faaliyet))) {
     return new Response("Bulunamadı", { status: 404 });
   }
 

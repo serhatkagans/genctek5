@@ -64,6 +64,7 @@ import {
   ekYukleyebilirMi,
   faaliyetIptalEdebilirMi,
   faaliyetOnaylayabilirMi,
+  faaliyetRaporuYazabilirMi,
   projeYoneticisiMi,
   faaliyetPaydasiYonetebilirMi,
   yetkiDevrolduMu,
@@ -1238,29 +1239,17 @@ export default async function FaaliyetDetaySayfasi({
           )}
 
           {/*
-            Faaliyet raporu YALNIZCA merkeze açık: başvuru listesinden farklı
-            olarak faaliyetin tamamını (açıklama, katılım özeti, görsel listesi)
-            taşıyan bir belge üretir ve dönem raporlaması içindir.
+            Rapor kendi sayfasında: katılım özeti, katılımcı listesi, görseller
+            ve değerlendirme metni bir arada. İndirme bağlantıları da orada.
           */}
-          {projeYoneticisiMi(kullanici) && (
-            <div className="mb-4 flex flex-wrap gap-2">
-              <a
-                href={uygulamaYolu(
-                  `/panel/faaliyetler/${faaliyet.id}/rapor?bicim=word`,
-                )}
-                className={SINIF_IKINCIL_BUTON}
-              >
-                <FileText size={16} aria-hidden />
-                Faaliyet raporu (Word)
-              </a>
-              <a
-                href={uygulamaYolu(`/panel/faaliyetler/${faaliyet.id}/rapor`)}
-                className={SINIF_IKINCIL_BUTON}
-              >
-                <Download size={16} aria-hidden />
-                Faaliyet raporu (Excel)
-              </a>
-            </div>
+          {faaliyetRaporuYazabilirMi(kullanici, kapsamBilgisi) && (
+            <Link
+              href={`/panel/faaliyetler/${faaliyet.id}/rapor`}
+              className={`${SINIF_IKINCIL_BUTON} mb-4`}
+            >
+              <FileText size={16} aria-hidden />
+              Faaliyet raporu
+            </Link>
           )}
 
           {devroldu && (

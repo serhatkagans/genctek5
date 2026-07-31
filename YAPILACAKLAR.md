@@ -109,10 +109,17 @@ Durum işaretleri: `[x]` bitti · `[ ]` bekliyor · `[?]` karar/bilgi bekliyor
       değerlendirmesi zaten etkinliğin yapıldığı ilin kararıdır. Eklenen adım,
       öğrencinin kendi ilinin izni. Kaynak il karar vermeden değerlendirme
       yapılamıyor; ret gerekçesi zorunlu.
-- [ ] Biten etkinlik için **faaliyet raporu sayfası**: kaç öğrenci katıldı,
-      kim katıldı, etkinliğe ait görsel ekleme
-- [ ] **Gizlilik / taahhütname imzası** — koordinatör öğretmen verilerini
-      görebildiği için
+- [x] Biten etkinlik için **faaliyet raporu sayfası**
+      → `/panel/faaliyetler/[id]/rapor`. Katılım sayıları (toplam + tekil),
+      katılımcı listesi, görseller ve değerlendirme metni bir arada; Word/Excel
+      indirme de burada. Sayılar rapora KOPYALANMAZ, her açılışta
+      başvurulardan hesaplanır. Rapor ancak faaliyet bittikten sonra yazılır
+      (çok günlüde bitiş tarihine bakılır) ve iptal edilmiş faaliyette yazılmaz.
+- [x] **Gizlilik / taahhütname imzası**
+      → `/panel/taahhut`. Metin Yönetim ekranından düzenlenebilir; güncellenince
+      onay eskir ve yeniden istenir (aydınlatma metniyle aynı desen). Erişim
+      ENGELLENMEZ, şeritle uyarılır — acil bir durumda sistemin kilitlenmesi
+      korumaktan çok zarar verirdi ve erişimler zaten kayda geçiyor.
 
 ### Cevaplanmış sorular
 - [x] **"Koordinatör değişince paydaşları yeni koordinatör görebilecek mi?"**

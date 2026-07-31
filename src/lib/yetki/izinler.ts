@@ -193,6 +193,24 @@ export function yetkiDevrolduMu(
  * başına yeterli değildir: aynı rolden başka bir danışman, başkasının
  * faaliyetine dosya ekleyemez.
  */
+/**
+ * Faaliyet raporunu yazabilir mi?
+ *
+ * Ek yükleme yetkisiyle AYNI kapıdır: raporu yazan kişi, faaliyetin görselini
+ * de ekleyen kişidir ve ikisi aynı sorumluluğun parçasıdır. Ayrı bir kapı
+ * açmak, "raporu yazabiliyor ama fotoğrafını ekleyemiyor" gibi anlamsız bir
+ * durum üretirdi.
+ *
+ * Kapsayan roller: faaliyeti açan, yetki devrolmuşsa ilin koordinatörü ve
+ * proje yöneticisi.
+ */
+export function faaliyetRaporuYazabilirMi(
+  kullanici: OturumKullanicisi,
+  faaliyet: FaaliyetKapsami,
+): boolean {
+  return ekYukleyebilirMi(kullanici, faaliyet);
+}
+
 export function ekYukleyebilirMi(
   kullanici: OturumKullanicisi,
   faaliyet: FaaliyetKapsami,

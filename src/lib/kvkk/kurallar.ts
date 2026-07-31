@@ -69,3 +69,44 @@ Kanun'un 11. maddesi uyarınca; verilerinizin işlenip işlenmediğini öğrenme
 
 8. Yaş durumu
 On sekiz yaşından küçükseniz bu metni velinizle birlikte okumanız beklenir.`;
+
+// ---------------------------------------------------------------------------
+// Koordinatör gizlilik taahhüdü
+// ---------------------------------------------------------------------------
+
+export const AYAR_TAAHHUT_METNI = "KOORDINATOR_TAAHHUT_METNI";
+
+/**
+ * Varsayılan taahhüt metni. Yönetim ekranından değiştirilebilir; boş
+ * bırakılırsa bu metin geçerlidir (aydınlatma metniyle aynı desen).
+ */
+export const VARSAYILAN_TAAHHUT_METNI = `İl koordinatörü olarak, GençTek Bilgi Sistemi üzerinden erişebildiğim kişisel verilere ilişkin aşağıdaki taahhütte bulunurum:
+
+1. İlimdeki öğretmenlerin ve öğrencilerin kişisel verilerine (kimlik, iletişim ve görev bilgileri) yalnızca GençTek görevimin gerektirdiği ölçüde erişirim.
+
+2. Eriştiğim verileri görevimin dışında hiçbir amaçla kullanmam; üçüncü kişilerle paylaşmam, kopyalamam ve sistem dışına çıkarmam.
+
+3. Dışa aktardığım listeleri (CSV, rapor) yalnızca görevimin gerektirdiği süre boyunca saklarım ve işim bittiğinde silerim.
+
+4. Sistemdeki her erişimimin kayıt altına alındığını ve denetlenebileceğini bilirim.
+
+5. Görevim sona erdiğinde erişimimin kapatılacağını, elimdeki tüm kopyaları imha edeceğimi kabul ederim.
+
+6. Bu yükümlülüklere aykırı davranışın 6698 sayılı Kişisel Verilerin Korunması Kanunu kapsamında sorumluluk doğurabileceğini bilirim.`;
+
+/**
+ * İl koordinatörünün gizlilik taahhüdünü (yeniden) onaylaması gerekiyor mu?
+ *
+ * Aydınlatma onayıyla AYNI kural: metin güncellendiğinde eski onay
+ * geçersizleşir, çünkü kişi artık başka bir metni onaylamış olur.
+ *
+ * Ayrı bir fonksiyon olarak duruyor çünkü ÇAĞIRANLARI farklı: bu kapı
+ * koordinatöre, öbürü öğrenciye bakıyor. Tek fonksiyona indirgenseydi
+ * ikisinden birinin kuralı değiştiğinde diğeri sessizce etkilenirdi.
+ */
+export function taahhutOnayiGerekiyorMu(girdi: {
+  onayTarihi: Date | null;
+  metinGuncellemeTarihi: Date | null;
+}): boolean {
+  return aydinlatmaOnayiGerekiyorMu(girdi);
+}

@@ -283,6 +283,7 @@ model Kullanici {
   ogrenciProfil   OgrenciProfil?
 
   onayladigiIlDisiBasvurular Basvuru[] @relation("BasvuruKaynakIlOnaylayan")
+  yazdigiRaporlar            FaaliyetRaporu[] @relation("RaporYazan")
 
   ogrenciAtamalari  DanismanAtama[] @relation("AtamaOgrencisi")
   danismanAtamalari DanismanAtama[] @relation("AtamaDanismani")
@@ -353,6 +354,12 @@ model OgretmenProfil {
   /// tabloyu kullanır — iletişim bilgisi role bağlı bir alan değildir.
   eposta               String?   @db.VarChar(150)
   telefon              String?   @db.VarChar(20)
+  /// İl koordinatörünün gizlilik taahhüdünü onayladığı an.
+  ///
+  /// Koordinatör ilindeki öğretmenlerin kişisel verilerini görebiliyor;
+  /// öğrenci tarafındaki aydınlatma onayının öğretmen karşılığıdır. Metin
+  /// sistem_ayari'nda tutulur, güncellenince onay tazeliğini yitirir.
+  taahhutOnayTarihi    DateTime? @map("taahhut_onay_tarihi") @db.Timestamptz(6)
 
   kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
 
@@ -627,6 +634,7 @@ model Faaliyet {
 
   calismaGruplari FaaliyetCalismaGrubu[]
   ekler           FaaliyetEk[]
+  rapor           FaaliyetRaporu?
   yorumlar        Yorum[]
   basvurular      Basvuru[]
   paydaslar       FaaliyetPaydas[]
@@ -655,6 +663,27 @@ model FaaliyetCalismaGrubu {
 /// Ek yükleme yetkisi YALNIZCA faaliyeti açan kullanıcıdadır; rol kontrolü tek
 /// başına yeterli değildir (aynı rolden başka biri başkasının faaliyetine ek
 /// ekleyemez). Silme soft-delete'tir, log gereği kayıt korunur.
+/// Biten faaliyetin raporu — analiz isteği Bölüm 4.
+///
+/// SAYILAR BURADA TUTULMAZ: kaç kişi katıldığı başvurulardan her görüntülemede
+/// hesaplanır. Rapora kopyalansaydı bir başvuru sonradan güncellendiğinde rapor
+/// sessizce yanlış olurdu. Bu tablo yalnızca İNSANIN YAZDIĞINI taşır.
+model FaaliyetRaporu {
+  faaliyetId        Int      @id @map("faaliyet_id")
+  degerlendirme     String   @db.Text
+  /// Hedeflenen kazanımlar gerçekleşti mi, aksayan ne oldu.
+  kazanimlar        String?  @db.Text
+  yazanKullaniciId  Int      @map("yazan_kullanici_id")
+  olusturmaTarihi   DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @default(now()) @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  faaliyet Faaliyet  @relation(fields: [faaliyetId], references: [id], onDelete: Cascade)
+  yazan    Kullanici @relation("RaporYazan", fields: [yazanKullaniciId], references: [id])
+
+  @@index([yazanKullaniciId])
+  @@map("faaliyet_raporu")
+}
+
 model FaaliyetEk {
   id                  Int       @id @default(autoincrement())
   faaliyetId          Int       @map("faaliyet_id")

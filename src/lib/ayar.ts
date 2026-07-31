@@ -32,6 +32,12 @@ export const AYAR_ANAHTARLARI = {
   ERISIM_LOGU_SAKLAMA_AYI: "ERISIM_LOGU_SAKLAMA_AYI",
   BILDIRIM_SAKLAMA_AYI: "BILDIRIM_SAKLAMA_AYI",
   KVKK_AYDINLATMA_METNI: "KVKK_AYDINLATMA_METNI",
+  /*
+   * Koordinatör gizlilik taahhüdü AYRI bir metindir: aydınlatma metni
+   * öğrenciye "verini şöyle işliyoruz" der, taahhüt koordinatöre "başkasının
+   * verisiyle şöyle davranacaksın" dedirtir. Farklı taraflara, farklı amaçla.
+   */
+  KOORDINATOR_TAAHHUT_METNI: "KOORDINATOR_TAAHHUT_METNI",
   DISA_AKTARMA_UST_SINIRI: "DISA_AKTARMA_UST_SINIRI",
 } as const;
 
@@ -125,6 +131,13 @@ export const YONETILEBILIR_AYARLAR: AyarTanimi[] = [
     bicim: "sayi",
     yardim:
       "Tek CSV indirmesinde en fazla kaç kayıt olabilir. Sınır aşıldığında indirme yapılmaz, filtre daraltılması istenir.",
+  },
+  {
+    anahtar: AYAR_ANAHTARLARI.KOORDINATOR_TAAHHUT_METNI,
+    baslik: "İl koordinatörü gizlilik taahhütnamesi",
+    bicim: "uzun-metin",
+    yardim:
+      "Boş bırakılırsa koddaki varsayılan metin gösterilir. Metni değiştirmek tüm il koordinatörlerinden YENİDEN ONAY ister.",
   },
   {
     anahtar: AYAR_ANAHTARLARI.KVKK_AYDINLATMA_METNI,

@@ -10,6 +10,7 @@ import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import { TemaSecici } from "@/components/TemaSecici";
 import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { aydinlatmaOnayDurumu } from "@/lib/kvkk/durum";
+import { taahhutDurumu } from "@/lib/kvkk/taahhut";
 import { aktifTema } from "@/lib/tema";
 import {
   danismanMi,
@@ -40,6 +41,12 @@ export default async function PanelDuzeni({
    * sayfada görünen kalıcı bir şerit gösterilir.
    */
   const kvkkOnayi = await aydinlatmaOnayDurumu(kullanici);
+  /*
+   * Koordinatör taahhüdü: aydınlatma metniyle aynı desende bir şerit. İkisi
+   * aynı anda çıkabilir ve bu doğrudur — biri kişinin kendi verisi hakkında,
+   * öbürü BAŞKASININ verisiyle nasıl davranacağı hakkında.
+   */
+  const taahhut = await taahhutDurumu(kullanici);
 
   const baglantilar: GezinmeBaglantisi[] = [
     { yol: "/panel", etiket: "Panelim" },
@@ -112,6 +119,11 @@ export default async function PanelDuzeni({
     );
   }
 
+  // Taahhütname yalnızca koordinatörde anlamlı; menüde de yalnızca ona çıkar.
+  if (ilKoordinatoruMu(kullanici)) {
+    baglantilar.push({ yol: "/panel/taahhut", etiket: "Taahhütname" });
+  }
+
   baglantilar.push({ yol: "/panel/kvkk", etiket: "KVKK" });
 
   return (
@@ -172,6 +184,25 @@ export default async function PanelDuzeni({
               className="font-semibold underline underline-offset-2"
             >
               Metni aç
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {taahhut.gerekiyorMu && (
+        <div className="border-b border-uyari-cizgi bg-uyari-zemin">
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-6 py-2.5 text-sm text-uyari-metin">
+            <ShieldAlert size={16} className="shrink-0" aria-hidden />
+            <span>
+              {taahhut.onayTarihi
+                ? "Gizlilik taahhütnamesi güncellendi; güncel metni okuyup yeniden onaylamanız gerekiyor."
+                : "İlinizdeki öğretmen ve öğrenci verilerine erişebiliyorsunuz. Gizlilik taahhütnamesini henüz onaylamadınız."}
+            </span>
+            <Link
+              href="/panel/taahhut"
+              className="font-semibold underline underline-offset-2"
+            >
+              Taahhütnameyi aç
             </Link>
           </div>
         </div>
