@@ -24,6 +24,12 @@ export const BILDIRIM_KODLARI = {
   IL_DISI_BASVURU_KARARI: "IL_DISI_BASVURU_KARARI",
   /** Merkezin tüm öğrenci/öğretmenlere gönderdiği serbest metinli duyuru. */
   TOPLU_DUYURU: "TOPLU_DUYURU",
+  /** Öğrencinin bağlantı isteği onay bekliyor; danışman/koordinatöre gider. */
+  ONAY_BEKLEYEN_BAGLANTI: "ONAY_BEKLEYEN_BAGLANTI",
+  /** Bağlantı isteğine karar verildi; isteği yapana gider. */
+  BAGLANTI_ISTEGI_KARARI: "BAGLANTI_ISTEGI_KARARI",
+  /** Bağlantı onaylandı ve yazışma açıldı; karşı tarafa gider. */
+  YENI_YAZISMA: "YENI_YAZISMA",
   /** Faaliyet onaylandı ya da reddedildi; faaliyeti açana gider. */
   FAALIYET_ONAY_SONUCU: "FAALIYET_ONAY_SONUCU",
   DANISMANA_KOPYA_ULUSAL_BASVURU: "DANISMANA_KOPYA_ULUSAL_BASVURU",
@@ -120,6 +126,27 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "Proje yöneticisinin Duyurular ekranından gönderdiği serbest metinli duyuru. Metni gönderen yazar; buradaki şablon yalnızca sarmalayıcıdır.",
     degiskenler: ["baslik", "icerik"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_BAGLANTI,
+    baslik: "Onay bekleyen bağlantı isteği",
+    aciklama:
+      "Öğrenci başka bir kullanıcıyla iletişim kurmak istediğinde danışmanına ve ilinin koordinatörüne gider.",
+    degiskenler: ["isteyenAdSoyad", "hedefAdSoyad", "talepBasligi"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.BAGLANTI_ISTEGI_KARARI,
+    baslik: "Bağlantı isteği sonucu",
+    aciklama:
+      "İsteği yapan öğrenciye gider. Onaylandıysa yazışma açılmıştır; reddedildiyse gerekçe yazılıdır.",
+    degiskenler: ["hedefAdSoyad", "sonuc", "gerekce"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.YENI_YAZISMA,
+    baslik: "Yeni yazışma açıldı",
+    aciklama:
+      "Bağlantı onaylandığında KARŞI TARAFA gider: biri kendisiyle iletişim kurmak istedi ve izin verildi.",
+    degiskenler: ["isteyenAdSoyad"],
   },
   {
     kod: BILDIRIM_KODLARI.FAALIYET_ONAY_SONUCU,

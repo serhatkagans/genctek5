@@ -157,18 +157,25 @@ Durum işaretleri: `[x]` bitti · `[ ]` bekliyor · `[?]` karar/bilgi bekliyor
 
 ---
 
-## 5. İletişim modülü (en büyük iş, tek başına ele alınmalı)
+## 5. İletişim modülü
 
-- [ ] Öğretmen–öğrenci mesajlaşması
-- [ ] Öğrencinin ilgili çalışma alanı için **başka öğrenci arayabilmesi**
-- [ ] **Duyuru** yapabilme
-- [ ] **Koordinatör onaylı iletişim**: koordinatör iletişim taleplerini
-      onaylayacak ve sistem üzerindeki yazışmayı görebilecek (okul da görsün)
+- [x] Öğretmen–öğrenci ve öğrenci–öğrenci mesajlaşması → `/panel/yazismalar`
+- [x] Öğrencinin çalışma alanına göre **başka öğrenci arayabilmesi**
+      → `/panel/talepler` (ilan panosu + arama + çalışma alanı filtresi)
+- [x] **Duyuru yapabilme** → talep panosunda ilan açma
+- [x] **Koordinatör onaylı iletişim** → `/panel/baglantilar`. Onayı isteği
+      yapanın danışmanı YA DA ilinin koordinatörü verir; yalnızca koordinatöre
+      bırakılsaydı il başına tek kişi darboğaz olurdu.
 
-> Bu öbek kişisel veri ve 18 yaş altı koruması açısından en hassas olanı.
-> Tasarıma başlamadan önce KVKK tarafının netleşmesi gerekiyor.
+**Karar: gizli kanal yok.** Yazışmalar tarafların danışmanlarına, illerinin
+koordinatörlerine ve proje yöneticilerine TAM İÇERİKLE görünür. Veli onayı
+alınmadığı için izleme aydınlatma metnine 2.1 maddesi olarak yazıldı; metin
+değiştiği için öğrencilerden yeniden onay istenecek.
 
----
+Okuma ile yazma AYRI: gözetim yetkisi olan okur ama taraf değilse yazamaz ve
+ekran bunu açıkça söyler. Başkasının yazışmasını okumak erişim kaydına geçer.
+Mesaj silinmez, gizlenir — şikâyet incelemesinde en çok ihtiyaç duyulan kayıt
+gizlenmiş mesajdır.
 
 ## Sunucu / işletim
 

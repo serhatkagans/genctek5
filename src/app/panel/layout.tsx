@@ -84,6 +84,22 @@ export default async function PanelDuzeni({
     baglantilar.push({ yol: "/panel/talepler", etiket: "Talep Panosu" });
   }
 
+  /*
+   * Yazışmalar herkese açık; kimin ne göreceğini kapsam filtresi belirler.
+   * Öğrenci kendi yazışmalarını, danışman öğrencilerininkini, koordinatör
+   * ilindekileri görür.
+   */
+  baglantilar.push({ yol: "/panel/yazismalar", etiket: "Yazışmalar" });
+
+  // Bağlantı onayı yalnızca onaylayacak rollerde.
+  if (
+    danismanMi(kullanici) ||
+    ilKoordinatoruMu(kullanici) ||
+    projeYoneticisiMi(kullanici)
+  ) {
+    baglantilar.push({ yol: "/panel/baglantilar", etiket: "Bağlantı İstekleri" });
+  }
+
   if (
     danismanMi(kullanici) ||
     ilKoordinatoruMu(kullanici) ||

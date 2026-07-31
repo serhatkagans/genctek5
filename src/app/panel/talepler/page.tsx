@@ -1,4 +1,4 @@
-import { Filter, Megaphone, Plus, X } from "lucide-react";
+import { Filter, Handshake, Megaphone, Plus, X } from "lucide-react";
 import Link from "next/link";
 import {
   BilgiKutusu,
@@ -14,6 +14,7 @@ import { prisma } from "@/lib/db";
 import { GIZLILIK_UYARISI, TALEP_AZAMI_GUN } from "@/lib/iletisim/kurallar";
 import { girdiTarihi, tarihYaz } from "@/lib/tarih";
 import { basvuruYapabilirMi } from "@/lib/yetki/izinler";
+import { baglantiIstegiGonderEylemi } from "../baglantilar/eylemler";
 import { talepKapatEylemi, talepAcEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,8 @@ export const dynamic = "force-dynamic";
 
 const DURUM_MESAJLARI: Record<string, string> = {
   acildi: "İlanınız panoya eklendi.",
+  "istek-gonderildi":
+    "Bağlantı isteğiniz gönderildi. Danışman öğretmeniniz ya da il koordinatörünüz onayladığında yazışma açılır.",
   kapatildi: "İlanınız kapatıldı; listede görünmüyor.",
 };
 
@@ -306,6 +309,37 @@ export default async function TaleplerSayfasi({
                   {" · "}
                   {tarihYaz(talep.sonGecerlilik)} tarihine kadar
                 </p>
+
+                {/*
+                  Kendi ilanına istek gönderilmez. İletişim bilgisi burada
+                  GÖSTERİLMEZ: taraflar ancak onaydan sonra ve sistem üzerinden
+                  konuşur.
+                */}
+                {acabilir && talep.acan.id !== kullanici.id && (
+                  <form
+                    action={baglantiIstegiGonderEylemi}
+                    className="mt-3 flex flex-wrap items-end gap-2 border-t border-cizgi pt-3"
+                  >
+                    <input type="hidden" name="talepId" value={talep.id} />
+                    <label className="block grow">
+                      <span className="text-sm font-medium text-metin">
+                        Kendinizi tanıtın
+                      </span>
+                      <input
+                        type="text"
+                        name="mesaj"
+                        required
+                        maxLength={1000}
+                        placeholder="Neden bağlanmak istediğinizi kısaca yazın."
+                        className={SINIF_GIRDI}
+                      />
+                    </label>
+                    <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                      <Handshake size={16} aria-hidden />
+                      Bağlantı isteği gönder
+                    </button>
+                  </form>
+                )}
               </li>
             ))}
           </ul>

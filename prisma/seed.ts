@@ -205,6 +205,24 @@ const BILDIRIM_SABLONLARI = [
     govdeSablonu: "{{icerik}}",
   },
   {
+    kod: "ONAY_BEKLEYEN_BAGLANTI",
+    konu: "Bağlantı isteği onayınızı bekliyor",
+    govdeSablonu:
+      "Merhaba,\n\n{{isteyenAdSoyad}}, {{hedefAdSoyad}} ile iletişim kurmak istiyor ({{talepBasligi}}).\n\nPanelden inceleyip onaylayabilir ya da gerekçesiyle reddedebilirsiniz. Onaylanana kadar taraflar birbirine ulaşamaz.\n\nGençTek",
+  },
+  {
+    kod: "BAGLANTI_ISTEGI_KARARI",
+    konu: "Bağlantı isteğiniz {{sonuc}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{hedefAdSoyad}} ile iletişim kurma isteğiniz {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa yazışma sayfanızdan mesajlaşmaya başlayabilirsiniz. Yazışmalarınız gizli değildir; danışman öğretmeniniz ve il koordinatörünüz okuyabilir.\n\nGençTek",
+  },
+  {
+    kod: "YENI_YAZISMA",
+    konu: "Sizinle bir yazışma açıldı",
+    govdeSablonu:
+      "Merhaba,\n\n{{isteyenAdSoyad}} sizinle iletişim kurmak istedi ve isteği onaylandı. Yazışma sayfanızdan görebilirsiniz.\n\nYazışmalarınız gizli değildir; danışman öğretmeniniz ve il koordinatörünüz okuyabilir.\n\nGençTek",
+  },
+  {
     kod: "FAALIYET_ONAY_SONUCU",
     konu: "{{faaliyetAdi}} faaliyetiniz {{sonuc}}",
     govdeSablonu:
