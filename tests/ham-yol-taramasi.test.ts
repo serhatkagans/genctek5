@@ -24,8 +24,15 @@ import { join } from "node:path";
 
 const KAYNAK_DIZINI = join(__dirname, "..", "src");
 
-/** `src=` ya da `href=` ardından doğrudan `/panel` veya `/giris` ile başlayan yol. */
-const HAM_YOL = /(?:src|href|action)=\{?[`"']\/(?:panel|giris)/g;
+/**
+ * `src=`, `href=` ya da `action=` ardından doğrudan `/` ile başlayan yol.
+ *
+ * Desen bilerek GENİŞ: yalnızca `/panel` ve `/giris` aransaydı `public`
+ * altındaki statik dosyalar (`/genc.png` gibi) taramadan kaçardı — oysa onlar
+ * da basePath öneki almak zorunda. `//` ile başlayan protokol-göreli adresler
+ * dışarıda; onlar dış kaynağa gider ve önek almaz.
+ */
+const HAM_YOL = /(?:src|href|action)=\{?[`"']\/(?!\/)/g;
 
 function tsxDosyalari(dizin: string, toplanan: string[] = []): string[] {
   for (const ad of readdirSync(dizin)) {
