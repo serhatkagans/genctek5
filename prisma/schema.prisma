@@ -284,6 +284,12 @@ model Kullanici {
 
   onayladigiIlDisiBasvurular Basvuru[] @relation("BasvuruKaynakIlOnaylayan")
   yazdigiRaporlar            FaaliyetRaporu[] @relation("RaporYazan")
+  actigiTalepler             Talep[]          @relation("TalepAcan")
+  gonderdigiBaglantiIstekleri BaglantiIstegi[] @relation("BaglantiIsteyen")
+  aldigiBaglantiIstekleri    BaglantiIstegi[] @relation("BaglantiHedefi")
+  kararVerdigiBaglantilar    BaglantiIstegi[] @relation("BaglantiKararVeren")
+  yazdigiMesajlar            Mesaj[]          @relation("MesajYazan")
+  gizledigiMesajlar          Mesaj[]          @relation("MesajGizleyen")
 
   ogrenciAtamalari  DanismanAtama[] @relation("AtamaOgrencisi")
   danismanAtamalari DanismanAtama[] @relation("AtamaDanismani")
@@ -405,6 +411,8 @@ model CalismaGrubu {
 
   ogrenciSecimleri OgrenciCalismaGrubu[]
   faaliyetler      FaaliyetCalismaGrubu[]
+
+    talepler Talep[]
 
   @@map("calisma_grubu")
 }
@@ -930,4 +938,100 @@ model SistemAyari {
   guncellemeTarihi DateTime @default(now()) @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
 
   @@map("sistem_ayari")
+}
+
+// ---------------------------------------------------------------------------
+// 9. İletişim modülü
+// ---------------------------------------------------------------------------
+//
+// TASARIMIN TEMELİ: sistemde GİZLİ KANAL YOKTUR. Her mesaj, tarafların danışman
+// öğretmenlerine, illerinin koordinatörlerine ve proje yöneticilerine görünür.
+// Kullanıcıların çoğu 18 yaş altı olduğu için mahremiyet vaadi verilmiyor;
+// verilseydi tutulamazdı. Bu, ekranda kalıcı olarak yazılı ve aydınlatma
+// metninde beyan edilmiş durumda.
+
+/// Öğrencinin açtığı ilan: "şu alan için takım arkadaşı arıyorum".
+/// Kişiden kişiye temas İÇERMEZ; modülün en düşük riskli parçasıdır.
+model Talep {
+  id              Int      @id @default(autoincrement())
+  acanKullaniciId Int      @map("acan_kullanici_id")
+  /// İlanın ilgili olduğu çalışma alanı. Boş olabilir: her ilan bir gruba
+  /// girmeyebilir ve zorlamak kullanıcıyı yanlış grup seçmeye iter.
+  calismaGrubuId  Int?     @map("calisma_grubu_id")
+  baslik          String   @db.VarChar(200)
+  icerik          String   @db.Text
+  /// Panonun çürümemesi için son gün. Süresi dolan ilan listelenmez ama
+  /// SİLİNMEZ — kimin ne aradığı geçmiş kaydıdır.
+  sonGecerlilik   DateTime @map("son_gecerlilik") @db.Timestamptz(6)
+  kapatildiMi     Boolean  @default(false) @map("kapatildi_mi")
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+
+  acan         Kullanici        @relation("TalepAcan", fields: [acanKullaniciId], references: [id])
+  calismaGrubu CalismaGrubu?    @relation(fields: [calismaGrubuId], references: [id])
+  istekler     BaglantiIstegi[]
+
+  @@index([acanKullaniciId])
+  @@index([calismaGrubuId])
+  @@index([kapatildiMi, sonGecerlilik])
+  @@map("talep")
+}
+
+/// İki kişi arasında yazışma açılabilmesi için gereken onay.
+///
+/// Onaylayan, isteği yapanın danışmanı YA DA ilinin koordinatörü olabilir.
+/// Yalnızca koordinatöre bırakılsaydı il başına tek kişi yüzlerce isteğin
+/// darboğazı olurdu; danışman öğrencisini zaten tanıyor.
+model BaglantiIstegi {
+  id                    Int        @id @default(autoincrement())
+  talepId               Int?       @map("talep_id")
+  isteyenKullaniciId    Int        @map("isteyen_kullanici_id")
+  hedefKullaniciId      Int        @map("hedef_kullanici_id")
+  mesaj                 String     @db.Text
+  onayDurumu            OnayDurumu @default(BEKLIYOR) @map("onay_durumu")
+  kararVerenKullaniciId Int?       @map("karar_veren_kullanici_id")
+  kararTarihi           DateTime?  @map("karar_tarihi") @db.Timestamptz(6)
+  retGerekcesi          String?    @map("ret_gerekcesi") @db.Text
+  olusturmaTarihi       DateTime   @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+
+  talep       Talep?     @relation(fields: [talepId], references: [id])
+  isteyen     Kullanici  @relation("BaglantiIsteyen", fields: [isteyenKullaniciId], references: [id])
+  hedef       Kullanici  @relation("BaglantiHedefi", fields: [hedefKullaniciId], references: [id])
+  kararVeren  Kullanici? @relation("BaglantiKararVeren", fields: [kararVerenKullaniciId], references: [id])
+  yazisma     Yazisma?
+
+  @@index([onayDurumu])
+  @@index([hedefKullaniciId])
+  @@map("baglanti_istegi")
+}
+
+/// Onaylanmış bağlantının konuşması. Bağlantı olmadan yazışma açılamaz,
+/// bu yüzden birincil anahtar isteğin kendisidir.
+model Yazisma {
+  baglantiIstegiId Int      @id @map("baglanti_istegi_id")
+  olusturmaTarihi  DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  kapatildiMi      Boolean  @default(false) @map("kapatildi_mi")
+
+  baglantiIstegi BaglantiIstegi @relation(fields: [baglantiIstegiId], references: [id], onDelete: Cascade)
+  mesajlar       Mesaj[]
+
+  @@map("yazisma")
+}
+
+model Mesaj {
+  id                  Int      @id @default(autoincrement())
+  yazismaId           Int      @map("yazisma_id")
+  yazanKullaniciId    Int      @map("yazan_kullanici_id")
+  icerik              String   @db.Text
+  /// SİLME YOKTUR, gizleme vardır: içerik korunur çünkü şikâyet incelemesinde
+  /// silinmiş bir mesaj en çok ihtiyaç duyulan kayıttır.
+  gizlendiMi          Boolean  @default(false) @map("gizlendi_mi")
+  gizleyenKullaniciId Int?     @map("gizleyen_kullanici_id")
+  olusturmaTarihi     DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+
+  yazisma  Yazisma    @relation(fields: [yazismaId], references: [baglantiIstegiId], onDelete: Cascade)
+  yazan    Kullanici  @relation("MesajYazan", fields: [yazanKullaniciId], references: [id])
+  gizleyen Kullanici? @relation("MesajGizleyen", fields: [gizleyenKullaniciId], references: [id])
+
+  @@index([yazismaId, olusturmaTarihi])
+  @@map("mesaj")
 }

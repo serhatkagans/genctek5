@@ -2,6 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { PaydasTuru } from "@/generated/prisma/enums";
 import {
   danismanKurumKodu,
+  danismanMi,
   koordinatorIlKodu,
   ogrenciMi,
   projeYoneticisiMi,
@@ -513,4 +514,88 @@ export function ilDisiBasvuruFiltresi(
   // Katılımcının ili = kaynak il. Koordinatör yalnızca KENDİ ilinden çıkan
   // başvuruya karar verir; hedef ildeki karar düzenleyenin değerlendirmesidir.
   return { AND: [ilDisiKayit, { katilimci: { ilKodu } }] };
+}
+
+// ---------------------------------------------------------------------------
+// İletişim modülü
+// ---------------------------------------------------------------------------
+
+/**
+ * Kullanıcının GÖREBİLECEĞİ yazışmalar — analiz isteği Bölüm 6.
+ *
+ * GİZLİ KANAL YOKTUR. Bir yazışmayı şunlar görür:
+ *   - tarafların kendisi
+ *   - tarafların danışman öğretmenleri
+ *   - tarafların illerinin koordinatörleri
+ *   - proje yöneticileri (hepsi)
+ *
+ * Danışmanlık "aktif atama" üzerinden okunur, okul eşitliğinden DEĞİL: aynı
+ * okuldaki başka bir danışmanın, kendi öğrencisi olmayan birinin yazışmasını
+ * okuması gerekmiyor. Kapsam gereğinden geniş tutulursa modülün kendisi bir
+ * veri sızıntısı kaynağına dönüşür.
+ */
+export function yazismaKapsamFiltresi(
+  kullanici: OturumKullanicisi,
+): Prisma.YazismaWhereInput {
+  if (projeYoneticisiMi(kullanici)) return {};
+
+  const taraflar: Prisma.BaglantiIstegiWhereInput[] = [
+    { isteyenKullaniciId: kullanici.id },
+    { hedefKullaniciId: kullanici.id },
+  ];
+
+  const koordinatorIli = koordinatorIlKodu(kullanici);
+  if (koordinatorIli !== null) {
+    taraflar.push(
+      { isteyen: { ilKodu: koordinatorIli } },
+      { hedef: { ilKodu: koordinatorIli } },
+    );
+  }
+
+  if (danismanMi(kullanici)) {
+    const danismanlik = {
+      ogrenciAtamalari: {
+        some: { danismanKullaniciId: kullanici.id, bitisTarihi: null },
+      },
+    };
+    taraflar.push({ isteyen: danismanlik }, { hedef: danismanlik });
+  }
+
+  return { baglantiIstegi: { OR: taraflar } };
+}
+
+/**
+ * Kullanıcının karar verebileceği bağlantı istekleri.
+ *
+ * Onaylayan, İSTEĞİ YAPANIN danışmanı ya da ilinin koordinatörü olabilir.
+ * Yalnızca koordinatöre bırakılsaydı il başına tek kişi yüzlerce isteğin
+ * darboğazı olurdu; danışman öğrencisini zaten tanıyor.
+ *
+ * Hedefin tarafı karar VERMEZ: bu bir "kabul ediyor musun" sorusu değil,
+ * "öğrencimin bu teması kurmasına izin veriyor muyum" sorusudur.
+ */
+export function baglantiKarariFiltresi(
+  kullanici: OturumKullanicisi,
+): Prisma.BaglantiIstegiWhereInput {
+  if (projeYoneticisiMi(kullanici)) return {};
+
+  const kosullar: Prisma.BaglantiIstegiWhereInput[] = [];
+
+  const koordinatorIli = koordinatorIlKodu(kullanici);
+  if (koordinatorIli !== null) {
+    kosullar.push({ isteyen: { ilKodu: koordinatorIli } });
+  }
+
+  if (danismanMi(kullanici)) {
+    kosullar.push({
+      isteyen: {
+        ogrenciAtamalari: {
+          some: { danismanKullaniciId: kullanici.id, bitisTarihi: null },
+        },
+      },
+    });
+  }
+
+  if (kosullar.length === 0) return { id: { in: [] } };
+  return { OR: kosullar };
 }

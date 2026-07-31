@@ -50,7 +50,10 @@ export const VARSAYILAN_AYDINLATMA_METNI = `GençTek Ekosistemi Kurumsal Bilgi S
 Bu sistem, Millî Eğitim Bakanlığı Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü (YEĞİTEK) adına işletilmektedir. Kişisel verileriniz 6698 sayılı Kişisel Verilerin Korunması Kanunu kapsamında veri sorumlusu sıfatıyla YEĞİTEK tarafından işlenir.
 
 2. İşlenen veriler
-Kimlik ve öğrenim bilgileriniz (ad, soyad, cinsiyet, okul, kurum kodu, il, ilçe, sınıf, eğitim-öğretim yılı) e-Okul/EBA kayıtlarından alınır ve bu sistemde değiştirilemez. Bunlara ek olarak yalnızca sizin girdiğiniz iletişim bilgileri (e-posta, telefon), seçtiğiniz çalışma grupları, danışman öğretmen tercihiniz, faaliyet başvurularınız ve başvuru gerekçeleriniz ile yazdığınız yorumlar işlenir.
+Kimlik ve öğrenim bilgileriniz (ad, soyad, cinsiyet, okul, kurum kodu, il, ilçe, sınıf, eğitim-öğretim yılı) e-Okul/EBA kayıtlarından alınır ve bu sistemde değiştirilemez. Bunlara ek olarak yalnızca sizin girdiğiniz iletişim bilgileri (e-posta, telefon, varsa GitHub/LinkedIn/kişisel site adresleriniz), seçtiğiniz çalışma grupları, danışman öğretmen tercihiniz, faaliyet başvurularınız ve başvuru gerekçeleriniz, yazdığınız yorumlar, profil fotoğrafınız, açtığınız ilanlar ve sistem içinde gönderdiğiniz mesajlar işlenir.
+
+2.1. Sistem içi yazışmalar gizli DEĞİLDİR
+Sistem üzerinden başka bir kullanıcıyla yaptığınız yazışmaların tamamı; danışman öğretmeniniz, ilinizin koordinatörü ve YEĞİTEK proje yöneticileri tarafından okunabilir. Bu, çoğunluğu 18 yaş altı olan kullanıcıların korunması amacıyla uygulanan bir güvenlik tedbiridir. Sistemde özel/şifreli bir mesajlaşma kanalı bulunmamaktadır; yazdığınız her mesajın okunabileceğini bilerek yazınız.
 
 3. İşleme amacı ve hukuki sebep
 Veriler; danışman öğretmen eşleştirmesi, çalışma grubu takibi, faaliyet başvurusu ve değerlendirmesi ile ekosistemin yönetimi amacıyla, Bakanlığın kanunla verilen görevlerini yerine getirmesi hukuki sebebine dayanılarak işlenir.
