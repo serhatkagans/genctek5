@@ -29,6 +29,7 @@ import {
   OnayRozeti,
   PencereRozeti,
 } from "@/components/FaaliyetRozetleri";
+import { MetinBaglantili } from "@/components/MetinBaglantili";
 import {
   BilgiKutusu,
   Kart,
@@ -46,6 +47,7 @@ import {
   basvuruYapilabilirMi,
   ETKINLIK_KATEGORISI_ETIKETLERI,
   faaliyetIcerikAlabilirMi,
+  faaliyetSuresiYaz,
   KATILIMCI_TIPI_ETIKETLERI,
   katilimciTipi,
   kontenjanAltSiniri,
@@ -492,15 +494,25 @@ export default async function FaaliyetDetaySayfasi({
 
       <Kart>
         <KartBasligi baslik="Faaliyet bilgileri" Ikon={Info} />
-        <p className="mb-5 whitespace-pre-line text-metin">
-          {faaliyet.aciklama}
-        </p>
+        <MetinBaglantili
+          metin={faaliyet.aciklama}
+          className="mb-5 whitespace-pre-line text-metin"
+        />
         <dl className="grid gap-5 sm:grid-cols-2">
           <Satir etiket="Faaliyet tarihi">
             <span className="inline-flex items-center gap-1.5">
               <CalendarDays size={15} aria-hidden />
-              {tarihSaatYaz(faaliyet.tarih)}
+              {/*
+                Çok günlü faaliyette bitiş de yazılır; tek günlükte tek tarih
+                kalır — "3 Mart — 3 Mart" gereksiz gürültüdür.
+              */}
+              {faaliyet.bitisTarihi
+                ? `${tarihSaatYaz(faaliyet.tarih)} — ${tarihSaatYaz(faaliyet.bitisTarihi)}`
+                : tarihSaatYaz(faaliyet.tarih)}
             </span>
+          </Satir>
+          <Satir etiket="Süre">
+            {faaliyetSuresiYaz(faaliyet.tarih, faaliyet.bitisTarihi)}
           </Satir>
           <Satir etiket="Yer">
             <span className="inline-flex items-center gap-1.5">
@@ -620,6 +632,24 @@ export default async function FaaliyetDetaySayfasi({
                   defaultValue={girdiTarihSaati(faaliyet.tarih)}
                   className={SINIF_GIRDI}
                 />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  Faaliyet bitişi
+                </span>
+                <input
+                  type="datetime-local"
+                  name="bitisTarihi"
+                  defaultValue={
+                    faaliyet.bitisTarihi
+                      ? girdiTarihSaati(faaliyet.bitisTarihi)
+                      : ""
+                  }
+                  className={SINIF_GIRDI}
+                />
+                <span className="mt-1 block text-sm text-metin-yumusak">
+                  Tek günlükse boş bırakın.
+                </span>
               </label>
               <label className="block">
                 <span className="text-sm font-medium text-metin">

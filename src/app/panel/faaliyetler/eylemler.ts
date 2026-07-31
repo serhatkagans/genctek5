@@ -38,6 +38,7 @@ import {
   kontenjanDegisikligiGecerliMi,
   kontenjanDurumu,
   onayDurumuBelirle,
+  faaliyetSuresiGecerliMi,
   programSecimiGerekiyorMu,
   yenidenOnayGerekiyorMu,
 } from "@/lib/faaliyet/kurallar";
@@ -137,6 +138,13 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
     hataylaDon(yol, "Başvuru bitişi başlangıçtan önce olamaz.");
   }
 
+  // Bitiş isteğe bağlıdır: boş bırakılan faaliyet tek günlüktür.
+  const faaliyetBitisi = yerelTarihSaat(metin(veri, "bitisTarihi") || null);
+  const sureKarari = faaliyetSuresiGecerliMi(tarih, faaliyetBitisi);
+  if (!sureKarari.olurMu) {
+    hataylaDon(yol, sureKarari.neden ?? "Faaliyet süresi geçersiz.");
+  }
+
   const kontenjan = sayi(veri, "kontenjan");
   if (kontenjan === null || kontenjan < 1) {
     hataylaDon(yol, "Kontenjan en az 1 olmalıdır.");
@@ -199,6 +207,7 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
       ad,
       aciklama,
       tarih,
+      bitisTarihi: faaliyetBitisi,
       kapsam,
       etkinlikKategorisi,
       temelEtkinlikProgramiId: program?.id ?? null,
@@ -325,6 +334,13 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
     hataylaDon(yol, "Başvuru bitişi başlangıçtan önce olamaz.");
   }
 
+  // Bitiş isteğe bağlıdır: boş bırakılan faaliyet tek günlüktür.
+  const faaliyetBitisi = yerelTarihSaat(metin(veri, "bitisTarihi") || null);
+  const sureKarari = faaliyetSuresiGecerliMi(tarih, faaliyetBitisi);
+  if (!sureKarari.olurMu) {
+    hataylaDon(yol, sureKarari.neden ?? "Faaliyet süresi geçersiz.");
+  }
+
   const yeniKontenjan = sayi(veri, "kontenjan");
   if (yeniKontenjan === null) {
     hataylaDon(yol, "Kontenjan en az 1 olmalıdır.");
@@ -339,7 +355,11 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
   const tarihDegistiMi =
     tarih.getTime() !== faaliyet.tarih.getTime() ||
     basvuruBaslangic.getTime() !== faaliyet.basvuruBaslangic.getTime() ||
-    basvuruBitis.getTime() !== faaliyet.basvuruBitis.getTime();
+    basvuruBitis.getTime() !== faaliyet.basvuruBitis.getTime() ||
+    // Süre de tarihin parçasıdır: onaylanmış 1 günlük faaliyeti 3 aya
+    // uzatmak onayın konusunu değiştirir.
+    (faaliyetBitisi?.getTime() ?? null) !==
+      (faaliyet.bitisTarihi?.getTime() ?? null);
 
   const onayDusuyorMu = yenidenOnayGerekiyorMu({
     onayDurumu: faaliyet.onayDurumu,
@@ -351,6 +371,7 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
     where: { id: faaliyet.id },
     data: {
       tarih,
+      bitisTarihi: faaliyetBitisi,
       basvuruBaslangic,
       basvuruBitis,
       kontenjan: yeniKontenjan,

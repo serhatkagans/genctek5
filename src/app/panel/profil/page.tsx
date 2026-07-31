@@ -505,7 +505,7 @@ export default async function ProfilSayfasi({
 
           <Kart>
             <KartBasligi
-              baslik="Kazanımlarım ve üretimlerim"
+              baslik="Ekosisteme katkı"
               aciklama="GençTek dışı etkinlikler, yaptığınız ürünler, verdiğiniz akran eğitimleri ve derece aldığınız yarışmalar. Kayıtları siz girersiniz; danışmanınız ve koordinatörünüz profilinizde görür."
               Ikon={Sparkles}
             />

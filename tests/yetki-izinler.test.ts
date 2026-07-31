@@ -6,6 +6,7 @@ import {
   ekYukleyebilirMi,
   faaliyetPaydasiYonetebilirMi,
   ogretmenEnvanteriGorebilirMi,
+  paydasEkleyebilirMi,
   paydasGorebilirMi,
   paydasYonetebilirMi,
   faaliyetAcabilirMi,
@@ -450,10 +451,33 @@ describe("paydaş envanteri", () => {
     expect(paydasYonetebilirMi(ogrenciYap(), "34")).toBe(false);
   });
 
-  it("il koordinatörü YALNIZCA kendi ilinin paydaşını yönetir", () => {
+  it("kayıt EKLEMEDE il sorulmaz: koordinatör başka ile de ekleyebilir", () => {
+    // İzmir koordinatörünün Ankara'daki bir üniversiteyle iş birliği kurması
+    // olağandır; kaydı kendi iline yazmaya zorlamak envanteri yanlışlardı.
+    expect(paydasEkleyebilirMi(koordinatorYap({ ilKodu: "35" }))).toBe(true);
+    expect(paydasEkleyebilirMi(projeYoneticisiYap())).toBe(true);
+  });
+
+  it("danışman öğretmen ve öğrenci kayıt ekleyemez", () => {
+    expect(paydasEkleyebilirMi(danismanYap())).toBe(false);
+    expect(paydasEkleyebilirMi(ogrenciYap())).toBe(false);
+  });
+
+  it("düzenleme eklemeden dardır: koordinatör kendi ilini düzenler", () => {
     const koordinator = koordinatorYap({ ilKodu: "34" });
     expect(paydasYonetebilirMi(koordinator, "34")).toBe(true);
     expect(paydasYonetebilirMi(koordinator, "06")).toBe(false);
+  });
+
+  it("başka ile yazdığı KENDİ kaydını düzenleyebilir", () => {
+    // Yoksa yanlış girdiği bir kurumu düzeltemez hâle gelirdi.
+    const koordinator = koordinatorYap({ id: 77, ilKodu: "34" });
+    expect(paydasYonetebilirMi(koordinator, "06", 77)).toBe(true);
+  });
+
+  it("başka ilin koordinatörünün eklediği kayda dokunamaz", () => {
+    const koordinator = koordinatorYap({ id: 77, ilKodu: "34" });
+    expect(paydasYonetebilirMi(koordinator, "06", 88)).toBe(false);
   });
 
   it("proje yöneticisi her ilin paydaşını yönetir", () => {

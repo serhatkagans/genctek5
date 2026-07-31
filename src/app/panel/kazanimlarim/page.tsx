@@ -10,7 +10,7 @@ import { ogrenciMi } from "@/lib/yetki/izinler";
 export const dynamic = "force-dynamic";
 
 /**
- * Kazanımlarım — öğrencinin katılım geçmişi ve rozetleri.
+ * Katkılarım — öğrencinin katılım geçmişi ve katkı rozetleri.
  *
  * Ekran yalnızca öğrenciye açıktır ve yalnızca KENDİ verisini gösterir; başka
  * bir öğrencinin kazanımına bakmanın bir yolu yoktur, bu yüzden ayrıca kapsam
@@ -23,7 +23,7 @@ export default async function KazanimlarimSayfasi() {
     return (
       <Kart>
         <KartBasligi
-          baslik="Kazanımlarım"
+          baslik="Katkılarım"
           aciklama="Bu ekran öğrencilerin katılım geçmişini gösterir."
         />
       </Kart>
@@ -37,20 +37,20 @@ export default async function KazanimlarimSayfasi() {
   return (
     <div className="space-y-6">
       <SayfaBasligi
-        baslik="Kazanımlarım"
-        aciklama={`${ozet.toplamKatilim} faaliyete katıldın · ${kazanilan.length}/${rozetler.length} rozet`}
+        baslik="Katkılarım"
+        aciklama={`${ozet.toplamKatilim} faaliyete katıldın · ${kazanilan.length}/${rozetler.length} katkı nişanı`}
       />
 
       <Kart>
         <KartBasligi
-          baslik="Rozetlerim"
-          aciklama="Rozetler katılım geçmişinden otomatik hesaplanır; başvuru gerektirmez."
+          baslik="Katkı nişanlarım"
+          aciklama="Katılım geçmişinden otomatik hesaplanır; başvuru gerektirmez."
           Ikon={Award}
         />
 
         {kazanilan.length === 0 ? (
           <p className="text-metin-yumusak">
-            Henüz rozetin yok. İlk faaliyetine katıldığında burası dolmaya
+            Henüz katkı nişanın yok. İlk faaliyetine katıldığında burası dolmaya
             başlayacak.
           </p>
         ) : (

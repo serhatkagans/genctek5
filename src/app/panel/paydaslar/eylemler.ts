@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { paydasGirdisiniCoz, type PaydasGirdisi } from "@/lib/paydas/kurallar";
-import { koordinatorIlKodu, paydasYonetebilirMi } from "@/lib/yetki/izinler";
+import {
+  paydasEkleyebilirMi,
+  paydasYonetebilirMi,
+} from "@/lib/yetki/izinler";
 import { paydasKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
@@ -47,28 +50,23 @@ function formuCoz(veri: FormData): PaydasGirdisi {
   };
 }
 
-/**
- * İl koordinatörü hangi il için kayıt açarsa açsın kendi iline yazar: form
- * alanı taşımak yerine roldan okunur. Merkez (YEĞİTEK) ise ili formdan seçer,
- * çünkü tüm illerde kayıt açabilir.
- */
-function hedefIlKodu(
-  kullanici: Awaited<ReturnType<typeof oturumKullanicisiZorunlu>>,
-  formdakiIl: string,
-): string {
-  return koordinatorIlKodu(kullanici) ?? formdakiIl;
-}
-
 export async function paydasEkleEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
 
+  /*
+   * İl ARTIK ROLDEN OKUNMUYOR, formdan geliyor.
+   *
+   * Eskiden koordinatörün ili zorlanıyordu; iş birliği kurduğu kurum başka
+   * ilde olduğunda (İzmir koordinatörünün Ankara'daki üniversiteyle çalışması)
+   * kayıt yanlış ile yazılıyordu. Artık koordinatör hedef ili kendisi seçiyor
+   * ve eklediği kaydı kapsam filtresi sayesinde görmeye devam ediyor
+   * (bkz. paydasKapsamFiltresi).
+   */
   const girdi = formuCoz(veri);
-  girdi.ilKodu = hedefIlKodu(kullanici, girdi.ilKodu);
 
-  // Yetki, kaydın İLİNE bakar: il koordinatörü başka ilin paydaşını ekleyemez.
-  if (!paydasYonetebilirMi(kullanici, girdi.ilKodu)) {
+  if (!paydasEkleyebilirMi(kullanici)) {
     throw new YetkiHatasi(
-      "Paydaş kaydını yalnızca ilin koordinatörü ve proje yöneticisi ekleyebilir.",
+      "Paydaş kaydını yalnızca il koordinatörü ve proje yöneticisi ekleyebilir.",
     );
   }
 
@@ -128,11 +126,17 @@ async function yonetilebilirPaydasGetir(paydasId: number) {
 
   const paydas = await prisma.paydas.findFirst({
     where: { AND: [{ id: paydasId }, paydasKapsamFiltresi(kullanici)] },
-    select: { id: true, ad: true, ilKodu: true, aktif: true },
+    select: {
+      id: true,
+      ad: true,
+      ilKodu: true,
+      aktif: true,
+      ekleyenKullaniciId: true,
+    },
   });
   if (!paydas) throw new BulunamadiHatasi();
 
-  if (!paydasYonetebilirMi(kullanici, paydas.ilKodu)) {
+  if (!paydasYonetebilirMi(kullanici, paydas.ilKodu, paydas.ekleyenKullaniciId)) {
     throw new YetkiHatasi("Bu paydaş kaydını düzenleme yetkiniz yok.");
   }
 

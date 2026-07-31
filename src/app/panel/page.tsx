@@ -19,6 +19,7 @@ import {
 import { DuyuruSeridi } from "@/components/DuyuruSeridi";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { aktifAtamaGetir } from "@/lib/danisman/atama";
+import { ilKoordinatoruOzeti } from "@/lib/rol/koordinator";
 import { prisma } from "@/lib/db";
 import { KAPSAM_ETIKETLERI } from "@/lib/faaliyet/kurallar";
 import { seritteGosterilecekler, takvimeAyir } from "@/lib/faaliyet/takvim";
@@ -99,6 +100,23 @@ export default async function PanelSayfasi() {
         where: { ogrenciId: kullanici.id },
       })
     : 0;
+
+  /*
+   * Öğretmenin bağlı olduğu il koordinatörü.
+   *
+   * Koordinatörün KENDİSİNE gösterilmez (kendi adını kart olarak görmesi
+   * anlamsız), proje yöneticisine de gösterilmez (tek bir ile bağlı değil).
+   * Öğrenciye de gösterilmez: onun muhatabı danışman öğretmenidir.
+   */
+  const koordinatorGosterilir =
+    !ogrenciMi(kullanici) &&
+    !ilKoordinatoruMu(kullanici) &&
+    !projeYoneticisiMi(kullanici) &&
+    kullanici.ilKodu !== null;
+
+  const ilKoordinatorum = koordinatorGosterilir
+    ? await ilKoordinatoruOzeti(kullanici.ilKodu as string)
+    : null;
 
   /*
    * Kişinin kendi başvuruları. Katılımcı öğretmen de olabildiği için koşul
@@ -223,6 +241,29 @@ export default async function PanelSayfasi() {
             Ikon={Users}
             deger={String(kapsamdakiOgrenciSayisi)}
             aciklama="Kendi okulunuzdaki öğrenciler"
+          />
+        )}
+
+        {koordinatorGosterilir && (
+          <OlcumKarti
+            baslik="İl koordinatörüm"
+            Ikon={MapPin}
+            deger={
+              ilKoordinatorum
+                ? `${ilKoordinatorum.ad} ${ilKoordinatorum.soyad}`
+                : "Atanmadı"
+            }
+            /*
+             * E-posta kişinin kendi girdiği alandır, boş olabilir. Boşken
+             * "—" yazmak yerine ne yapılacağı söyleniyor: öğretmen
+             * koordinatöre ulaşmak istediğinde çıkmaz sokakta kalmasın.
+             */
+            aciklama={
+              ilKoordinatorum
+                ? (ilKoordinatorum.eposta ??
+                  "E-posta girilmemiş — okulunuz üzerinden ulaşın")
+                : "İlinize henüz koordinatör atanmadı"
+            }
           />
         )}
 

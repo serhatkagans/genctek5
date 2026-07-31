@@ -376,7 +376,7 @@ export function paydasGorebilirMi(kullanici: OturumKullanicisi): boolean {
 }
 
 /**
- * Paydaş kaydını EKLEYİP DÜZENLEYEBİLİR Mİ?
+ * Paydaş kaydı EKLEYEBİLİR Mİ?
  *
  * Görmekten dar bir yetkidir: kayıt ilin koordinatörüne ve merkeze bırakıldı.
  * Her danışman öğretmen de ekleyebilseydi aynı üniversite onlarca kez farklı
@@ -384,15 +384,36 @@ export function paydasGorebilirMi(kullanici: OturumKullanicisi): boolean {
  * Danışman öğretmen paydaşı görür ve faaliyetine bağlar; listeye yeni kurum
  * eklenmesini koordinatöründen ister.
  *
- * İl koordinatörü YALNIZCA kendi ilinde yönetebilir; hedef ilin kodu bu yüzden
- * parametredir ve çağıran onu kaydın kendisinden geçirmek zorundadır.
+ * EKLEMEDE İL SORULMAZ. Koordinatörün iş birliği kurduğu üniversite ya da
+ * şirket başka ilde olabilir (İzmir koordinatörünün Ankara'daki bir
+ * üniversiteyle çalışması olağandır); kaydı kendi iline yazmaya zorlamak
+ * envanteri yanlışlardı. Kaydın hangi ile ait olduğu formda seçilir.
+ */
+export function paydasEkleyebilirMi(kullanici: OturumKullanicisi): boolean {
+  return projeYoneticisiMi(kullanici) || ilKoordinatoruMu(kullanici);
+}
+
+/**
+ * MEVCUT bir paydaş kaydını düzenleyebilir mi?
+ *
+ * Eklemeden DAR bir yetkidir ve iki kapısı vardır:
+ *   1. Kayıt kendi ilindeyse — envanter ile bağlıdır, koordinatör değişse de
+ *      yeni koordinatör devralır.
+ *   2. Kaydı kendisi eklediyse — başka ile yazdığı kaydı düzeltebilmeli,
+ *      yoksa yanlış yazdığı bir kurumu düzeltemez hâle gelirdi.
+ *
+ * Başka bir ilin koordinatörünün eklediği kayda dokunulamaz: aynı kurumu iki
+ * il farklı biçimde yönetiyorsa bu bir veri çatışmasıdır, yetki sorunu değil.
  */
 export function paydasYonetebilirMi(
   kullanici: OturumKullanicisi,
   ilKodu: string,
+  ekleyenKullaniciId?: number,
 ): boolean {
   if (projeYoneticisiMi(kullanici)) return true;
-  return ilKoordinatoruMu(kullanici) && koordinatorIlKodu(kullanici) === ilKodu;
+  if (!ilKoordinatoruMu(kullanici)) return false;
+  if (koordinatorIlKodu(kullanici) === ilKodu) return true;
+  return ekleyenKullaniciId !== undefined && ekleyenKullaniciId === kullanici.id;
 }
 
 /**

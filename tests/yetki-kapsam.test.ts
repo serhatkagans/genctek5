@@ -251,10 +251,14 @@ describe("paydaş kapsam filtresi", () => {
     expect(paydasKapsamFiltresi(projeYoneticisiYap())).toEqual({});
   });
 
-  it("il koordinatörü kendi iliyle sınırlıdır", () => {
-    expect(paydasKapsamFiltresi(koordinatorYap({ ilKodu: "34" }))).toEqual({
-      ilKodu: "34",
-    });
+  it("il koordinatörü kendi ilini VE kendi eklediklerini görür", () => {
+    /*
+     * İkinci koşul olmasaydı, koordinatörün başka ile eklediği kayıt
+     * kaydedildiği anda listesinden kaybolurdu.
+     */
+    expect(paydasKapsamFiltresi(koordinatorYap({ id: 77, ilKodu: "34" }))).toEqual(
+      { OR: [{ ilKodu: "34" }, { ekleyenKullaniciId: 77 }] },
+    );
   });
 
   it("danışman öğretmen kendi ilinin paydaşlarını görür", () => {
@@ -287,11 +291,14 @@ describe("paydaş kapsam filtresi", () => {
    * başka bir il kodu yazan koordinatör o ilin paydaşlarını göremez.
    */
   it("il filtresi kapsamı genişletmez", () => {
-    const filtre = paydasListeFiltresi(koordinatorYap({ ilKodu: "34" }), {
+    const filtre = paydasListeFiltresi(koordinatorYap({ id: 77, ilKodu: "34" }), {
       ilKodu: "06",
     });
     const metin = metne(filtre);
+    // Kapsam (kendi ili + kendi eklediği) ile ekran filtresi AND'lenir;
+    // adres çubuğuna yazılan il kodu kapsamın yerine GEÇMEZ.
     expect(metin).toContain('"ilKodu":"34"');
+    expect(metin).toContain('"ekleyenKullaniciId":77');
     expect(metin).toContain('"ilKodu":"06"');
   });
 });

@@ -27,6 +27,7 @@ import {
 } from "@/lib/paydas/kurallar";
 import {
   koordinatorIlKodu,
+  paydasEkleyebilirMi,
   paydasGorebilirMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
@@ -92,8 +93,13 @@ export default async function PaydaslarSayfasi({
 
   const merkezMi = projeYoneticisiMi(kullanici);
   const koordinatorIli = koordinatorIlKodu(kullanici);
-  // Yönetim yetkisi il bazlıdır; koordinatör için kendi ili, merkez için her il.
-  const ekleyebilir = merkezMi || koordinatorIli !== null;
+  /*
+   * Kayıt açma yetkisi İLE BAĞLI DEĞİLDİR: koordinatör başka ildeki bir kurumla
+   * da iş birliği kurabilir (bkz. paydasEkleyebilirMi). Düzenleme yetkisi
+   * bundan dardır ve kaydın kendisine bakar.
+   */
+  const kayitAcabilir = paydasEkleyebilirMi(kullanici);
+  const ekleyebilir = kayitAcabilir;
 
   const [paydaslar, iller, turDagilimi] = await Promise.all([
     prisma.paydas.findMany({
@@ -112,9 +118,12 @@ export default async function PaydaslarSayfasi({
         _count: { select: { faaliyetler: true } },
       },
     }),
-    // İl seçeneği yalnızca merkezde anlamlı: koordinatör ve danışman zaten tek
-    // ilin kayıtlarını görüyor.
-    merkezMi
+    /*
+     * Kayıt açabilenler (merkez ve il koordinatörü) TÜM illeri görür: iş
+     * birliği kurulan kurum başka ilde olabiliyor. Danışman öğretmen kayıt
+     * açamadığı için ona yalnızca kendi ili gerekiyor (filtre kutusunda).
+     */
+    kayitAcabilir
       ? prisma.il.findMany({ orderBy: { ad: "asc" } })
       : prisma.il.findMany({
           where: { ilKodu: koordinatorIli ?? kullanici.ilKodu ?? "00" },
@@ -379,28 +388,33 @@ export default async function PaydaslarSayfasi({
                 </select>
               </label>
 
-              {merkezMi ? (
-                <label className="block">
-                  <span className={SINIF_ETIKET}>İl</span>
-                  <select name="ilKodu" className={SINIF_GIRDI} required>
-                    {iller.map((il) => (
-                      <option key={il.ilKodu} value={il.ilKodu}>
-                        {il.ad}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : (
-                // Koordinatörün ili roldan okunur; alan yine de gösterilir ki
-                // kaydın nereye yazıldığı ekranda görünsün.
-                <div>
-                  <span className={SINIF_ETIKET}>İl</span>
-                  <p className="mt-1 flex items-center gap-1.5 rounded-md border border-cizgi bg-zemin px-3 py-2 text-sm text-metin-yumusak">
-                    <MapPin size={14} aria-hidden />
-                    {iller[0]?.ad ?? "—"}
-                  </p>
-                </div>
-              )}
+              {/*
+                İl SEÇİLİR, roldan okunmaz. Koordinatörün iş birliği kurduğu
+                kurum başka ilde olabilir; kendi iline yazmaya zorlamak
+                envanteri yanlışlardı. Varsayılan kendi ili, çünkü olağan
+                durum budur.
+              */}
+              <label className="block">
+                <span className={SINIF_ETIKET}>İl</span>
+                <select
+                  name="ilKodu"
+                  className={SINIF_GIRDI}
+                  required
+                  defaultValue={koordinatorIli ?? ""}
+                >
+                  {iller.map((il) => (
+                    <option key={il.ilKodu} value={il.ilKodu}>
+                      {il.ad}
+                    </option>
+                  ))}
+                </select>
+                {koordinatorIli && (
+                  <span className="mt-1 block text-sm text-metin-yumusak">
+                    Başka bir il seçerseniz kayıt o ilin envanterine yazılır;
+                    listenizde görünmeye devam eder.
+                  </span>
+                )}
+              </label>
 
               <label className="block">
                 <span className={SINIF_ETIKET}>Yetkili kişi</span>

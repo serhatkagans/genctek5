@@ -1,4 +1,7 @@
 import {
+  faaliyetSuresiGecerliMi,
+  faaliyetSuresiGun,
+  faaliyetSuresiYaz,
   KATILIMCI_TIPI_ETIKETLERI,
   katilimciTipi,
   vekaletenBasvuruGecerliMi,
@@ -563,5 +566,48 @@ describe("vekaleten başvuru", () => {
       hedefKullaniciId: 100,
     });
     expect(karar.olurMu).toBe(false);
+  });
+});
+
+describe("faaliyet süresi", () => {
+  const mart1 = new Date("2026-03-01T10:00:00+03:00");
+
+  it("bitiş yoksa geçerlidir ve 1 gündür", () => {
+    expect(faaliyetSuresiGecerliMi(mart1, null).olurMu).toBe(true);
+    expect(faaliyetSuresiGun(mart1, null)).toBe(1);
+    expect(faaliyetSuresiYaz(mart1, null)).toBe("1 gün");
+  });
+
+  it("bitiş başlangıçtan önceyse reddeder", () => {
+    const karar = faaliyetSuresiGecerliMi(
+      mart1,
+      new Date("2026-02-28T10:00:00+03:00"),
+    );
+    expect(karar.olurMu).toBe(false);
+    expect(karar.neden).toBe("Faaliyet bitişi başlangıcından önce olamaz.");
+  });
+
+  it("aynı gün başlayıp biten faaliyet 1 gündür", () => {
+    expect(faaliyetSuresiGun(mart1, new Date("2026-03-01T17:00:00+03:00"))).toBe(1);
+  });
+
+  it("ertesi güne sarkan faaliyet 2 gündür", () => {
+    // 15 saatlik bir aralık ama iki ayrı gün; saat farkıyla bölmek "1 gün"
+    // gösterirdi, kullanıcı "2 gün" bekler.
+    expect(faaliyetSuresiGun(mart1, new Date("2026-03-02T01:00:00+03:00"))).toBe(2);
+  });
+
+  it("üç aylık faaliyeti gün olarak sayar", () => {
+    expect(faaliyetSuresiGun(mart1, new Date("2026-05-31T10:00:00+03:00"))).toBe(92);
+  });
+
+  it("artık yılın şubatını doğru sayar", () => {
+    // 2028 artık yıl: 28 Şubat + 29 Şubat = 2 gün.
+    expect(
+      faaliyetSuresiGun(
+        new Date("2028-02-28T09:00:00+03:00"),
+        new Date("2028-02-29T18:00:00+03:00"),
+      ),
+    ).toBe(2);
   });
 });

@@ -7,7 +7,14 @@ import type { PaydasTuru } from "@/generated/prisma/enums";
  * kapsanabilsinler (aynı yaklaşım src/lib/faaliyet/kurallar.ts'de).
  */
 
+/*
+ * Sıra ekrandaki açılır listenin sırasıdır ve rastgele değildir: GençTek
+ * protokollü üniversite ile mezun paydaşlar en üstte, çünkü ilin en sık
+ * eklediği ve aradığı kayıtlar bunlar.
+ */
 export const PAYDAS_TURLERI: PaydasTuru[] = [
+  "GENCTEK_UNIVERSITE",
+  "MEZUN",
   "UNIVERSITE",
   "OZEL_SEKTOR",
   "STK",
@@ -18,6 +25,8 @@ export const PAYDAS_TURLERI: PaydasTuru[] = [
 ];
 
 export const PAYDAS_TURU_ETIKETLERI: Record<PaydasTuru, string> = {
+  GENCTEK_UNIVERSITE: "GençTek üniversitesi",
+  MEZUN: "Mezun",
   UNIVERSITE: "Üniversite",
   OZEL_SEKTOR: "Özel sektör",
   STK: "Sivil toplum kuruluşu",

@@ -228,3 +228,43 @@ export async function ilKoordinatorluguKaldir(
     atanmamisKalanOgrenciSayisi: atanmamisKalan,
   };
 }
+
+/**
+ * Bir ilin görevdeki koordinatörünü, öğretmene gösterilecek kadarıyla getirir.
+ *
+ * Yalnızca ad, soyad ve e-posta döner. Telefon BİLEREK yok: öğretmenin
+ * koordinatörüne ulaşması için e-posta yeterli, telefon ise kişinin kendi
+ * girdiği ve daha dar paylaşılması gereken bir bilgi.
+ *
+ * E-posta `ogretmen_profil`de durur ve kişinin kendi girdiği alandır; hiç
+ * girmemiş olabilir, bu yüzden null dönebilir.
+ */
+export async function ilKoordinatoruOzeti(ilKodu: string): Promise<{
+  ad: string;
+  soyad: string;
+  eposta: string | null;
+} | null> {
+  const rol = await prisma.kullaniciRol.findFirst({
+    where: { rolKodu: "IL_KOORDINATOR", ilKodu, bitisTarihi: null },
+    select: {
+      kullanici: {
+        select: {
+          ad: true,
+          soyad: true,
+          aktif: true,
+          ogretmenProfil: { select: { eposta: true } },
+        },
+      },
+    },
+  });
+
+  // Pasife alınmış kullanıcı koordinatör olarak gösterilmez: görevi teknik
+  // olarak açık kalmış olabilir ama kendisine ulaşılamaz.
+  if (!rol || !rol.kullanici.aktif) return null;
+
+  return {
+    ad: rol.kullanici.ad,
+    soyad: rol.kullanici.soyad,
+    eposta: rol.kullanici.ogretmenProfil?.eposta?.trim() || null,
+  };
+}

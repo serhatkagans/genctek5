@@ -50,7 +50,7 @@ export default async function PanelDuzeni({
     baglantilar.push(
       { yol: "/panel/calisma-gruplari", etiket: "Çalışma Gruplarım" },
       { yol: "/panel/danisman-secim", etiket: "Danışmanım" },
-      { yol: "/panel/kazanimlarim", etiket: "Kazanımlarım" },
+      { yol: "/panel/kazanimlarim", etiket: "Katkılarım" },
     );
   }
 

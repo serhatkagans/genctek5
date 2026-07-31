@@ -51,6 +51,7 @@ enum KapanmaNedeni {
 
 enum GorevRolKodu {
   IL_TEMSILCISI
+  ILCE_TEMSILCISI
   OKUL_TEMSILCISI
 }
 
@@ -155,6 +156,12 @@ enum GonderimDurumu {
 /// çalışma grupları gibi büyüyen bir liste değil, kurumsal sınıflandırmadır.
 enum PaydasTuru {
   UNIVERSITE
+  /// GençTek iş birliği protokolü olan üniversite. UNIVERSITE'den ayrı tutulur:
+  /// ikisi de üniversitedir ama protokollü olan koordinatöre farklı bir kapı
+  /// açar ve listede ayırt edilebilmesi gerekir.
+  GENCTEK_UNIVERSITE
+  /// Programdan geçmiş, artık paydaş olarak dönen kişi ya da oluşum.
+  MEZUN
   OZEL_SEKTOR
   STK
   KAMU_KURUMU
@@ -516,6 +523,12 @@ model Faaliyet {
   ad                    String             @db.VarChar(250)
   aciklama              String             @db.Text
   tarih                 DateTime           @db.Timestamptz(6)
+  /// Çok günlü faaliyetlerin bitiş tarihi. NULL = tek günlük.
+  ///
+  /// Ayrı bir "kaç gün sürer" sayısı TUTULMAZ: süre, iki tarihten hesaplanır.
+  /// Sayı tutulsaydı tarih değiştiğinde güncellenmesi unutulur ve ekranda
+  /// tarihle çelişen bir süre görünürdü.
+  bitisTarihi           DateTime?          @map("bitis_tarihi") @db.Timestamptz(6)
   kapsam                Kapsam
   /// Etkinliğin niteliği. Kapsam'dan BAĞIMSIZDIR: kapsam kimin
   /// başvurabileceğini, kategori etkinliğin ne olduğunu söyler.

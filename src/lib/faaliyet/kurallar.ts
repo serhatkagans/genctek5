@@ -535,3 +535,56 @@ export function yenidenOnayGerekiyorMu(girdi: {
 export function faaliyetIcerikAlabilirMi(durum: FaaliyetDurumu): boolean {
   return durum === "AKTIF";
 }
+
+// ---------------------------------------------------------------------------
+// Faaliyet süresi
+// ---------------------------------------------------------------------------
+
+/**
+ * Çok günlü faaliyetlerin süresi.
+ *
+ * Süre ayrı bir SAYI OLARAK TUTULMAZ, iki tarihten hesaplanır. Sayı tutulsaydı
+ * tarih değiştiğinde güncellenmesi unutulur ve ekranda tarihle çelişen bir süre
+ * görünürdü — "3 gün sürecek" yazan ama iki tarihi arası iki ay olan faaliyet.
+ *
+ * Bitiş yoksa faaliyet tek günlüktür; bu bir eksik veri değil, olağan durumdur.
+ */
+export function faaliyetSuresiGecerliMi(
+  tarih: Date,
+  bitisTarihi: Date | null,
+): { olurMu: boolean; neden?: string } {
+  if (bitisTarihi === null) return { olurMu: true };
+  if (bitisTarihi < tarih) {
+    return {
+      olurMu: false,
+      neden: "Faaliyet bitişi başlangıcından önce olamaz.",
+    };
+  }
+  return { olurMu: true };
+}
+
+/**
+ * Faaliyetin kaç gün sürdüğü. Aynı gün başlayıp biten faaliyet 1 gündür.
+ *
+ * Hesap gün başlarına indirgenerek yapılır: 1 Mart 18:00 – 2 Mart 09:00 arası
+ * 15 saattir ama iki ayrı gündür ve kullanıcı "2 gün" bekler. Saat farkıyla
+ * bölmek bunu "1 gün" gösterirdi.
+ */
+export function faaliyetSuresiGun(
+  tarih: Date,
+  bitisTarihi: Date | null,
+): number {
+  if (bitisTarihi === null) return 1;
+  const gun = (t: Date) => Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+  const fark = gun(bitisTarihi) - gun(tarih);
+  if (fark <= 0) return 1;
+  return Math.round(fark / 86_400_000) + 1;
+}
+
+/** Süreyi ekranda yazmak için: "1 gün", "3 gün", "2 ay 5 gün" değil — sade. */
+export function faaliyetSuresiYaz(
+  tarih: Date,
+  bitisTarihi: Date | null,
+): string {
+  return `${faaliyetSuresiGun(tarih, bitisTarihi)} gün`;
+}

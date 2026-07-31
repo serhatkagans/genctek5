@@ -19,6 +19,7 @@ export const ROL_ETIKETLERI: Record<RolKodu, string> = {
  */
 export const GOREV_ROL_ETIKETLERI: Record<GorevRolKodu, string> = {
   IL_TEMSILCISI: "İl Temsilcisi",
+  ILCE_TEMSILCISI: "İlçe Temsilcisi",
   OKUL_TEMSILCISI: "Okul Temsilcisi",
 };
 

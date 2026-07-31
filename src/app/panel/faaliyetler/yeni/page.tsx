@@ -313,7 +313,7 @@ export default async function YeniFaaliyetSayfasi({
               </label>
             )}
 
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <label className="block">
                 <span className={SINIF_ETIKET}>Faaliyet tarihi</span>
                 <input
@@ -322,6 +322,17 @@ export default async function YeniFaaliyetSayfasi({
                   required
                   className={SINIF_GIRDI}
                 />
+              </label>
+              <label className="block">
+                <span className={SINIF_ETIKET}>Faaliyet bitişi</span>
+                <input
+                  type="datetime-local"
+                  name="bitisTarihi"
+                  className={SINIF_GIRDI}
+                />
+                <span className="mt-1 block text-sm text-metin-yumusak">
+                  Tek günlükse boş bırakın.
+                </span>
               </label>
               <label className="block">
                 <span className={SINIF_ETIKET}>Başvuru başlangıcı</span>

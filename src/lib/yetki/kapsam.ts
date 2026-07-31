@@ -285,15 +285,29 @@ const PAYDAS_HICBIRI: Prisma.PaydasWhereInput = { id: { in: [] } };
  * tüm illeri görür.
  *
  * Öğrenci ve ili belli olmayan kullanıcı hiçbir kayıt görmez.
+ *
+ * KOORDİNATÖRDE BİR EK KOŞUL VAR: kendi eklediği kayıtları, başka bir ile
+ * yazmış olsa bile görür. Koordinatör başka ildeki bir üniversiteyle iş
+ * birliği kurabildiği için (bkz. paydasEkleyebilirMi) bu koşul olmasaydı
+ * eklediği kayıt kaydettiği anda listesinden kaybolurdu.
+ *
+ * İl bağı bundan etkilenmez: kaydı ekleyen koordinatör görevden ayrılsa da
+ * kayıt ilinde durmaya devam eder ve yeni koordinatör onu devralır.
  */
 export function paydasKapsamFiltresi(
   kullanici: OturumKullanicisi,
 ): Prisma.PaydasWhereInput {
   if (projeYoneticisiMi(kullanici)) return {};
 
-  const ilKodu = koordinatorIlKodu(kullanici) ?? kullanici.ilKodu;
-  if (ilKodu !== null && !ogrenciMi(kullanici)) {
-    return { ilKodu };
+  const koordinatorIli = koordinatorIlKodu(kullanici);
+  if (koordinatorIli !== null) {
+    return {
+      OR: [{ ilKodu: koordinatorIli }, { ekleyenKullaniciId: kullanici.id }],
+    };
+  }
+
+  if (kullanici.ilKodu !== null && !ogrenciMi(kullanici)) {
+    return { ilKodu: kullanici.ilKodu };
   }
 
   return PAYDAS_HICBIRI;
