@@ -85,6 +85,28 @@ export interface KazanimTipiTanimi extends KazanimMetinleri {
  */
 export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
   {
+    /*
+     * GençTek katılımı normalde OTOMATİK gelir (basvuru + faaliyet) ve profilde
+     * "Katıldığım faaliyetler" olarak görünür. Bu tip, sisteme hiç girilmemiş
+     * eski etkinlikler için elle giriş sağlar.
+     *
+     * Kayıt bir BEYANDIR: sistem doğrulamaz ve otomatik listeyle çakışabilir.
+     * Rozetler bu kayıtlardan hesaplanmaz (bkz. lib/kazanim/rozetler.ts), yani
+     * beyanla nişan kazanılamaz.
+     */
+    tip: "GENCTEK_ETKINLIGI",
+    baslik: "GençTek etkinlikleri",
+    baslikEtiketi: "Etkinliğin adı",
+    baslikOrnegi: "Genç Gölge — Ankara",
+    aciklama:
+      "Katıldığınız GençTek etkinlikleri. Sistem üzerinden başvurduklarınız zaten otomatik listelenir; burayı yalnızca sisteme girilmemiş eski etkinlikler için kullanın.",
+    dereceVarMi: false,
+    duzenleyenVarMi: true,
+    programSecimiVarMi: true,
+    katilimBicimiVarMi: true,
+    hedefKitleVarMi: false,
+  },
+  {
     tip: "DIS_ETKINLIK",
     baslik: "GençTek dışı etkinlikler",
     baslikEtiketi: "Etkinliğin adı",
@@ -132,6 +154,23 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
     dereceVarMi: true,
     duzenleyenVarMi: true,
     programSecimiVarMi: true,
+    katilimBicimiVarMi: true,
+    hedefKitleVarMi: false,
+  },
+  {
+    /*
+     * Sonda duruyor: bir kayıt hangi tipe girdiğini bilmiyorsa buraya düşer.
+     * Başta olsaydı kullanıcı diğer tipleri okumadan bunu seçerdi.
+     */
+    tip: "DIGER",
+    baslik: "Diğer etkinlikler",
+    baslikEtiketi: "Kaydın adı",
+    baslikOrnegi: "Mahalle kütüphanesi gönüllülüğü",
+    aciklama:
+      "Yukarıdaki başlıkların hiçbirine girmeyen katkı ve deneyimleriniz.",
+    dereceVarMi: false,
+    duzenleyenVarMi: true,
+    programSecimiVarMi: false,
     katilimBicimiVarMi: true,
     hedefKitleVarMi: false,
   },

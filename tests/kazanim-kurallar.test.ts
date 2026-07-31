@@ -33,10 +33,18 @@ function kabulEdilenKayit(
 }
 
 describe("kazanım türleri", () => {
-  it("kapsam dosyasındaki dört türü kapsar", () => {
+  it("altı türü kapsar", () => {
+    /*
+     * GENCTEK_ETKINLIGI ve DIGER sonradan eklendi. GençTek katılımı normalde
+     * otomatik gelir (basvuru + faaliyet); elle giriş, sisteme girilmemiş eski
+     * etkinlikler için BEYAN olarak açıldı. Rozetler bu kayıtlardan
+     * hesaplanmadığı için beyanla nişan kazanılamaz.
+     */
     expect(KAZANIM_TIPLERI.map((tanim) => tanim.tip).sort()).toEqual([
       "AKRAN_EGITIMI",
+      "DIGER",
       "DIS_ETKINLIK",
+      "GENCTEK_ETKINLIGI",
       "URUN",
       "YARISMA_DERECESI",
     ]);
@@ -296,5 +304,17 @@ describe("tarih", () => {
   it("çözümlenemeyen tarihi reddeder", () => {
     const karar = kazanimKabulEdilirMi(girdi({ tarih: new Date("olmayan") }));
     expect(karar.olurMu).toBe(false);
+  });
+});
+
+describe("beyan edilen GençTek etkinliği", () => {
+  it('"Diğer" listenin SONUNDA durur', () => {
+    // Başta olsaydı kullanıcı diğer tipleri okumadan onu seçerdi.
+    expect(KAZANIM_TIPLERI[KAZANIM_TIPLERI.length - 1].tip).toBe("DIGER");
+  });
+
+  it("GençTek türü, otomatik listeyle çakışabileceğini açıklamasında söyler", () => {
+    const tanim = KAZANIM_TIPLERI.find((t) => t.tip === "GENCTEK_ETKINLIGI");
+    expect(tanim?.aciklama).toContain("otomatik");
   });
 });

@@ -48,6 +48,11 @@ Durum işaretleri: `[x]` bitti · `[ ]` bekliyor · `[?]` karar/bilgi bekliyor
       aynı faaliyeti iki kez gösterirdi.
 - [x] **Yeni kayıt ekle** formu: GençTek etkinlikleri + "diğer" seçeneği,
       yüz yüze / online, hedef kitle alanı
+- [x] **Yeni kayıt ekle** sekmelerine "GençTek etkinlikleri" ve "Diğer
+      etkinlikler" eklendi. GençTek katılımı normalde OTOMATİK gelir
+      (basvuru + faaliyet); elle giriş BEYAN olarak açıldı — çift kayıt ve
+      doğrulanamazlık riski bilerek kabul edildi. Rozetler bu kayıtlardan
+      hesaplanmıyor, yani beyanla nişan kazanılamıyor.
 - [x] **Yeni FAALİYET formunda da** aynı alanlar: program listesine "Diğer",
       katılım biçimi (yüz yüze/online/karma), hedef kitle. Detay sayfasında ve
       Word/CSV raporunda gösteriliyor.

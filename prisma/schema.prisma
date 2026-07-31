@@ -56,10 +56,19 @@ enum GorevRolKodu {
 }
 
 enum KazanimTipi {
+  /// Öğrencinin BEYAN ettiği GençTek etkinliği katılımı.
+  ///
+  /// Katılım normalde basvuru + faaliyet kayıtlarından OTOMATİK gelir ve
+  /// profilde "Katıldığım faaliyetler" olarak görünür. Bu tip, sisteme hiç
+  /// girilmemiş eski etkinlikler için elle giriş sağlar; kayıt doğrulanmaz ve
+  /// otomatik listeyle çakışabilir. Rozetler bu kayıtlardan HESAPLANMAZ.
+  GENCTEK_ETKINLIGI
   DIS_ETKINLIK
   URUN
   AKRAN_EGITIMI
   YARISMA_DERECESI
+  /// Yukarıdakilerin hiçbirine girmeyen katkılar.
+  DIGER
 }
 
 /// Bir etkinliğin/eğitimin nasıl yürütüldüğü. Yalnızca öğrenci kazanım
