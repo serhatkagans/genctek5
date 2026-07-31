@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BellRing,
+  CircleAlert,
   CalendarCheck,
   CalendarDays,
   CheckSquare,
@@ -23,8 +24,10 @@ import { DuyuruSeridi } from "@/components/DuyuruSeridi";
 import { KapsamRozeti, KategoriRozeti } from "@/components/FaaliyetRozetleri";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { aktifAtamaGetir } from "@/lib/danisman/atama";
+import { taahhutMetniGetir } from "@/lib/kvkk/taahhut";
 import {
   faaliyetKatilimSayisi,
+  merkezBosluklariniGetir,
   merkezIstatistikleriniGetir,
 } from "@/lib/rapor/istatistik";
 import { ilKoordinatoruOzeti } from "@/lib/rol/koordinator";
@@ -134,6 +137,14 @@ export default async function PanelSayfasi() {
     : null;
   const katilim = projeYoneticisiMi(kullanici)
     ? await faaliyetKatilimSayisi()
+    : null;
+  /*
+   * Boşluklar sayımdan AYRI çekiliyor ve ekranda ayrı gösteriliyor: "kaç
+   * öğrenci var" ile "kaç öğrenci danışmansız" farklı sorular. Tek listede
+   * olsalardı acil olanlar sayım kalabalığında kaybolurdu.
+   */
+  const bosluklar = projeYoneticisiMi(kullanici)
+    ? await merkezBosluklariniGetir((await taahhutMetniGetir()).guncellemeTarihi)
     : null;
 
   const koordinatorGosterilir =
@@ -504,6 +515,80 @@ export default async function PanelSayfasi() {
                 </p>
                 <p className="mt-0.5 text-sm text-metin-yumusak">{satir.alt}</p>
               </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {bosluklar && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">
+            <CircleAlert size={18} className="text-uyari-metin" aria-hidden />
+            Dikkat gerektirenler
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                etiket: "Danışmansız öğrenci",
+                deger: bosluklar.danismansizOgrenci,
+                alt: "Aktif danışman ataması yok",
+                yol: "/panel/ogrenciler",
+              },
+              {
+                etiket: "Raporsuz biten faaliyet",
+                deger: bosluklar.raporsuzFaaliyet,
+                alt: "Bitti ama raporu yazılmadı",
+                yol: "/panel/raporlar",
+              },
+              {
+                etiket: "Onay bekleyen faaliyet",
+                deger: bosluklar.bekleyenFaaliyetOnayi,
+                alt: "Öğrenci ve öğretmen önerileri dâhil",
+                yol: "/panel/faaliyetler",
+              },
+              {
+                etiket: "Bekleyen il dışı başvuru",
+                deger: bosluklar.bekleyenIlDisiBasvuru,
+                alt: "Kaynak ilin kararını bekliyor",
+                yol: "/panel/il-disi-basvurular",
+              },
+              {
+                etiket: "Bekleyen bağlantı isteği",
+                deger: bosluklar.bekleyenBaglantiIstegi,
+                alt: "Öğrenciler iletişim için bekliyor",
+                yol: "/panel/baglantilar",
+              },
+              {
+                etiket: "Taahhütsüz koordinatör",
+                deger: bosluklar.taahhutsuzKoordinator,
+                alt: "Gizlilik taahhüdü onaylanmamış",
+                yol: "/panel/rol-envanteri",
+              },
+            ].map((satir) => (
+              <Link
+                key={satir.etiket}
+                href={satir.yol}
+                /*
+                 * Sıfır olan kart SÖNÜK gösteriliyor, gizlenmiyor: kaybolan
+                 * kart "böyle bir ölçüt yok" izlenimi verirdi, oysa sıfır
+                 * iyi haberdir ve görünmesi gerekir.
+                 */
+                className={`rounded-kart border bg-kart p-4 transition hover:border-vurgu ${
+                  satir.deger > 0 ? "border-uyari-cizgi" : "border-cizgi"
+                }`}
+              >
+                <p className="text-sm font-medium text-metin-yumusak">
+                  {satir.etiket}
+                </p>
+                <p
+                  className={`mt-1 text-2xl font-bold ${
+                    satir.deger > 0 ? "text-uyari-metin" : "text-metin-yumusak"
+                  }`}
+                >
+                  {satir.deger}
+                </p>
+                <p className="mt-0.5 text-sm text-metin-yumusak">{satir.alt}</p>
+              </Link>
             ))}
           </div>
         </section>

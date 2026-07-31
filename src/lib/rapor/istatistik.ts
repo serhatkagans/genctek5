@@ -127,3 +127,107 @@ export async function faaliyetKatilimSayisi(
 
   return { toplamKatilim, tekilKatilimci: tekiller.length };
 }
+
+/**
+ * Merkezin DİKKAT ETMESİ gereken boşluklar.
+ *
+ * `merkezIstatistikleriniGetir` bir SAYIMDIR: kaç öğrenci, kaç öğretmen var.
+ * Bu fonksiyon farklı bir soruyu cevaplar: nerede iş birikmiş, nerede boşluk
+ * var. İkisi ayrı tutuluyor çünkü ekranda da ayrı gösteriliyorlar — hepsi tek
+ * listede olsaydı acil olanlar sayım kalabalığında kaybolurdu.
+ *
+ * Her alan bir EYLEME karşılık gelir; "bilgi olsun" diye sayı eklenmiyor.
+ */
+export interface MerkezBoslugu {
+  /** Aktif danışman ataması olmayan öğrenciler — sistemde takipsiz kalanlar. */
+  danismansizOgrenci: number;
+  /** Bitmiş ama raporu yazılmamış faaliyetler. */
+  raporsuzFaaliyet: number;
+  /** Onay bekleyen faaliyet (öğrenci ve öğretmen önerileri dâhil). */
+  bekleyenFaaliyetOnayi: number;
+  /** Kaynak ilin kararını bekleyen il dışı başvurular. */
+  bekleyenIlDisiBasvuru: number;
+  /** Karara bağlanmamış bağlantı istekleri. */
+  bekleyenBaglantiIstegi: number;
+  /** Gizlilik taahhüdünü onaylamamış ya da onayı eskimiş koordinatörler. */
+  taahhutsuzKoordinator: number;
+}
+
+export async function merkezBosluklariniGetir(
+  /** Taahhüt metninin son güncelleme tarihi; null ise metin hiç değişmemiştir. */
+  taahhutMetniGuncellemeTarihi: Date | null,
+): Promise<MerkezBoslugu> {
+  const simdi = new Date();
+
+  /*
+   * "Bitmiş faaliyet" iki koşulun birleşimi: çok günlüde bitiş tarihi, tek
+   * günlükte tarihin kendisi. Prisma tek koşulda "varsa şuna, yoksa buna bak"
+   * diyemediği için OR kuruluyor.
+   */
+  const bitmisKosulu = {
+    OR: [
+      { bitisTarihi: { not: null, lte: simdi } },
+      { bitisTarihi: null, tarih: { lte: simdi } },
+    ],
+  };
+
+  /*
+   * Taahhüt eksiği: hiç onaylamamış YA DA metin onaydan sonra güncellenmiş
+   * olanlar. İkincisi olmasaydı metin değiştiğinde herkes "onaylı" görünmeye
+   * devam ederdi (bkz. taahhutOnayiGerekiyorMu).
+   */
+  const taahhutEksigi =
+    taahhutMetniGuncellemeTarihi === null
+      ? [
+          { ogretmenProfil: { is: null } },
+          { ogretmenProfil: { taahhutOnayTarihi: null } },
+        ]
+      : [
+          { ogretmenProfil: { is: null } },
+          { ogretmenProfil: { taahhutOnayTarihi: null } },
+          {
+            ogretmenProfil: {
+              taahhutOnayTarihi: { lt: taahhutMetniGuncellemeTarihi },
+            },
+          },
+        ];
+
+  const [
+    danismansizOgrenci,
+    raporsuzFaaliyet,
+    bekleyenFaaliyetOnayi,
+    bekleyenIlDisiBasvuru,
+    bekleyenBaglantiIstegi,
+    taahhutsuzKoordinator,
+  ] = await Promise.all([
+    prisma.kullanici.count({
+      where: {
+        aktif: true,
+        roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } },
+        ogrenciAtamalari: { none: { bitisTarihi: null } },
+      },
+    }),
+    prisma.faaliyet.count({
+      where: { AND: [{ durum: "AKTIF" }, { rapor: { is: null } }, bitmisKosulu] },
+    }),
+    prisma.faaliyet.count({ where: { onayDurumu: "BEKLIYOR" } }),
+    prisma.basvuru.count({ where: { kaynakIlOnayDurumu: "BEKLIYOR" } }),
+    prisma.baglantiIstegi.count({ where: { onayDurumu: "BEKLIYOR" } }),
+    prisma.kullanici.count({
+      where: {
+        aktif: true,
+        roller: { some: { rolKodu: "IL_KOORDINATOR", bitisTarihi: null } },
+        OR: taahhutEksigi,
+      },
+    }),
+  ]);
+
+  return {
+    danismansizOgrenci,
+    raporsuzFaaliyet,
+    bekleyenFaaliyetOnayi,
+    bekleyenIlDisiBasvuru,
+    bekleyenBaglantiIstegi,
+    taahhutsuzKoordinator,
+  };
+}
