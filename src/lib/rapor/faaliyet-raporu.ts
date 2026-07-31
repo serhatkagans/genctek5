@@ -1,0 +1,157 @@
+/**
+ * Faaliyet raporunun Word çıktısı — analiz isteği Bölüm 5.
+ *
+ * NEDEN HTML: gerçek `.docx` üretmek bir kütüphane bağımlılığı gerektirir
+ * (docx, officegen…). Word, HTML gövdeli bir `.doc` dosyasını yerel olarak
+ * açar ve biçimlendirmeyi korur; başlık, tablo ve kalın metin çalışır. Tek
+ * bir rapor çıktısı için bağımlılık eklemeye değmedi.
+ *
+ * EXCEL ayrı bir yol izler: HTML tablo `.xls` uzantısıyla verilseydi modern
+ * Excel "dosya biçimi uzantıyla uyuşmuyor" uyarısı gösterirdi. Excel çıktısı
+ * bu yüzden projedeki mevcut CSV altyapısını kullanır (BOM + noktalı virgül),
+ * Excel onu uyarısız açar.
+ *
+ * Saf tutulur: veritabanına bakmaz, veriyi çağıran hazırlar.
+ */
+
+export interface RaporKatilimcisi {
+  adSoyad: string;
+  sinifVeyaBrans: string | null;
+  okul: string | null;
+  il: string | null;
+}
+
+export interface RaporVerisi {
+  faaliyetAdi: string;
+  aciklama: string;
+  kapsam: string;
+  kategori: string;
+  yer: string;
+  tarih: string;
+  sure: string;
+  duzenleyen: string;
+  duzenleyenBirim: string;
+  kontenjan: number;
+  toplamBasvuru: number;
+  /** Seçilmiş başvuru sayısı. */
+  katilanSayisi: number;
+  /** Kaç FARKLI kişi — tek faaliyette ikisi eşittir, dönem raporunda ayrışır. */
+  tekilKatilimci: number;
+  katilimcilar: RaporKatilimcisi[];
+  gorselAdlari: string[];
+  olusturan: string;
+  olusturmaTarihi: string;
+}
+
+/** HTML'e gömülecek metni kaçırır. Rapor kullanıcı metni taşıyor (açıklama). */
+export function htmlKacir(deger: string): string {
+  return deger
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function satir(etiket: string, deger: string): string {
+  return `<tr><td class="e">${htmlKacir(etiket)}</td><td>${htmlKacir(deger)}</td></tr>`;
+}
+
+export function faaliyetRaporuHtml(veri: RaporVerisi): string {
+  const katilimciSatirlari =
+    veri.katilimcilar.length === 0
+      ? `<tr><td colspan="4">Seçilmiş katılımcı yok.</td></tr>`
+      : veri.katilimcilar
+          .map(
+            (k, sira) =>
+              `<tr><td>${sira + 1}</td><td>${htmlKacir(k.adSoyad)}</td>` +
+              `<td>${htmlKacir(k.sinifVeyaBrans ?? "—")}</td>` +
+              `<td>${htmlKacir(k.okul ?? k.il ?? "—")}</td></tr>`,
+          )
+          .join("");
+
+  const gorseller =
+    veri.gorselAdlari.length === 0
+      ? "<p>Faaliyete görsel eklenmemiş.</p>"
+      : `<ul>${veri.gorselAdlari.map((ad) => `<li>${htmlKacir(ad)}</li>`).join("")}</ul>
+         <p class="not">Görseller panelde faaliyet sayfasından indirilebilir; rapora
+         gömülmez çünkü dosya boyutu Word belgesini kullanılamaz hâle getirir.</p>`;
+
+  /*
+   * `charset` meta etiketi ŞART: Word onsuz dosyayı Latin-1 sanıp Türkçe
+   * karakterleri bozuyor.
+   */
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head>
+<meta charset="utf-8">
+<title>${htmlKacir(veri.faaliyetAdi)} — Faaliyet Raporu</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+h1 { font-size: 16pt; }
+h2 { font-size: 13pt; margin-top: 18pt; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border: 1px solid #999; padding: 4pt 6pt; vertical-align: top; }
+th { background: #eee; text-align: left; }
+td.e { width: 30%; font-weight: bold; background: #f5f5f5; }
+p.not { font-size: 9pt; color: #555; }
+</style>
+</head>
+<body>
+<h1>${htmlKacir(veri.faaliyetAdi)}</h1>
+<p><em>GençTek Bilgi Sistemi — Faaliyet Raporu</em></p>
+
+<h2>Faaliyet bilgileri</h2>
+<table>
+${satir("Kapsam", veri.kapsam)}
+${satir("Etkinlik kategorisi", veri.kategori)}
+${satir("Yer", veri.yer)}
+${satir("Tarih", veri.tarih)}
+${satir("Süre", veri.sure)}
+${satir("Düzenleyen", veri.duzenleyen)}
+${satir("Düzenleyen birim", veri.duzenleyenBirim)}
+</table>
+
+<h2>Açıklama</h2>
+<p>${htmlKacir(veri.aciklama).replace(/\n/g, "<br>")}</p>
+
+<h2>Katılım</h2>
+<table>
+${satir("Kontenjan", String(veri.kontenjan))}
+${satir("Toplam başvuru", String(veri.toplamBasvuru))}
+${satir("Katılan (seçilmiş)", String(veri.katilanSayisi))}
+${satir("Farklı kişi sayısı", String(veri.tekilKatilimci))}
+</table>
+
+<h2>Katılımcılar</h2>
+<table>
+<tr><th>#</th><th>Ad Soyad</th><th>Sınıf / Branş</th><th>Okul / İl</th></tr>
+${katilimciSatirlari}
+</table>
+
+<h2>Görseller</h2>
+${gorseller}
+
+<p class="not">Bu rapor ${htmlKacir(veri.olusturan)} tarafından
+${htmlKacir(veri.olusturmaTarihi)} tarihinde üretildi.</p>
+</body>
+</html>`;
+}
+
+/**
+ * Word yanıtı.
+ *
+ * `application/msword` + `.doc`: Word dosyayı açarken içeriğin HTML olduğunu
+ * kendisi anlıyor. `.docx` verilseydi Word bozuk ZIP hatası verirdi — docx bir
+ * arşiv biçimidir, HTML değil.
+ */
+export function wordYaniti(dosyaAdi: string, html: string): Response {
+  const gun = new Date().toISOString().slice(0, 10);
+  const tamAd = `${dosyaAdi}-${gun}.doc`;
+
+  return new Response(html, {
+    headers: {
+      "Content-Type": "application/msword; charset=utf-8",
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(tamAd)}`,
+      "Cache-Control": "private, no-store",
+    },
+  });
+}

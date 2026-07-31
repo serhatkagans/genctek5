@@ -200,6 +200,11 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba {{ogrenciAdSoyad}},\n\nBaşka bir ildeki {{faaliyetAdi}} etkinliğine yaptığınız başvuru, il koordinatörünüz tarafından {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa başvurunuz bitmiş değildir: sıra etkinliğin yapıldığı ildeki değerlendirmeye geçer, sonucu ayrıca bildirilir.\n\nGençTek",
   },
   {
+    kod: "TOPLU_DUYURU",
+    konu: "{{baslik}}",
+    govdeSablonu: "{{icerik}}",
+  },
+  {
     kod: "FAALIYET_ONAY_SONUCU",
     konu: "{{faaliyetAdi}} faaliyetiniz {{sonuc}}",
     govdeSablonu:

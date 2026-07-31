@@ -129,12 +129,20 @@ Durum işaretleri: `[x]` bitti · `[ ]` bekliyor · `[?]` karar/bilgi bekliyor
 
 ## 4. Proje yöneticisi
 
-- [ ] Faaliyete katılan **öğrenci sayısı: toplam ve tekil (uniq)**
-- [ ] **Panelim istatistik kartları**: toplam öğrenci · çalışma grubuna kayıtlı
-      öğrenci · okul temsilcisi · il temsilcisi · danışman öğretmen ·
-      koordinatör öğretmen sayısı
-- [ ] Faaliyet raporunu **Word / Excel** olarak alabilme
-- [ ] **Tüm öğrenci ve öğretmenlere toplu bildirim + e-posta**
+- [x] Faaliyete katılan **öğrenci sayısı: toplam ve tekil (uniq)**
+      Panelde "Faaliyet katılımı" kartı; ikisi ayrı gösteriliyor çünkü biri
+      programın yükünü, diğeri kaç farklı kişiye ulaşıldığını söyler.
+- [x] **Panelim istatistik kartları** — "Ekosistem sayıları" bölümü. İlçe
+      temsilcisi ve "kaç il boş" da eklendi. Çalışma grubunda SEÇİM değil
+      ÖĞRENCİ sayılıyor (bir öğrenci çok grup seçebiliyor).
+- [x] Faaliyet raporunu **Word / Excel** olarak alabilme
+      → `/panel/faaliyetler/[id]/rapor` (`?bicim=word`). Yalnızca merkeze açık.
+      Word = HTML gövdeli `.doc` (kütüphane bağımlılığı eklemedik);
+      Excel = mevcut CSV altyapısı (sahte `.xls` Excel'de uyarı çıkarırdı).
+- [x] **Tüm öğrenci ve öğretmenlere toplu bildirim + e-posta**
+      → `/panel/duyurular`. Geri alınamaz olduğu için onay kutusu zorunlu ve
+      alıcı sayısı seçenekte yazılı. Bildirimler tek `createMany` ile yazılıyor;
+      e-posta kopyası döngüde, alıcı sayısı büyürse kuyruğa taşınmalı.
 
 ---
 

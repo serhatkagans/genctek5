@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BellRing,
   CalendarCheck,
   CalendarDays,
@@ -22,6 +23,10 @@ import { DuyuruSeridi } from "@/components/DuyuruSeridi";
 import { KapsamRozeti, KategoriRozeti } from "@/components/FaaliyetRozetleri";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { aktifAtamaGetir } from "@/lib/danisman/atama";
+import {
+  faaliyetKatilimSayisi,
+  merkezIstatistikleriniGetir,
+} from "@/lib/rapor/istatistik";
 import { ilKoordinatoruOzeti } from "@/lib/rol/koordinator";
 import { prisma } from "@/lib/db";
 import {
@@ -120,6 +125,17 @@ export default async function PanelSayfasi() {
    * anlamsız), proje yöneticisine de gösterilmez (tek bir ile bağlı değil).
    * Öğrenciye de gösterilmez: onun muhatabı danışman öğretmenidir.
    */
+  /*
+   * Merkez istatistikleri ülke geneli sayımdır ve yalnızca proje yöneticisine
+   * gösterilir; başka rollerde sorgu hiç çalıştırılmaz.
+   */
+  const merkezIstatistik = projeYoneticisiMi(kullanici)
+    ? await merkezIstatistikleriniGetir(kullanici.egitimOgretimYili)
+    : null;
+  const katilim = projeYoneticisiMi(kullanici)
+    ? await faaliyetKatilimSayisi()
+    : null;
+
   const koordinatorGosterilir =
     !ogrenciMi(kullanici) &&
     !ilKoordinatoruMu(kullanici) &&
@@ -401,6 +417,20 @@ export default async function PanelSayfasi() {
               deger={String(onayBekleyenSayisi)}
               yol="/panel/faaliyetler?kapsam=ULUSAL"
             />
+            {katilim && (
+              <OlcumKarti
+                baslik="Faaliyet katılımı"
+                Ikon={Send}
+                deger={String(katilim.toplamKatilim)}
+                /*
+                 * Toplam ve tekil AYRI sorulardır: ilki programın yükünü,
+                 * ikincisi kaç farklı kişiye ulaşıldığını söyler. Tek sayı
+                 * gösterilseydi "400 katılım" ile "120 öğrenciye ulaştık"
+                 * birbirine karışırdı.
+                 */
+                aciklama={`${katilim.tekilKatilimci} farklı kişi · seçilmiş başvurular`}
+              />
+            )}
           </>
         )}
 
@@ -412,6 +442,72 @@ export default async function PanelSayfasi() {
           yol="/panel/faaliyetler?acik=1"
         />
       </div>
+
+      {merkezIstatistik && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">
+            <BarChart3 size={18} className="text-vurgu-metin" aria-hidden />
+            Ekosistem sayıları
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                etiket: "Toplam öğrenci",
+                deger: merkezIstatistik.toplamOgrenci,
+                alt: "Aktif öğrenci rolü olan kayıtlar",
+              },
+              {
+                etiket: "Çalışma grubuna kayıtlı",
+                deger: merkezIstatistik.calismaGrubunaKayitliOgrenci,
+                // Seçim değil ÖĞRENCİ sayılır: bir öğrenci birden çok grup
+                // seçebiliyor, satır sayılsaydı sayı şişerdi.
+                alt: "En az bir grup seçmiş öğrenci",
+              },
+              {
+                etiket: "Okul temsilcisi",
+                deger: merkezIstatistik.okulTemsilcisi,
+                alt: "Bu eğitim-öğretim yılı",
+              },
+              {
+                etiket: "İl temsilcisi",
+                deger: merkezIstatistik.ilTemsilcisi,
+                alt: "Bu eğitim-öğretim yılı",
+              },
+              {
+                etiket: "İlçe temsilcisi",
+                deger: merkezIstatistik.ilceTemsilcisi,
+                alt: "Bu eğitim-öğretim yılı",
+              },
+              {
+                etiket: "Danışman öğretmen",
+                deger: merkezIstatistik.danismanOgretmen,
+                alt: "Görevi süren danışmanlar",
+              },
+              {
+                etiket: "İl koordinatörü",
+                deger: merkezIstatistik.ilKoordinatoru,
+                alt:
+                  merkezIstatistik.koordinatorsuzIl > 0
+                    ? `${merkezIstatistik.koordinatorsuzIl} il boş`
+                    : "Tüm iller dolu",
+              },
+            ].map((satir) => (
+              <div
+                key={satir.etiket}
+                className="rounded-kart border border-cizgi bg-kart p-4"
+              >
+                <p className="text-sm font-medium text-metin-yumusak">
+                  {satir.etiket}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-baslik">
+                  {satir.deger}
+                </p>
+                <p className="mt-0.5 text-sm text-metin-yumusak">{satir.alt}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {basvuruYapabilirMi(kullanici) && (
         <section>

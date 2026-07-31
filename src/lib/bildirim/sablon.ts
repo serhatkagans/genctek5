@@ -22,6 +22,8 @@ export const BILDIRIM_KODLARI = {
   ONAY_BEKLEYEN_OGRETMEN_FAALIYETI: "ONAY_BEKLEYEN_OGRETMEN_FAALIYETI",
   /** Öğrencinin kendi ili, il dışı başvurusuna karar verdi. */
   IL_DISI_BASVURU_KARARI: "IL_DISI_BASVURU_KARARI",
+  /** Merkezin tüm öğrenci/öğretmenlere gönderdiği serbest metinli duyuru. */
+  TOPLU_DUYURU: "TOPLU_DUYURU",
   /** Faaliyet onaylandı ya da reddedildi; faaliyeti açana gider. */
   FAALIYET_ONAY_SONUCU: "FAALIYET_ONAY_SONUCU",
   DANISMANA_KOPYA_ULUSAL_BASVURU: "DANISMANA_KOPYA_ULUSAL_BASVURU",
@@ -111,6 +113,13 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "Öğrenci başka bir ilin etkinliğine başvurduğunda, kendi ilinin koordinatörü karar verince öğrenciye gider. Onay başvurunun bittiği anlamına GELMEZ; sıra etkinliğin ilindeki değerlendirmeye geçer.",
     degiskenler: ["ogrenciAdSoyad", "faaliyetAdi", "sonuc", "gerekce"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.TOPLU_DUYURU,
+    baslik: "Toplu duyuru",
+    aciklama:
+      "Proje yöneticisinin Duyurular ekranından gönderdiği serbest metinli duyuru. Metni gönderen yazar; buradaki şablon yalnızca sarmalayıcıdır.",
+    degiskenler: ["baslik", "icerik"],
   },
   {
     kod: BILDIRIM_KODLARI.FAALIYET_ONAY_SONUCU,

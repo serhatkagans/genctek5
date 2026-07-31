@@ -105,6 +105,9 @@ export default async function PanelDuzeni({
       { yol: "/panel/rol-envanteri", etiket: "Rol/Atama Envanteri" },
       // Erişim kayıtları KVKK denetiminin dayanağıdır; yalnızca merkez okur.
       { yol: "/panel/erisim-loglari", etiket: "Erişim Kayıtları" },
+      // Toplu duyuru, bildirim şablonlarıyla aynı sorumluluk düzeyinde:
+      // ikisi de tüm kullanıcılara giden metni belirler.
+      { yol: "/panel/duyurular", etiket: "Duyurular" },
       { yol: "/panel/ayarlar", etiket: "Yönetim" },
     );
   }
