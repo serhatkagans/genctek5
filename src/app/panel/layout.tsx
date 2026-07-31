@@ -119,6 +119,9 @@ export default async function PanelDuzeni({
       // Biten faaliyetlerin rapor durumu. Koordinatör ilindeki HER faaliyetin
       // raporunu yazabilir; danışman yalnızca kendi açtığının.
       { yol: "/panel/raporlar", etiket: "Raporlar" },
+      // Katılım / teşekkür belgesi. Faaliyet detayından da girilebiliyor;
+      // bu menü aynı sayfaya doğrudan yol açar, ayrı bir akış değildir.
+      { yol: "/panel/belgeler", etiket: "Belge Oluştur" },
     );
   }
 
