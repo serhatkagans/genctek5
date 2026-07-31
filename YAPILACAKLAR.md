@@ -12,18 +12,17 @@ Durum işaretleri: `[x]` bitti · `[ ]` bekliyor · `[?]` karar/bilgi bekliyor
 - [x] **Faaliyet açıklamasındaki linkler tıklanmıyor**
       → `src/lib/metin/baglanti.ts` + `src/components/MetinBaglantili.tsx`.
       Metin HTML'e çevrilmiyor, parçalanıp basılıyor (XSS'e kapalı).
-- [ ] **Faaliyet görselleri görünmüyor**
-      Yerelde üretilemedi: dev veritabanında hiç faaliyet eki yok (0 kayıt).
-      Servis rotası (`faaliyetler/[id]/ekler/[ekId]/route.ts`) kodu doğru
-      görünüyor. **Sunucudaki veriye bakılacak** — dosya diskte var mı,
-      `depolama_yolu` kayıtla eşleşiyor mu.
-- [?] **Rol envanterinde "koordinatör ata" hata veriyor**
-      Üretilemedi. Sade öğretmen ✓, zaten danışman olan öğretmen ✓ (4 öğrenci
-      devredildi). Dört hata yolu da okunur mesaj veriyor:
-      "Bu ilde görevli bir il koordinatörü zaten var" / "yalnızca öğretmenlere
-      verilir" / "Geçersiz il" / "Kullanıcı bulunamadı".
-      **Gereken: görülen hata mesajının tam metni.** Bunlardan biriyse hata
-      değil, kasıtlı uyarı.
+- [x] **Faaliyet görselleri görünmüyor** — ÇÖZÜLDÜ. Sebep veri değil,
+      basePath'ti: `<img src={`/panel/...`}>` ham öznitelik olduğu için
+      `/genctek` öneki eklenmiyordu, Apache 404 veriyordu.
+- [x] **Rol envanterinde "koordinatör ata" hata veriyor** — ÇÖZÜLDÜ.
+      Atama mantığında sorun yoktu; "Koordinatör ata" BAĞLANTISI ham `<a>`
+      olduğu için `/genctek` öneki düşüyor ve Apache 404 basıyordu. Hatanın
+      Apache'den gelmesi ("ErrorDocument") ipucuydu.
+
+      Kök neden ikisinde de aynı: ham HTML öznitelikleri basePath almaz.
+      `uygulamaYolu()` eklendi (src/lib/ortam.ts), altı çağrı yeri düzeltildi,
+      `tests/ham-yol-taramasi.test.ts` tekrarını engelliyor.
 
 ---
 

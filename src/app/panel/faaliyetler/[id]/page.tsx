@@ -41,6 +41,7 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { uygulamaYolu } from "@/lib/ortam";
 import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
 import {
   basvuruPenceresi,
@@ -1007,13 +1008,17 @@ export default async function FaaliyetDetaySayfasi({
                   }`}
                 >
                   <a
-                    href={`/panel/faaliyetler/${faaliyet.id}/ekler/${ek.id}`}
+                    href={uygulamaYolu(
+                      `/panel/faaliyetler/${faaliyet.id}/ekler/${ek.id}`,
+                    )}
                     target="_blank"
                     rel="noreferrer"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={`/panel/faaliyetler/${faaliyet.id}/ekler/${ek.id}`}
+                      src={uygulamaYolu(
+                        `/panel/faaliyetler/${faaliyet.id}/ekler/${ek.id}`,
+                      )}
                       alt={ek.dosyaAdi}
                       className="block max-h-64 w-full bg-zemin object-contain"
                     />
@@ -1078,7 +1083,9 @@ export default async function FaaliyetDetaySayfasi({
                 className="flex flex-wrap items-center justify-between gap-3 rounded-kart border border-cizgi px-4 py-3"
               >
                 <a
-                  href={`/panel/faaliyetler/${faaliyet.id}/ekler/${ek.id}`}
+                  href={uygulamaYolu(
+                    `/panel/faaliyetler/${faaliyet.id}/ekler/${ek.id}`,
+                  )}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-2 font-medium text-vurgu-metin"

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { uygulamaYolu } from "@/lib/ortam";
 import {
   basvuruPenceresi,
   ETKINLIK_KATEGORILERI,
@@ -300,7 +301,9 @@ export default async function FaaliyetlerSayfasi({
                   {kapak && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={`/panel/faaliyetler/${faaliyet.id}/ekler/${kapak.id}`}
+                      src={uygulamaYolu(
+                        `/panel/faaliyetler/${faaliyet.id}/ekler/${kapak.id}`,
+                      )}
                       alt={kapak.dosyaAdi}
                       className="block h-40 w-full bg-zemin object-cover"
                     />

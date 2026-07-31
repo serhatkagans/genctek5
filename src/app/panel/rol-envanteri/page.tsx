@@ -14,6 +14,7 @@ import {
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import { uygulamaYolu } from "@/lib/ortam";
 import {
   ilKoordinatorDurumlari,
   koordinatorAdaylari,
@@ -257,7 +258,9 @@ export default async function RolEnvanteriSayfasi({
                           </form>
                         ) : (
                           <a
-                            href={`/panel/rol-envanteri?il=${il.ilKodu}#atama`}
+                            href={uygulamaYolu(
+                              `/panel/rol-envanteri?il=${il.ilKodu}#atama`,
+                            )}
                             className="text-xs font-medium text-vurgu-metin"
                           >
                             Koordinatör ata

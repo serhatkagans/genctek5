@@ -29,6 +29,7 @@ import {
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { aktifAtamaGetir } from "@/lib/danisman/atama";
 import { prisma } from "@/lib/db";
+import { uygulamaYolu } from "@/lib/ortam";
 import { kazanimlariGetir } from "@/lib/kazanim/getir";
 import {
   basHarfler,
@@ -192,7 +193,7 @@ export default async function ProfilSayfasi({
    * için adres değişmezse görsel güncellenmiş görünmezdi.
    */
   const fotoAdresi = kayit.fotoYuklenmeTarihi
-    ? `/panel/profil/foto?s=${kayit.fotoYuklenmeTarihi.getTime()}`
+    ? uygulamaYolu(`/panel/profil/foto?s=${kayit.fotoYuklenmeTarihi.getTime()}`)
     : null;
 
   return (

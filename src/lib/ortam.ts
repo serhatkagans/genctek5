@@ -177,3 +177,27 @@ export const ortam = veri;
  * GençTek oturum çerezini de alır — oturum jetonu ilgisiz yazılımlara sızar.
  */
 export const CEREZ_YOLU = veri.TEMEL_YOL === "" ? "/" : veri.TEMEL_YOL;
+
+/**
+ * Uygulama içi mutlak bir yolu, alt dizin kurulumuna göre düzeltir.
+ *
+ * NE ZAMAN GEREKLİ: yalnızca HAM HTML özniteliklerinde — `<img src>`,
+ * `<a href>`, `<form action>`. Next.js'in `<Link>` bileşeni ve `redirect()`
+ * basePath'i KENDİSİ ekler; oralarda bu fonksiyonu kullanmayın, yol iki kez
+ * öneklenir.
+ *
+ * NEDEN VAR: uygulama `aiotechs.cloud/genctek` gibi bir alt dizine kurulduğunda
+ * `/panel/...` yazan ham bir öznitelik tarayıcıyı alan adının köküne gönderir.
+ * Orada uygulama yoktur; istek ters vekile düşer ve kullanıcı Next.js'in değil
+ * Apache'nin 404 sayfasını görür — hangi bağlantının bozuk olduğunu söylemeyen,
+ * teşhisi zor bir hata. Bu hatayı iki ayrı yerde ürettik: "Koordinatör ata"
+ * bağlantısı ve faaliyet görselleri.
+ */
+export function uygulamaYolu(yol: string): string {
+  if (veri.TEMEL_YOL === "") return yol;
+  // Çift önek koruması: zaten öneklenmiş bir yol ikinci kez öneklenmemeli.
+  if (yol === veri.TEMEL_YOL || yol.startsWith(`${veri.TEMEL_YOL}/`)) {
+    return yol;
+  }
+  return `${veri.TEMEL_YOL}${yol}`;
+}
