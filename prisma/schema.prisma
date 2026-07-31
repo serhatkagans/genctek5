@@ -282,6 +282,8 @@ model Kullanici {
   ogretmenProfil  OgretmenProfil?
   ogrenciProfil   OgrenciProfil?
 
+  onayladigiIlDisiBasvurular Basvuru[] @relation("BasvuruKaynakIlOnaylayan")
+
   ogrenciAtamalari  DanismanAtama[] @relation("AtamaOgrencisi")
   danismanAtamalari DanismanAtama[] @relation("AtamaDanismani")
 
@@ -733,13 +735,27 @@ model Basvuru {
   degerlendirenKullaniciId  Int?          @map("degerlendiren_kullanici_id")
   degerlendirmeTarihi       DateTime?     @map("degerlendirme_tarihi") @db.Timestamptz(6)
 
+  /// İl DIŞI başvuruda, öğrencinin KENDİ ilinin koordinatörünün kararı.
+  ///
+  /// İkinci onay ayrıca tutulmaz: faaliyeti düzenleyenin yaptığı değerlendirme
+  /// (durum alanı) zaten etkinliğin yapıldığı ilin kararıdır. Aynı kararı iki
+  /// sütunda tutmak, ikisini senkron tutma zorunluluğu doğururdu.
+  ///
+  /// ONAY_GEREKMEZ: başvuru kendi ili içinde ya da bu akıştan önce yapılmış.
+  kaynakIlOnayDurumu             OnayDurumu @default(ONAY_GEREKMEZ) @map("kaynak_il_onay_durumu")
+  kaynakIlOnaylayanKullaniciId   Int?       @map("kaynak_il_onaylayan_kullanici_id")
+  kaynakIlOnayTarihi             DateTime?  @map("kaynak_il_onay_tarihi") @db.Timestamptz(6)
+  kaynakIlRetGerekcesi           String?    @map("kaynak_il_ret_gerekcesi") @db.Text
+
   faaliyet       Faaliyet   @relation(fields: [faaliyetId], references: [id], onDelete: Cascade)
   katilimci      Kullanici  @relation("BasvuruKatilimcisi", fields: [katilimciId], references: [id])
   adinaBasvuran  Kullanici? @relation("BasvuruAdinaBasvuran", fields: [adinaBasvuranKullaniciId], references: [id])
   degerlendiren  Kullanici? @relation("BasvuruDegerlendiren", fields: [degerlendirenKullaniciId], references: [id])
+  kaynakIlOnaylayan Kullanici? @relation("BasvuruKaynakIlOnaylayan", fields: [kaynakIlOnaylayanKullaniciId], references: [id])
 
   @@index([faaliyetId, durum])
   @@index([katilimciId])
+  @@index([kaynakIlOnayDurumu])
   @@map("basvuru")
 }
 

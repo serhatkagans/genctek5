@@ -86,22 +86,39 @@ export function faaliyetOnayGerekiyorMu(
 ): boolean {
   if (projeYoneticisiMi(kullanici)) return false;
   if (ogrenciMi(kullanici)) return true;
+  /*
+   * 3. Danışman öğretmenin açtığı faaliyet — ilin koordinatörü görmeden
+   *    yayına girmez. Koordinatör ilinde ne yapıldığından sorumludur ve
+   *    okullardaki etkinlikleri ancak onaydan geçirirse görebilir.
+   *
+   * MEVCUT KAYITLAR ETKİLENMEZ: bu karar yalnızca yeni açılan faaliyette
+   * verilir, veritabanındaki ONAY_GEREKMEZ satırları olduğu gibi kalır.
+   */
+  if (danismanMi(kullanici)) return true;
   return kapsam === "ULUSAL" && ilKoordinatoruMu(kullanici);
 }
 
 /**
- * Öğrencinin açtığı faaliyeti, öğrencinin ilinin koordinatörü de onaylayabilir.
+ * İl koordinatörü bu faaliyeti onaylayabilir mi?
  *
- * Onay merkeze bırakılsaydı bir okulun kendi içindeki öğrenci etkinliği YEĞİTEK
- * sırası gelene kadar bekler ve öneri pratikte ölürdü; ilin koordinatörü hem
- * öğrenciyi hem okulu tanıyan en yakın sorumludur. İkisi de yetkilidir, hangisi
- * önce karar verirse faaliyet sonuçlanır — ayrı bir sıra kurulmaz.
+ * Kapı, faaliyeti KİMİN açtığına bakar: öğrenci ve danışman öğretmen, ilin
+ * koordinatörünün sorumluluk alanındadır. Koordinatörün ve merkezin kendi
+ * açtığı faaliyet buradan geçmez — kimse kendi işini onaylamaz.
+ *
+ * Onay merkeze bırakılsaydı bir okulun kendi içindeki etkinlik YEĞİTEK sırası
+ * gelene kadar bekler ve pratikte ölürdü; ilin koordinatörü hem kişiyi hem
+ * okulu tanıyan en yakın sorumludur. Merkez de yetkilidir (bkz.
+ * faaliyetOnaylayabilirMi), hangisi önce karar verirse faaliyet sonuçlanır —
+ * ayrı bir sıra kurulmaz.
  */
-export function ogrenciFaaliyetiniOnaylayabilirMi(
+export function ilKoordinatoruOnaylayabilirMi(
   kullanici: OturumKullanicisi,
   faaliyet: FaaliyetKapsami,
 ): boolean {
-  if (faaliyet.duzenleyenOgrenciMi !== true) return false;
+  const onayaTabi =
+    faaliyet.duzenleyenOgrenciMi === true ||
+    faaliyet.duzenleyenDanismanMi === true;
+  if (!onayaTabi) return false;
   if (!ilKoordinatoruMu(kullanici)) return false;
 
   const faaliyetIli = faaliyet.kapsamIlKodu ?? faaliyet.ilKodu;
@@ -121,7 +138,7 @@ export function faaliyetOnaylayabilirMi(
 ): boolean {
   if (projeYoneticisiMi(kullanici)) return true;
   if (!faaliyet) return false;
-  return ogrenciFaaliyetiniOnaylayabilirMi(kullanici, faaliyet);
+  return ilKoordinatoruOnaylayabilirMi(kullanici, faaliyet);
 }
 
 /**
@@ -135,7 +152,7 @@ export function faaliyetGorunurMu(
   if (projeYoneticisiMi(kullanici)) return true;
   if (faaliyet.duzenleyenKullaniciId === kullanici.id) return true;
   // Onaylayacak kişi, onaylayacağı şeyi görmek zorunda.
-  if (ogrenciFaaliyetiniOnaylayabilirMi(kullanici, faaliyet)) return true;
+  if (ilKoordinatoruOnaylayabilirMi(kullanici, faaliyet)) return true;
   if (!faaliyet.onayliMi) return false;
 
   switch (faaliyet.kapsam) {

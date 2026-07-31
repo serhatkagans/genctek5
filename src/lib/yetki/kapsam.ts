@@ -409,7 +409,7 @@ export function faaliyetKapsamFiltresi(
   /*
    * İl koordinatörü, kendi ilindeki bir ÖĞRENCİNİN açtığı onay bekleyen
    * faaliyeti görür — onaylayacak olan kişi onaylayacağı şeyi göremezse öneri
-   * hiç ulaşmamış olurdu (bkz. ogrenciFaaliyetiniOnaylayabilirMi).
+   * hiç ulaşmamış olurdu (bkz. ilKoordinatoruOnaylayabilirMi).
    *
    * Koşul düzenleyenin İLİNE bakar, faaliyetin kapsam alanlarına değil: ulusal
    * öneride kapsam alanlarının ikisi de boştur ve öneriyi değerlendirecek
@@ -472,4 +472,45 @@ export function danismanAdayiFiltresi(
       roller: { some: { rolKodu: "IL_KOORDINATOR", bitisTarihi: null } },
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// İl dışına giden başvurular
+// ---------------------------------------------------------------------------
+
+/** Hiçbir başvuru döndürmeyen filtre. */
+const BASVURU_HICBIRI: Prisma.BasvuruWhereInput = { id: { in: [] } };
+
+/**
+ * İl koordinatörünün, KENDİ ilinden başka bir ilin etkinliğine giden
+ * başvuruları — analiz isteği Bölüm 4.
+ *
+ * `ogrenciKapsamFiltresi`den farkı: orası "ilimdeki öğrenciler" sorusunu
+ * cevaplar, burası "ilimden çıkan başvurular". İkisi ayrı çünkü koordinatörün
+ * burada gördüğü şey öğrencinin kendisi değil, onun başka bir ile yaptığı tekil
+ * bir başvurudur.
+ *
+ * Faaliyetin ili kaydın kendisinden okunamadığı için (okul içi faaliyette
+ * okulun, ulusal faaliyette düzenleyenin ili geçerli) filtre "kaynak il onayı
+ * BEKLİYOR ya da karara bağlanmış" kayıtlar üzerinden kurulur: o alan yalnızca
+ * il dışı başvuruda doldurulur, dolayısıyla il karşılaştırmasını tekrar etmeye
+ * gerek kalmaz.
+ *
+ * Proje yöneticisi hepsini görür; başka hiçbir rol bu listeyi görmez.
+ */
+export function ilDisiBasvuruFiltresi(
+  kullanici: OturumKullanicisi,
+): Prisma.BasvuruWhereInput {
+  const ilDisiKayit: Prisma.BasvuruWhereInput = {
+    kaynakIlOnayDurumu: { not: "ONAY_GEREKMEZ" },
+  };
+
+  if (projeYoneticisiMi(kullanici)) return ilDisiKayit;
+
+  const ilKodu = koordinatorIlKodu(kullanici);
+  if (ilKodu === null) return BASVURU_HICBIRI;
+
+  // Katılımcının ili = kaynak il. Koordinatör yalnızca KENDİ ilinden çıkan
+  // başvuruya karar verir; hedef ildeki karar düzenleyenin değerlendirmesidir.
+  return { AND: [ilDisiKayit, { katilimci: { ilKodu } }] };
 }

@@ -188,6 +188,18 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\n{{okulAdi}} okulundan {{duzenleyenAdSoyad}}, {{kapsam}} kapsamında {{faaliyetAdi}} adlı faaliyeti önerdi ve onay bekliyor.\n\nBu öneriyi hem siz hem de YEĞİTEK proje yöneticileri onaylayabilir; ilk verilen karar geçerlidir. Faaliyet, onaylanana kadar öğrencilere görünmez.\n\nGençTek",
   },
   {
+    kod: "ONAY_BEKLEYEN_OGRETMEN_FAALIYETI",
+    konu: "Öğretmen faaliyeti onayınızı bekliyor: {{faaliyetAdi}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{okulAdi}} okulundan {{duzenleyenAdSoyad}}, {{kapsam}} kapsamında {{faaliyetAdi}} adlı faaliyeti açtı ve onayınızı bekliyor.\n\nFaaliyet, onaylanana kadar öğrencilere görünmez ve başvuru almaz.\n\nGençTek",
+  },
+  {
+    kod: "IL_DISI_BASVURU_KARARI",
+    konu: "{{faaliyetAdi}} başvurunuz iliniz tarafından {{sonuc}}",
+    govdeSablonu:
+      "Merhaba {{ogrenciAdSoyad}},\n\nBaşka bir ildeki {{faaliyetAdi}} etkinliğine yaptığınız başvuru, il koordinatörünüz tarafından {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa başvurunuz bitmiş değildir: sıra etkinliğin yapıldığı ildeki değerlendirmeye geçer, sonucu ayrıca bildirilir.\n\nGençTek",
+  },
+  {
     kod: "FAALIYET_ONAY_SONUCU",
     konu: "{{faaliyetAdi}} faaliyetiniz {{sonuc}}",
     govdeSablonu:

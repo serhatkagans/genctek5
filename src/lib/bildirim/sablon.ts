@@ -18,6 +18,10 @@ export const BILDIRIM_KODLARI = {
   ONAY_BEKLEYEN_ULUSAL_FAALIYET: "ONAY_BEKLEYEN_ULUSAL_FAALIYET",
   /** Öğrenci faaliyet açtı; il koordinatörüne ve YEĞİTEK'e birlikte gider. */
   ONAY_BEKLEYEN_OGRENCI_FAALIYETI: "ONAY_BEKLEYEN_OGRENCI_FAALIYETI",
+  /** Danışman öğretmen faaliyet açtı; ilin koordinatörü onaylayacak. */
+  ONAY_BEKLEYEN_OGRETMEN_FAALIYETI: "ONAY_BEKLEYEN_OGRETMEN_FAALIYETI",
+  /** Öğrencinin kendi ili, il dışı başvurusuna karar verdi. */
+  IL_DISI_BASVURU_KARARI: "IL_DISI_BASVURU_KARARI",
   /** Faaliyet onaylandı ya da reddedildi; faaliyeti açana gider. */
   FAALIYET_ONAY_SONUCU: "FAALIYET_ONAY_SONUCU",
   DANISMANA_KOPYA_ULUSAL_BASVURU: "DANISMANA_KOPYA_ULUSAL_BASVURU",
@@ -93,6 +97,20 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "Öğrenci faaliyet açtığında hem öğrencinin ilinin koordinatörüne hem proje yöneticilerine gider. İkisi de onaylayabilir.",
     degiskenler: ["faaliyetAdi", "duzenleyenAdSoyad", "kapsam", "okulAdi"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRETMEN_FAALIYETI,
+    baslik: "Onay bekleyen öğretmen faaliyeti",
+    aciklama:
+      "Danışman öğretmen faaliyet açtığında okulun ilindeki koordinatöre gider. İlde koordinatör yoksa proje yöneticilerine düşer, faaliyet askıda kalmaz.",
+    degiskenler: ["faaliyetAdi", "duzenleyenAdSoyad", "kapsam", "okulAdi"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.IL_DISI_BASVURU_KARARI,
+    baslik: "İl dışı başvuru kararı",
+    aciklama:
+      "Öğrenci başka bir ilin etkinliğine başvurduğunda, kendi ilinin koordinatörü karar verince öğrenciye gider. Onay başvurunun bittiği anlamına GELMEZ; sıra etkinliğin ilindeki değerlendirmeye geçer.",
+    degiskenler: ["ogrenciAdSoyad", "faaliyetAdi", "sonuc", "gerekce"],
   },
   {
     kod: BILDIRIM_KODLARI.FAALIYET_ONAY_SONUCU,

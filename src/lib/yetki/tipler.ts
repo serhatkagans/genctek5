@@ -53,6 +53,16 @@ export interface FaaliyetKapsami {
    * yetkisini genişletmek yerine dar tarafta kalıyoruz.
    */
   duzenleyenOgrenciMi?: boolean;
+  /**
+   * Faaliyeti danışman öğretmen mi açtı? Öğrenci faaliyetiyle AYNI kapıdan
+   * geçer: ikisi de ilin koordinatörünün onayına tabidir. İki alan ayrı
+   * tutuluyor çünkü onay dışındaki akışlarda (bildirim metni, ekranda
+   * gösterilen gerekçe) ikisi farklı şeyler söylüyor.
+   *
+   * Belirtilmezse `false` varsayılır — eksik veriyle onay yetkisini
+   * genişletmek yerine dar tarafta kalıyoruz.
+   */
+  duzenleyenDanismanMi?: boolean;
 }
 
 export class YetkiHatasi extends Error {

@@ -86,6 +86,18 @@ export default async function PanelDuzeni({
     );
   }
 
+  /*
+   * İl dışına giden başvurular: koordinatör kendi ilinden başka bir ilin
+   * etkinliğine yapılan başvuruları onaylar. Danışman öğretmene GÖSTERİLMEZ —
+   * karar ilin, okulun değil.
+   */
+  if (ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici)) {
+    baglantilar.push({
+      yol: "/panel/il-disi-basvurular",
+      etiket: "İl Dışı Başvurular",
+    });
+  }
+
   // Rol/atama envanteri toplu bir yönetim görünümüdür; tekil profil erişiminden
   // ayrı bir yetkidir ve yalnızca proje yöneticisine açıktır.
   if (rolEnvanteriGorebilirMi(kullanici)) {

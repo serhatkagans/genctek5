@@ -44,11 +44,16 @@ import {
   programSecimiGerekiyorMu,
   yenidenOnayGerekiyorMu,
 } from "@/lib/faaliyet/kurallar";
+import {
+  baslangicOnayDurumu,
+  degerlendirmeyeHazirMi,
+} from "@/lib/basvuru/il-disi";
 import { gunBasi, gunSonu, yerelTarihSaat } from "@/lib/tarih";
 import {
   baskasiAdinaBasvurabilirMi,
   basvuruDegerlendirebilirMi,
   basvuruYapabilirMi,
+  danismanMi,
   ekYukleyebilirMi,
   faaliyetIptalEdebilirMi,
   faaliyetOnaylayabilirMi,
@@ -182,7 +187,9 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
     birimKurumKodu
       ? prisma.kurum.findUnique({
           where: { kurumKodu: birimKurumKodu },
-          select: { ad: true },
+          // ilKodu: öğretmen faaliyetinin onayı OKULUN iline gider; kişinin
+          // kayıtlı ili görev yaptığı okulun ilinden farklı olabilir.
+          select: { ad: true, ilKodu: true },
         })
       : null,
     birimIlKodu
@@ -289,6 +296,33 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
         degiskenler,
       );
+    } else if (danismanMi(kullanici)) {
+      /*
+       * Öğretmen faaliyetinde uyarı YALNIZCA ilin koordinatörüne gider; merkez
+       * de onaylayabilir ama her okulun her etkinliği YEĞİTEK'e bildirilseydi
+       * bildirim listesi kullanılamaz hâle gelirdi.
+       *
+       * İlde koordinatör yoksa faaliyet ASKIDA KALIRDI: bildirim kimseye
+       * gitmez, kimse onaylamaz. Bu yüzden gönderim sayısı sıfırsa uyarı
+       * merkeze düşürülüyor.
+       */
+      const degiskenler = {
+        faaliyetAdi: ad,
+        duzenleyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+        kapsam: KAPSAM_ETIKETLERI[kapsam],
+        okulAdi: okul?.ad ?? "—",
+      };
+      const ulasan = await ilKoordinatorlerineBildir(
+        okul?.ilKodu ?? kullanici.ilKodu,
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRETMEN_FAALIYETI,
+        degiskenler,
+      );
+      if (ulasan === 0) {
+        await projeYoneticilerineBildir(
+          BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRETMEN_FAALIYETI,
+          degiskenler,
+        );
+      }
     } else {
       await projeYoneticilerineBildir(
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_ULUSAL_FAALIYET,
@@ -431,7 +465,25 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
    * bir öneriyi ikinci kez hiç görmezlerdi.
    */
   if (onayDusuyorMu) {
-    if (kapsam.duzenleyenOgrenciMi) {
+    if (kapsam.duzenleyenDanismanMi && !kapsam.duzenleyenOgrenciMi) {
+      const degiskenler = {
+        faaliyetAdi: faaliyet.ad,
+        duzenleyenAdSoyad: `${faaliyet.duzenleyen.ad} ${faaliyet.duzenleyen.soyad}`,
+        kapsam: KAPSAM_ETIKETLERI[faaliyet.kapsam],
+        okulAdi: faaliyet.kurum?.ad ?? "—",
+      };
+      const ulasan = await ilKoordinatorlerineBildir(
+        kapsam.kapsamIlKodu ?? null,
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRETMEN_FAALIYETI,
+        degiskenler,
+      );
+      if (ulasan === 0) {
+        await projeYoneticilerineBildir(
+          BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRETMEN_FAALIYETI,
+          degiskenler,
+        );
+      }
+    } else if (kapsam.duzenleyenOgrenciMi) {
       const degiskenler = {
         faaliyetAdi: faaliyet.ad,
         duzenleyenAdSoyad: `${faaliyet.duzenleyen.ad} ${faaliyet.duzenleyen.soyad}`,
@@ -735,6 +787,15 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
    * veya geri çekilen bir başvurunun açtığı yer anında kullanılabilir olmalı
    * (sabit sayaç tutulmuyor, bu yüzden yer "dolu" takılı kalmaz).
    */
+  /*
+   * Merkezin düzenlediği faaliyetin ili yoktur; düzenleyenin kişisel ili
+   * faaliyetin ili sayılmaz. Transaction'dan önce hesaplanır çünkü hem başvuru
+   * kaydı hem sonraki bildirimler kullanıyor.
+   */
+  const duzenleyenMerkezMi = faaliyet.duzenleyen.roller.some(
+    (rol) => rol.rolKodu === "PROJE_YONETICISI",
+  );
+
   const basvuruSonucu = await prisma.$transaction(async (islem) => {
     // Sayımdan önce kilit: aksi halde son yeri iki öğrenci birden alabilir.
     await faaliyetSatiriniKilitle(islem, faaliyetId);
@@ -762,17 +823,39 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
       return {
         hata: karar.neden ?? "Bu faaliyete başvuramazsınız.",
         basvuruId: null,
+        kaynakIlOnayiBekliyorMu: false,
       };
     }
 
     // Geri çekilen başvuru güncellenmez, yenisi açılır: kısmi unique index geri
     // çekilmişleri dışarıda bıraktığı için ikisi bir arada durabilir ve
     // öğrencinin başvuru geçmişi korunur.
+    /*
+     * İl DIŞI başvuru, öğrencinin kendi ilinin koordinatörünün onayını bekler
+     * (analiz Bölüm 4: "önce başvuran öğrencinin koordinatörü onaylayacak").
+     * Faaliyetin ili kapsam alanlarından okunamaz; okul içi faaliyette okulun,
+     * ulusal faaliyette düzenleyenin ilidir.
+     */
+    const faaliyetIlKodu =
+      faaliyet.ilKodu ??
+      faaliyet.kurum?.ilKodu ??
+      (duzenleyenMerkezMi ? null : faaliyet.duzenleyen.ilKodu);
+
     const olusan = await islem.basvuru.create({
-      data: { faaliyetId, katilimciId, adinaBasvuranKullaniciId, gerekce },
-      select: { id: true },
+      data: {
+        faaliyetId,
+        katilimciId,
+        adinaBasvuranKullaniciId,
+        gerekce,
+        kaynakIlOnayDurumu: baslangicOnayDurumu(katilimciIlKodu, faaliyetIlKodu),
+      },
+      select: { id: true, kaynakIlOnayDurumu: true },
     });
-    return { hata: null, basvuruId: olusan.id };
+    return {
+      hata: null,
+      basvuruId: olusan.id,
+      kaynakIlOnayiBekliyorMu: olusan.kaynakIlOnayDurumu === "BEKLIYOR",
+    };
   });
 
   if (basvuruSonucu.hata !== null || basvuruSonucu.basvuruId === null) {
@@ -787,9 +870,7 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
    * düzenlediği faaliyetin ili olmadığından düzenleyen ili null sayılır.
    * Bildirim akışı kesmesin diye danışman yoksa sessizce atlanır.
    */
-  const duzenleyenMerkezMi = faaliyet.duzenleyen.roller.some(
-    (rol) => rol.rolKodu === "PROJE_YONETICISI",
-  );
+
   if (
     danismanaKopyaGerekiyorMu({
       kapsam: faaliyet.kapsam,
@@ -935,6 +1016,7 @@ export async function basvuruDegerlendirEylemi(veri: FormData): Promise<void> {
     select: {
       id: true,
       durum: true,
+      kaynakIlOnayDurumu: true,
       katilimciId: true,
       katilimci: { select: { ad: true, soyad: true } },
       adinaBasvuranKullaniciId: true,
@@ -959,6 +1041,20 @@ export async function basvuruDegerlendirEylemi(veri: FormData): Promise<void> {
     hataylaDon(
       `/panel/faaliyetler/${basvuru.faaliyet.id}`,
       "İptal edilmiş faaliyetin başvuruları değerlendirilemez.",
+    );
+  }
+
+  /*
+   * SIRA KORUNUR: öğrencinin kendi ilinin koordinatörü karar vermeden bu
+   * başvuru değerlendirilemez. Aksi halde öğrenci, kendi ili izin vermeden
+   * başka bir ilin etkinliğine seçilmiş olurdu.
+   */
+  if (!degerlendirmeyeHazirMi(basvuru.kaynakIlOnayDurumu)) {
+    hataylaDon(
+      `/panel/faaliyetler/${basvuru.faaliyet.id}`,
+      basvuru.kaynakIlOnayDurumu === "BEKLIYOR"
+        ? "Bu başvuru, öğrencinin kendi ilinin koordinatörünün onayını bekliyor. Onay verilene kadar değerlendirilemez."
+        : "Öğrencinin kendi ilinin koordinatörü bu başvuruyu reddetti; değerlendirilemez.",
     );
   }
 

@@ -18,7 +18,7 @@ import {
   ilKoordinatorAtayabilirMi,
   ilTemsilcisiAtayabilirMi,
   ogrenciCalismaGrubuYonetebilirMi,
-  ogrenciFaaliyetiniOnaylayabilirMi,
+  ilKoordinatoruOnaylayabilirMi,
   okulTemsilcisiAtayabilirMi,
   rolEnvanteriGorebilirMi,
   yetkiDevrolduMu,
@@ -118,7 +118,7 @@ describe("öğrenci faaliyeti onay akışı", () => {
     // Onay yalnızca merkeze bırakılsaydı bir okulun kendi içindeki öğrenci
     // etkinliği YEĞİTEK sırası gelene kadar bekler, öneri pratikte ölürdü.
     expect(
-      ogrenciFaaliyetiniOnaylayabilirMi(
+      ilKoordinatoruOnaylayabilirMi(
         koordinatorYap({ ilKodu: "34" }),
         ogrenciFaaliyeti(),
       ),
@@ -130,20 +130,22 @@ describe("öğrenci faaliyeti onay akışı", () => {
 
   it("başka ilin koordinatörü onaylayamaz", () => {
     expect(
-      ogrenciFaaliyetiniOnaylayabilirMi(
+      ilKoordinatoruOnaylayabilirMi(
         koordinatorYap({ ilKodu: "06" }),
         ogrenciFaaliyeti(),
       ),
     ).toBe(false);
   });
 
-  it("öğretmenin açtığı faaliyette koordinatöre ek yetki doğmaz", () => {
-    const ogretmenFaaliyeti = faaliyetYap({
+  it("koordinatörün/merkezin açtığı faaliyette ek yetki doğmaz", () => {
+    // Ne öğrenci ne danışman açmışsa kapı kapalıdır: kimse kendi işini
+    // onaylamaz ve ulusal faaliyetin onayı merkezdedir.
+    const koordinatorFaaliyeti = faaliyetYap({
       onayliMi: false,
       kapsamIlKodu: "34",
     });
     expect(
-      ogrenciFaaliyetiniOnaylayabilirMi(koordinatorYap(), ogretmenFaaliyeti),
+      ilKoordinatoruOnaylayabilirMi(koordinatorYap(), koordinatorFaaliyeti),
     ).toBe(false);
   });
 
@@ -609,5 +611,64 @@ describe("paydaş envanteri", () => {
     expect(faaliyetPaydasiYonetebilirMi(projeYoneticisiYap(), faaliyet)).toBe(
       true,
     );
+  });
+});
+
+describe("öğretmen faaliyeti onay akışı", () => {
+  const ogretmenFaaliyeti = (ozellikler = {}) =>
+    faaliyetYap({
+      duzenleyenKullaniciId: 200,
+      duzenleyenDanismanMi: true,
+      onayliMi: false,
+      kapsamIlKodu: "34",
+      ...ozellikler,
+    });
+
+  it("danışman öğretmenin açtığı faaliyet onay bekler", () => {
+    // Koordinatör ilinde ne yapıldığından sorumlu; okuldaki etkinlikleri
+    // ancak onaydan geçirirse görebilir.
+    expect(faaliyetOnayGerekiyorMu(danismanYap(), "OKUL")).toBe(true);
+  });
+
+  it("okulun ilindeki koordinatör onaylayabilir", () => {
+    expect(
+      ilKoordinatoruOnaylayabilirMi(
+        koordinatorYap({ ilKodu: "34" }),
+        ogretmenFaaliyeti(),
+      ),
+    ).toBe(true);
+  });
+
+  it("başka ilin koordinatörü onaylayamaz", () => {
+    expect(
+      ilKoordinatoruOnaylayabilirMi(
+        koordinatorYap({ ilKodu: "06" }),
+        ogretmenFaaliyeti(),
+      ),
+    ).toBe(false);
+  });
+
+  it("proje yöneticisi her koşulda onaylayabilir", () => {
+    expect(
+      faaliyetOnaylayabilirMi(projeYoneticisiYap(), ogretmenFaaliyeti()),
+    ).toBe(true);
+  });
+
+  it("başka bir danışman öğretmen onaylayamaz", () => {
+    expect(
+      ilKoordinatoruOnaylayabilirMi(danismanYap(), ogretmenFaaliyeti()),
+    ).toBe(false);
+  });
+
+  it("onay bekleyen faaliyet, onaylayacak koordinatöre GÖRÜNÜR", () => {
+    // Onaylayacak kişi onaylayacağı şeyi görmek zorunda; görünmezse onay
+    // ekranına hiç ulaşamazdı.
+    expect(
+      faaliyetGorunurMu(koordinatorYap({ ilKodu: "34" }), ogretmenFaaliyeti()),
+    ).toBe(true);
+  });
+
+  it("proje yöneticisinin açtığı faaliyet onay beklemez", () => {
+    expect(faaliyetOnayGerekiyorMu(projeYoneticisiYap(), "ULUSAL")).toBe(false);
   });
 });

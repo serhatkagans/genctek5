@@ -107,6 +107,15 @@ export function faaliyetKapsamiCikar(faaliyet: {
     : false;
 
   /*
+   * Danışman öğretmenin açtığı faaliyet de ilin koordinatörünün onayına tabi.
+   * Rol kaydından okunur, faaliyete kopyalanmaz — öğretmen danışmanlıktan
+   * ayrıldığında kopyalanan alan eskirdi.
+   */
+  const duzenleyenDanismanMi = faaliyet.duzenleyen
+    ? faaliyet.duzenleyen.roller.some((rol) => rol.rolKodu === "DANISMAN")
+    : false;
+
+  /*
    * Faaliyetin ili kapsam alanlarından okunamaz: okul içi faaliyette il kodu
    * boştur (okulunki geçerlidir), ulusal faaliyette ikisi de boştur ve
    * devralacak kişi düzenleyenin ilindeki koordinatördür.
@@ -131,6 +140,7 @@ export function faaliyetKapsamiCikar(faaliyet: {
         )
       : true,
     duzenleyenOgrenciMi,
+    duzenleyenDanismanMi,
   };
 }
 
