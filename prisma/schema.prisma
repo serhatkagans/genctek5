@@ -241,6 +241,20 @@ model Kullanici {
   aktif             Boolean  @default(true)
   olusturmaTarihi   DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
+  /// Kişinin kendi yüklediği profil fotoğrafı — e-Okul'dan GELMEZ, gecelik
+  /// senkronda üzerine yazılmaz (kimlik alanlarından farkı budur).
+  ///
+  /// Profil tablolarında DEĞİL burada durur: fotoğraf her kullanıcı tipinde
+  /// vardır, oysa YEĞİTEK personeline sağlama akışında ne ogrenci_profil ne
+  /// ogretmen_profil satırı açılır (bkz. lib/kullanici/sagla.ts). Profil
+  /// tablosuna konsaydı personel bu alanı hiç kullanamazdı.
+  ///
+  /// Saklanan şey dosya yolu değil, depolama sağlayıcısının ANAHTARIDIR;
+  /// anlamını yalnızca sağlayıcı bilir (bkz. lib/depolama/tipler.ts).
+  fotoDepolamaYolu   String?   @map("foto_depolama_yolu") @db.VarChar(120)
+  fotoMimeTipi       String?   @map("foto_mime_tipi") @db.VarChar(100)
+  fotoYuklenmeTarihi DateTime? @map("foto_yuklenme_tarihi") @db.Timestamptz(6)
+
   kurum Kurum? @relation(fields: [kurumKodu], references: [kurumKodu])
   il    Il?    @relation(fields: [ilKodu], references: [ilKodu])
   ilce  Ilce?  @relation(fields: [ilceKodu], references: [ilceKodu])

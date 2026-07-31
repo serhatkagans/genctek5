@@ -21,6 +21,14 @@ export const AYAR_ANAHTARLARI = {
    */
   IZINLI_CV_TIPLERI: "IZINLI_CV_TIPLERI",
   CV_MAKS_BAYT: "CV_MAKS_BAYT",
+  /*
+   * Profil fotoğrafı sınırları da AYRI tutulur, aynı gerekçeyle: faaliyet
+   * görselleri için açılan bir tip (ör. image/gif) kendiliğinden herkesin
+   * avatarında da geçerli olmamalı. Ayrıca boyut beklentisi farklı — avatar
+   * küçük bir kare, faaliyet görseli sayfa genişliğinde bir fotoğraf.
+   */
+  IZINLI_PROFIL_FOTO_TIPLERI: "IZINLI_PROFIL_FOTO_TIPLERI",
+  PROFIL_FOTO_MAKS_BAYT: "PROFIL_FOTO_MAKS_BAYT",
   ERISIM_LOGU_SAKLAMA_AYI: "ERISIM_LOGU_SAKLAMA_AYI",
   BILDIRIM_SAKLAMA_AYI: "BILDIRIM_SAKLAMA_AYI",
   KVKK_AYDINLATMA_METNI: "KVKK_AYDINLATMA_METNI",
@@ -83,6 +91,20 @@ export const YONETILEBILIR_AYARLAR: AyarTanimi[] = [
     baslik: "CV boyut sınırı (bayt)",
     bicim: "sayi",
     yardim: "Öğrenci CV'si için üst sınır. 5 MB = 5242880.",
+  },
+  {
+    anahtar: AYAR_ANAHTARLARI.IZINLI_PROFIL_FOTO_TIPLERI,
+    baslik: "İzinli profil fotoğrafı tipleri",
+    bicim: "liste",
+    yardim:
+      "Kullanıcının profil fotoğrafı olarak yükleyebileceği MIME tipleri. Yeni bir tip eklerseniz karşılığını src/lib/depolama/yerel.ts içindeki uzantı listesine de ekleyin.",
+  },
+  {
+    anahtar: AYAR_ANAHTARLARI.PROFIL_FOTO_MAKS_BAYT,
+    baslik: "Profil fotoğrafı boyut sınırı (bayt)",
+    bicim: "sayi",
+    yardim:
+      "Profil fotoğrafı başına üst sınır. Avatar küçük gösterildiği için düşük tutun; 2 MB = 2097152.",
   },
   {
     anahtar: AYAR_ANAHTARLARI.ERISIM_LOGU_SAKLAMA_AYI,

@@ -117,6 +117,20 @@ const SISTEM_AYARLARI = [
     aciklama: "Öğrenci CV'si için üst boyut sınırı (varsayım: 5 MB).",
   },
   {
+    // Faaliyet görseli ayarından AYRIDIR, CV ile aynı gerekçeyle: faaliyet
+    // görselleri için açılan bir tip kendiliğinden herkesin avatarında da
+    // geçerli olmamalı.
+    anahtar: "IZINLI_PROFIL_FOTO_TIPLERI",
+    deger: "image/jpeg,image/png,image/webp",
+    aciklama: "Profil fotoğrafı olarak yüklenebilecek MIME tipleri.",
+  },
+  {
+    anahtar: "PROFIL_FOTO_MAKS_BAYT",
+    deger: String(2 * 1024 * 1024),
+    aciklama:
+      "Profil fotoğrafı için üst boyut sınırı (varsayım: 2 MB). Avatar küçük gösterildiği için CV'den düşük tutulur.",
+  },
+  {
     anahtar: "ERISIM_LOGU_SAKLAMA_AYI",
     deger: "24",
     aciklama:

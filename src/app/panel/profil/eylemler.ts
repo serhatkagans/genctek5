@@ -1,8 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import {
+  profilFotoKaydet,
+  profilFotoSil,
+  profilFotoSinirlariniGetir,
+} from "@/lib/kullanici/profil-foto";
 import { saltOkunurAlanlariAyikla } from "@/lib/kullanici/salt-okunur";
 import { danismanlikDurumunuDegistir } from "@/lib/ogretmen/danismanlik";
 import { erisimLogla } from "@/lib/yetki/log";
@@ -83,4 +89,71 @@ export async function danismanlikEylemi(veri: FormData): Promise<void> {
 
   revalidatePath("/panel/profil");
   revalidatePath("/panel");
+}
+
+// ---------------------------------------------------------------------------
+// Profil fotoğrafı
+// ---------------------------------------------------------------------------
+
+/*
+ * Rol kontrolü YOKTUR ve olmamalıdır: fotoğraf herkesin — öğrenci, öğretmen,
+ * il koordinatörü, YEĞİTEK personeli. Kazanım ve CV eylemlerindeki
+ * `ogrenciZorunlu()` kapısının buradaki karşılığı, işlemin her zaman
+ * `kullanici.id` üzerinde çalışmasıdır: hedef kimlik hiçbir yerde form
+ * girdisinden okunmaz, dolayısıyla kimse başkasının fotoğrafını değiştiremez.
+ */
+
+const YOL = "/panel/profil";
+
+export async function profilFotoYukleEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const dosya = veri.get("foto");
+  if (!(dosya instanceof File) || dosya.size === 0) {
+    redirect(`${YOL}?hata=${encodeURIComponent("Fotoğraf seçilmedi.")}`);
+  }
+
+  const sonuc = await profilFotoKaydet({
+    kullaniciId: kullanici.id,
+    dosya,
+    sinirlar: await profilFotoSinirlariniGetir(),
+  });
+  if (!sonuc.olurMu) {
+    redirect(
+      `${YOL}?hata=${encodeURIComponent(sonuc.neden ?? "Fotoğraf yüklenemedi.")}`,
+    );
+  }
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: kullanici.id,
+    detay: "Profil fotoğrafı yüklendi",
+  });
+
+  revalidatePath(YOL);
+  redirect(`${YOL}?durum=foto-yuklendi`);
+}
+
+export async function profilFotoSilEylemi(): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const silindi = await profilFotoSil(kullanici.id);
+  if (!silindi) {
+    redirect(
+      `${YOL}?hata=${encodeURIComponent("Kaldırılacak bir fotoğraf bulunamadı.")}`,
+    );
+  }
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "SILME",
+    hedefTip: "PROFIL",
+    hedefId: kullanici.id,
+    detay: "Profil fotoğrafı kaldırıldı",
+  });
+
+  revalidatePath(YOL);
+  redirect(`${YOL}?durum=foto-silindi`);
 }

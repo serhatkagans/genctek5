@@ -1,5 +1,6 @@
 import {
   BadgeCheck,
+  Camera,
   FileText,
   IdCard,
   Layers,
@@ -29,6 +30,11 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { aktifAtamaGetir } from "@/lib/danisman/atama";
 import { prisma } from "@/lib/db";
 import { kazanimlariGetir } from "@/lib/kazanim/getir";
+import {
+  basHarfler,
+  profilFotoTipAdlari,
+} from "@/lib/kullanici/profil-foto-kurallar";
+import { profilFotoSinirlariniGetir } from "@/lib/kullanici/profil-foto";
 import { SALT_OKUNUR_ACIKLAMASI } from "@/lib/kullanici/salt-okunur";
 import { cvSinirlariniGetir } from "@/lib/ogrenci/cv";
 import { cvTipAdlari } from "@/lib/ogrenci/cv-kurallar";
@@ -49,7 +55,12 @@ import {
   ogrenciMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
-import { danismanlikEylemi, profilGuncelleEylemi } from "./eylemler";
+import {
+  danismanlikEylemi,
+  profilFotoSilEylemi,
+  profilFotoYukleEylemi,
+  profilGuncelleEylemi,
+} from "./eylemler";
 import {
   cvSilEylemi,
   cvYukleEylemi,
@@ -64,6 +75,8 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "kazanim-silindi": "Kayıt silindi.",
   "cv-yuklendi": "CV'niz yüklendi.",
   "cv-silindi": "CV'niz kaldırıldı.",
+  "foto-yuklendi": "Profil fotoğrafınız güncellendi.",
+  "foto-silindi": "Profil fotoğrafınız kaldırıldı.",
 };
 
 /** Kazanım ekleme formunun hangi tür için açık olduğu. */
@@ -123,6 +136,8 @@ export default async function ProfilSayfasi({
   // profilinde sorgu hiç çalıştırılmıyor.
   const kazanim = ogrenci ? await kazanimlariGetir(kullanici.id) : null;
   const cvSinirlari = ogrenci ? await cvSinirlariniGetir() : null;
+  // Fotoğraf sınırları role bakılmadan alınır: kart herkese gösteriliyor.
+  const fotoSinirlari = await profilFotoSinirlariniGetir();
 
   // Koordinatörün sorumlu olduğu il, kişinin kayıtlı ilinden farklı olabilir;
   // adı ayrıca getirilir çünkü ham "34" kodu ekranda hiçbir şey anlatmıyor.
@@ -170,6 +185,16 @@ export default async function ProfilSayfasi({
   const cv = kayit.ogrenciProfil;
   const cvVar = Boolean(cv?.cvDepolamaYolu);
 
+  const fotoVar = Boolean(kayit.fotoDepolamaYolu);
+  /*
+   * Adresin sonundaki sürüm damgası, yeni fotoğraf yüklendiğinde tarayıcının
+   * eskisini göstermesini engeller: rota kısa ömürlü bir ön bellek bıraktığı
+   * için adres değişmezse görsel güncellenmiş görünmezdi.
+   */
+  const fotoAdresi = kayit.fotoYuklenmeTarihi
+    ? `/panel/profil/foto?s=${kayit.fotoYuklenmeTarihi.getTime()}`
+    : null;
+
   return (
     <div className="space-y-8">
       <SayfaBasligi
@@ -181,6 +206,76 @@ export default async function ProfilSayfasi({
       {durum && DURUM_MESAJLARI[durum] && (
         <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>
       )}
+
+      <Kart>
+        <KartBasligi
+          baslik="Profil fotoğrafı"
+          aciklama="Yalnızca siz yükleyebilir ve kaldırabilirsiniz. e-Okul kayıtlarından gelmez; tek kopya tutulur, yeni yükleme öncekinin yerine geçer."
+          Ikon={Camera}
+        />
+
+        <div className="flex flex-wrap items-start gap-6">
+          {/*
+            Fotoğraf yoksa boş kare değil baş harfler gösteriliyor: "henüz
+            yüklenmedi" ile "yüklendi ama gösterilemiyor" ayırt edilebilsin.
+          */}
+          {/*
+            next/image KULLANILMIYOR: optimizasyon görseli kendi sunucusundan
+            çekmeye çalışır, oysa bu dosya public dizinde değil oturum arkasında
+            bir rotadan geliyor. Boyut zaten 112px ve üst sınır 2 MB.
+          */}
+          {fotoAdresi ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={fotoAdresi}
+              alt="Profil fotoğrafınız"
+              width={112}
+              height={112}
+              className="h-28 w-28 shrink-0 rounded-full border border-cizgi object-cover"
+            />
+          ) : (
+            <div
+              aria-hidden
+              className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full border border-cizgi bg-zemin text-2xl font-semibold text-metin-yumusak"
+            >
+              {basHarfler(kayit.ad, kayit.soyad)}
+            </div>
+          )}
+
+          <div className="min-w-60 grow space-y-3">
+            <form action={profilFotoYukleEylemi} className="space-y-3">
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  {fotoVar ? "Fotoğrafı değiştir" : "Fotoğraf yükle"}
+                </span>
+                <input
+                  type="file"
+                  name="foto"
+                  required
+                  accept={fotoSinirlari.izinliTipler.join(",")}
+                  className={SINIF_GIRDI}
+                />
+                <span className="mt-1 block text-sm text-metin-yumusak">
+                  {profilFotoTipAdlari(fotoSinirlari.izinliTipler)} · en fazla{" "}
+                  {(fotoSinirlari.maksBayt / (1024 * 1024)).toFixed(0)} MB
+                </span>
+              </label>
+              <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                Yükle
+              </button>
+            </form>
+
+            {fotoVar && (
+              <form action={profilFotoSilEylemi}>
+                <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                  <Trash2 size={16} aria-hidden />
+                  Fotoğrafı kaldır
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </Kart>
 
       <Kart>
         <KartBasligi
