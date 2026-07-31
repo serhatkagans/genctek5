@@ -297,10 +297,19 @@ Yedekleme betiğini kurun ve **geri yüklemeyi bir kez deneyin** — denenmemiş
 yedek, yedek değildir:
 
 ```bash
-sudo install -m 700 /opt/genctek/dagitim/yedek.sh /usr/local/bin/genctek-yedek
+sudo install -m 700 -o root -g root /opt/genctek/dagitim/yedek.sh /usr/local/bin/genctek-yedek
+sudo touch /var/log/genctek-yedek.log && sudo chmod 640 /var/log/genctek-yedek.log
 sudo crontab -e
-# 0 2 * * * sudo -u postgres /usr/local/bin/genctek-yedek >> /var/log/genctek-yedek.log 2>&1
+# 0 2 * * * /usr/local/bin/genctek-yedek >> /var/log/genctek-yedek.log 2>&1
 ```
+
+> Cron satırında **`sudo -u postgres` YAZMAYIN**. Betik root ile çalışmak
+> zorundadır: `postgres` kullanıcısı veritabanını dökebilir ama
+> `/opt/genctek/depolama` dizinini (700 genctek:genctek) okuyamaz. Sonuç,
+> teşhisi en zor yedekleme arızasıdır — iş her gece "başarılı" biter, `.dump`
+> dosyası oluşur, ama öğrencilerin yüklediği CV'ler ve faaliyet ekleri hiç
+> yedeklenmez ve bu ancak geri yüklemeye çalıştığınız gün fark edilir.
+> Gerekçenin tamamı `dagitim/yedek.sh` başlığındadır.
 
 ---
 
