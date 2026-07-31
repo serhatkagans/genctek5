@@ -1,17 +1,17 @@
 import type { EtkinlikKategorisi, Kapsam } from "@/generated/prisma/enums";
 
 /**
- * Öğrenci kazanımları — rozetler.
+ * Katkı nişanları (rozetler) — öğrenci ve öğretmen için ayrı listeler.
  *
- * Rozetler ELLE VERİLMEZ, katılım geçmişinden türetilir. Manuel verilseydi
- * öğrencinin gördüğü rozetle sistemdeki kayıt zamanla ayrışır, kimin neyi neden
- * aldığı tartışma konusu olurdu. Türetilmiş rozet her hesaplamada aynı veriden
- * aynı sonucu verir ve geri alınması gerekmez.
+ * Rozetler ELLE VERİLMEZ, geçmişten türetilir. Manuel verilseydi kişinin
+ * gördüğü rozetle sistemdeki kayıt zamanla ayrışır, kimin neyi neden aldığı
+ * tartışma konusu olurdu. Türetilmiş rozet her hesaplamada aynı veriden aynı
+ * sonucu verir ve geri alınması gerekmez.
  *
  * "Katılım" = faaliyete SEÇİLDİ + faaliyet tarihi geçti + faaliyet iptal
  * edilmedi. Sadece seçilmiş olmak katılım sayılmaz; henüz gerçekleşmemiş bir
- * etkinlik için rozet vermek, öğrenciye yapmadığı bir şeyi başarmış gibi
- * göstermek olurdu.
+ * etkinlik için rozet vermek, kişiye yapmadığı bir şeyi başarmış gibi göstermek
+ * olurdu.
  *
  * Bu dosya saf tutulur: veritabanına gitmez, tarih üretmez. Böylece kurallar
  * birim testle sınanabilir.
@@ -31,13 +31,30 @@ export interface KazanimGirdisi {
   gorevRolSayisi: number;
 }
 
-export interface RozetTanimi {
+/**
+ * Öğretmenin katkısını oluşturan sayılar.
+ *
+ * Öğrenciyle ORTAK olan tek şey katılım geçmişidir; gerisi ayrıdır. Öğretmenin
+ * çalışma grubu seçimi ve temsilcilik görevi yoktur — onun katkısı düzenlediği
+ * faaliyetlerde, üstlendiği danışmanlıklarda ve kurduğu iş birliklerindedir.
+ */
+export interface OgretmenKatkiGirdisi {
+  katilimlar: KatilimKaydi[];
+  /** Onaylı ve iptal edilmemiş, kendi açtığı faaliyetler. */
+  duzenledigiFaaliyetSayisi: number;
+  /** Süren danışmanlıklar; biten atamalar sayılmaz. */
+  aktifDanismanlikSayisi: number;
+  /** Faaliyetlerine bağladığı paydaş kurum bağlantısı sayısı. */
+  paydasliFaaliyetSayisi: number;
+}
+
+export interface RozetTanimi<TGirdi = KazanimGirdisi> {
   kod: string;
   ad: string;
   aciklama: string;
   /** Kaç adımda kazanılır. 1 ise "yaptın / yapmadın" rozetidir. */
   hedef: number;
-  ilerleme: (girdi: KazanimGirdisi) => number;
+  ilerleme: (girdi: TGirdi) => number;
 }
 
 const benzersizSayi = <T>(degerler: T[]): number => new Set(degerler).size;
@@ -111,6 +128,60 @@ export const ROZETLER: RozetTanimi[] = [
   },
 ];
 
+/**
+ * Öğretmen nişanları.
+ *
+ * Öğrenci listesi olduğu gibi kullanılamazdı: "Çalışma grubu seçtin" ve "temsil
+ * görevi üstlendin" öğretmende hiçbir zaman dolmayacak, buna karşılık asıl
+ * katkısı olan danışmanlık ve faaliyet düzenlemek hiç sayılmayacaktı. Ölçütler
+ * KATILIMDAN çok EMEĞE bakar; öğretmen GençTek'e çoğunlukla katılımcı olarak
+ * değil, öğrencinin önünü açarak dahil oluyor.
+ */
+export const OGRETMEN_ROZETLERI: RozetTanimi<OgretmenKatkiGirdisi>[] = [
+  {
+    kod: "ILK_FAALIYET",
+    ad: "İlk Faaliyet",
+    aciklama: "İlk GençTek faaliyetinizi düzenlediniz.",
+    hedef: 1,
+    ilerleme: (girdi) => girdi.duzenledigiFaaliyetSayisi,
+  },
+  {
+    kod: "SUREKLI_DUZENLEYICI",
+    ad: "Sürekli Düzenleyici",
+    aciklama: "Beş faaliyet düzenlediniz.",
+    hedef: 5,
+    ilerleme: (girdi) => girdi.duzenledigiFaaliyetSayisi,
+  },
+  {
+    kod: "REHBER",
+    ad: "Rehber",
+    aciklama: "Bir öğrencinin danışmanlığını üstlendiniz.",
+    hedef: 1,
+    ilerleme: (girdi) => girdi.aktifDanismanlikSayisi,
+  },
+  {
+    kod: "YOL_ACAN",
+    ad: "Yol Açan",
+    aciklama: "On öğrencinin danışmanısınız.",
+    hedef: 10,
+    ilerleme: (girdi) => girdi.aktifDanismanlikSayisi,
+  },
+  {
+    kod: "SAHADA",
+    ad: "Sahada",
+    aciklama: "Bir GençTek etkinliğine katılımcı olarak katıldınız.",
+    hedef: 1,
+    ilerleme: (girdi) => girdi.katilimlar.length,
+  },
+  {
+    kod: "IS_BIRLIGI",
+    ad: "İş Birliği",
+    aciklama: "Faaliyetinize bir paydaş kurumu dahil ettiniz.",
+    hedef: 1,
+    ilerleme: (girdi) => girdi.paydasliFaaliyetSayisi,
+  },
+];
+
 export interface RozetDurumu {
   kod: string;
   ad: string;
@@ -121,8 +192,11 @@ export interface RozetDurumu {
   kazanildiMi: boolean;
 }
 
-export function rozetDurumlari(girdi: KazanimGirdisi): RozetDurumu[] {
-  return ROZETLER.map((rozet) => {
+function durumlariHesapla<TGirdi>(
+  tanimlar: RozetTanimi<TGirdi>[],
+  girdi: TGirdi,
+): RozetDurumu[] {
+  return tanimlar.map((rozet) => {
     const hamIlerleme = rozet.ilerleme(girdi);
     const ilerleme = Math.min(hamIlerleme, rozet.hedef);
     return {
@@ -134,6 +208,16 @@ export function rozetDurumlari(girdi: KazanimGirdisi): RozetDurumu[] {
       kazanildiMi: hamIlerleme >= rozet.hedef,
     };
   });
+}
+
+export function rozetDurumlari(girdi: KazanimGirdisi): RozetDurumu[] {
+  return durumlariHesapla(ROZETLER, girdi);
+}
+
+export function ogretmenRozetDurumlari(
+  girdi: OgretmenKatkiGirdisi,
+): RozetDurumu[] {
+  return durumlariHesapla(OGRETMEN_ROZETLERI, girdi);
 }
 
 export interface KatilimOzeti {

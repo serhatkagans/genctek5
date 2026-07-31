@@ -24,6 +24,7 @@ import { girdiTarihi } from "@/lib/tarih";
 import {
   danismanKurumKodu,
   koordinatorIlKodu,
+  ogrenciMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import { faaliyetOlusturEylemi } from "../eylemler";
@@ -54,7 +55,7 @@ export default async function YeniFaaliyetSayfasi({
       <Kart>
         <KartBasligi
           baslik="Yeni faaliyet"
-          aciklama="Faaliyet açma yetkiniz yok. Danışman öğretmen okul içi, il koordinatörü il ve ulusal faaliyet açabilir."
+          aciklama="Faaliyet açma yetkiniz yok. Öğrenci her kapsamda faaliyet önerebilir, danışman öğretmen okul içi, il koordinatörü il ve ulusal faaliyet açabilir."
         />
         <Link href="/panel/faaliyetler" className={SINIF_IKINCIL_BUTON}>
           Faaliyetlere dön
@@ -64,6 +65,7 @@ export default async function YeniFaaliyetSayfasi({
   }
 
   const merkezMi = projeYoneticisiMi(kullanici);
+  const ogrenci = ogrenciMi(kullanici);
   const kurumKodu = danismanKurumKodu(kullanici) ?? kullanici.kurumKodu;
 
   const [okul, il, iller, ilceler, gruplar] = await Promise.all([
@@ -129,8 +131,12 @@ export default async function YeniFaaliyetSayfasi({
   return (
     <div className="space-y-6">
       <SayfaBasligi
-        baslik="Yeni faaliyet"
-        aciklama="Faaliyetin yeri açtığınız göreve göre belirlenir; ayrıca seçmenize gerek yoktur."
+        baslik={ogrenci ? "Yeni faaliyet önerisi" : "Yeni faaliyet"}
+        aciklama={
+          ogrenci
+            ? "Faaliyetin yeri okul ve il bilginizden gelir; ayrıca seçmenize gerek yoktur."
+            : "Faaliyetin yeri açtığınız göreve göre belirlenir; ayrıca seçmenize gerek yoktur."
+        }
       />
 
       {hata && (
@@ -139,12 +145,19 @@ export default async function YeniFaaliyetSayfasi({
         </div>
       )}
 
-      {onayaTabiKapsamlar.length > 0 && (
-        <BilgiKutusu cesit="uyari">
-          Açtığınız ulusal faaliyet, proje yöneticisi onayından sonra yayına
-          girer. Onaya kadar öğrencilere görünmez.
-        </BilgiKutusu>
-      )}
+      {onayaTabiKapsamlar.length > 0 &&
+        (ogrenci ? (
+          <BilgiKutusu cesit="uyari">
+            Önerdiğiniz faaliyet, il koordinatörünüz veya YEĞİTEK onayladıktan
+            sonra yayına girer. Onaya kadar yalnızca siz ve onaylayacak kişiler
+            görebilir; sonucu bildirim olarak alırsınız.
+          </BilgiKutusu>
+        ) : (
+          <BilgiKutusu cesit="uyari">
+            Açtığınız ulusal faaliyet, proje yöneticisi onayından sonra yayına
+            girer. Onaya kadar öğrencilere görünmez.
+          </BilgiKutusu>
+        ))}
 
       {/* encType verilmez: sunucu eylemi kullanan formda React'in kendisi
           multipart'a geçer, elle vermek uyarı üretir. */}

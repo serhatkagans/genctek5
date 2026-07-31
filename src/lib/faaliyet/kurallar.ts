@@ -13,6 +13,7 @@ import {
   faaliyetOnayGerekiyorMu,
   ilKoordinatoruMu,
   koordinatorIlKodu,
+  ogrenciMi,
   projeYoneticisiMi,
 } from "../yetki/izinler";
 import type { OturumKullanicisi } from "../yetki/tipler";
@@ -92,6 +93,18 @@ export const ETKINLIK_KATEGORISI_ACIKLAMALARI: Record<
 };
 
 /**
+ * Adı sabit programların iki grubu.
+ *
+ * Değerleri EtkinlikKategorisi'nin ilk iki değeriyle aynıdır ve etiketleri de
+ * oradan okunur (ETKINLIK_KATEGORISI_ETIKETLERI); ayrı bir etiket tablosu
+ * açmak, iki listenin zamanla birbirinden ayrılması demekti.
+ */
+export const TEMEL_ETKINLIK_GRUPLARI: TemelEtkinlikGrubu[] = [
+  "TEMEL_ETKINLIK",
+  "CALISMA_GRUBU_ETKINLIGI",
+];
+
+/**
  * Kategorinin sabit program listesinden ad seçmesi gerekiyor mu?
  *
  * İl Etkinliği'nin referans listesi YOKTUR — faaliyetin ad alanı zaten temayı
@@ -160,10 +173,16 @@ export function etkinlikKategorisiDogrula(
  * il ve ulusal düzeyde çalışır. Yetki matrisi (faaliyetAcabilirMi) merkeze okul
  * kapsamını da açık bırakır; burada yalnızca ekranda teklif edilenleri
  * belirliyoruz.
+ *
+ * Öğrenciye üç kapsam da açıktır çünkü hiçbiri kendiliğinden yayına girmez;
+ * öğrencinin açtığı faaliyet her durumda onay bekler (bkz. onayDurumuBelirle).
+ * Sıralama bilinçli olarak dar kapsamdan geniş kapsama: formda ilk seçenek
+ * varsayılan olur ve öğrencinin olağan işi kendi okulundadır.
  */
 export function kapsamSecenekleri(kullanici: OturumKullanicisi): Kapsam[] {
   if (projeYoneticisiMi(kullanici)) return ["IL", "ULUSAL"];
   if (ilKoordinatoruMu(kullanici)) return ["IL", "ULUSAL"];
+  if (ogrenciMi(kullanici)) return ["OKUL", "IL", "ULUSAL"];
   if (danismanMi(kullanici)) return ["OKUL"];
   return [];
 }
@@ -174,7 +193,10 @@ export function faaliyetAcmaYetkisiVarMi(
   return kapsamSecenekleri(kullanici).length > 0;
 }
 
-/** İl koordinatörünün açtığı ulusal faaliyet YEĞİTEK onayı bekler. */
+/**
+ * İl koordinatörünün açtığı ulusal faaliyet ve öğrencinin açtığı HER faaliyet
+ * onay bekler.
+ */
 export function onayDurumuBelirle(
   kullanici: OturumKullanicisi,
   kapsam: Kapsam,
@@ -202,6 +224,10 @@ export interface FaaliyetYeri {
  * Yer bilgisi FORMDAN GELMEZ, roldan gelir: aksi halde bir danışman öğretmen
  * başka okulun adına, bir koordinatör başka ilin adına faaliyet açabilirdi.
  * Tek istisna, YEĞİTEK'in il faaliyeti açarken ili seçmesidir.
+ *
+ * Öğrenci de aynı kuralın içindedir: okul içi önerisi kendi okuluna, il geneli
+ * önerisi kendi iline yazılır. Öğrencinin ili rolden değil kayıtlı ilinden gelir
+ * çünkü öğrenci rolünün il kapsamı yoktur.
  */
 export function faaliyetYeriBelirle(
   kullanici: OturumKullanicisi,
@@ -221,7 +247,7 @@ export function faaliyetYeriBelirle(
     case "IL": {
       const ilKodu = projeYoneticisiMi(kullanici)
         ? (secilenIlKodu ?? null)
-        : koordinatorIlKodu(kullanici);
+        : (koordinatorIlKodu(kullanici) ?? kullanici.ilKodu);
       if (!ilKodu) {
         throw new FaaliyetKuralHatasi("İl geneli faaliyet için il seçilmeli.");
       }
@@ -245,6 +271,16 @@ export function duzenleyenBirimBelirle(
   kapsam: Kapsam,
   adlar: { okulAdi?: string | null; ilAdi?: string | null },
 ): string {
+  /*
+   * Öğrenci girişimi kartta AÇIKÇA yazılır. Katılımcı "bunu kim düzenliyor"
+   * sorusunun cevabını buradan okur ve öğrencilerin kurduğu bir etkinlik,
+   * koordinatörlüğün açtığından farklı bir şeydir — okulun adıyla anılması
+   * etkinliği okul yönetimine mal ederdi.
+   */
+  if (ogrenciMi(kullanici)) {
+    const yer = kapsam === "OKUL" ? adlar.okulAdi : adlar.ilAdi;
+    return yer ? `${yer} · Öğrenci girişimi` : "Öğrenci girişimi";
+  }
   if (kapsam === "OKUL") return adlar.okulAdi ?? "Okul";
   if (ilKoordinatoruMu(kullanici) || (kapsam === "IL" && !projeYoneticisiMi(kullanici))) {
     return adlar.ilAdi ? `${adlar.ilAdi} İl Koordinatörlüğü` : "İl Koordinatörlüğü";

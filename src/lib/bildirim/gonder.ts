@@ -117,3 +117,38 @@ export async function projeYoneticilerineBildir(
     });
   }
 }
+
+/**
+ * Bir ilin koordinatörüne bildirim düşürür.
+ *
+ * Aktif koordinatörü olmayan il sessizce atlanır ve bu bir hata DEĞİLDİR:
+ * koordinatörü boş iller olağan bir durumdur (bkz. rol envanteri ekranı) ve
+ * bildirimin sahibi bulunamadı diye iş akışı kesilmemeli. Aynı bildirimin
+ * merkeze giden kopyası zaten `projeYoneticilerineBildir` ile ayrıca
+ * gönderiliyor, yani uyarı hiçbir koşulda kaybolmuyor.
+ *
+ * Dönüş değeri, çağıranın "koordinatöre de ulaştı mı" bilgisini ekranda
+ * gösterebilmesi içindir.
+ */
+export async function ilKoordinatorlerineBildir(
+  ilKodu: string | null,
+  kod: BildirimKodu,
+  degiskenler: Record<string, string> = {},
+): Promise<number> {
+  if (!ilKodu) return 0;
+
+  const koordinatorler = await prisma.kullaniciRol.findMany({
+    where: { rolKodu: "IL_KOORDINATOR", ilKodu, bitisTarihi: null },
+    select: { kullaniciId: true },
+  });
+
+  for (const koordinator of koordinatorler) {
+    await bildirimGonder({
+      kullaniciId: koordinator.kullaniciId,
+      kod,
+      degiskenler,
+    });
+  }
+
+  return koordinatorler.length;
+}

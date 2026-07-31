@@ -50,8 +50,17 @@ export default async function PanelDuzeni({
     baglantilar.push(
       { yol: "/panel/calisma-gruplari", etiket: "Çalışma Gruplarım" },
       { yol: "/panel/danisman-secim", etiket: "Danışmanım" },
-      { yol: "/panel/kazanimlarim", etiket: "Katkılarım" },
     );
+  }
+
+  /*
+   * Katkılarım ekranı iki role de açıktır ve aynı adreste ikisine farklı
+   * kartlar basar (öğrencide temsilcilik/çalışma grubu, öğretmende görev
+   * geçmişi/danışmanlık). Proje yöneticisi dışarıdadır: YEĞİTEK personelinin
+   * ne danışmanlığı ne de katılımcılığı olur, ekran ona sürekli boş görünürdü.
+   */
+  if (!projeYoneticisiMi(kullanici)) {
+    baglantilar.push({ yol: "/panel/kazanimlarim", etiket: "Katkılarım" });
   }
 
   // Faaliyetler herkese açıktır; kimin ne göreceğini kapsam filtresi belirler.

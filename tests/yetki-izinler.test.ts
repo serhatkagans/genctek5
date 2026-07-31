@@ -14,9 +14,11 @@ import {
   faaliyetIptalEdebilirMi,
   faaliyetOnayGerekiyorMu,
   faaliyetOnaylayabilirMi,
+  ilceTemsilcisiAtayabilirMi,
   ilKoordinatorAtayabilirMi,
   ilTemsilcisiAtayabilirMi,
   ogrenciCalismaGrubuYonetebilirMi,
+  ogrenciFaaliyetiniOnaylayabilirMi,
   okulTemsilcisiAtayabilirMi,
   rolEnvanteriGorebilirMi,
   yetkiDevrolduMu,
@@ -52,8 +54,19 @@ describe("faaliyet açma kapsamı", () => {
     expect(faaliyetAcabilirMi(koordinator, "ULUSAL")).toBe(true);
   });
 
-  it("öğrenci ve rolsüz öğretmen faaliyet açamaz", () => {
-    expect(faaliyetAcabilirMi(ogrenciYap(), "OKUL")).toBe(false);
+  /*
+   * Öğrenciye üç kapsam da açıktır ve bu bir gevşeme DEĞİLDİR: sınır kapsamda
+   * değil onayda kuruldu — öğrencinin açtığı hiçbir faaliyet kendiliğinden
+   * yayına girmez (bkz. "öğrencinin açtığı her faaliyet onay bekler").
+   */
+  it("öğrenci her kapsamda faaliyet önerebilir", () => {
+    const ogrenci = ogrenciYap();
+    expect(faaliyetAcabilirMi(ogrenci, "OKUL")).toBe(true);
+    expect(faaliyetAcabilirMi(ogrenci, "IL")).toBe(true);
+    expect(faaliyetAcabilirMi(ogrenci, "ULUSAL")).toBe(true);
+  });
+
+  it("rolsüz öğretmen faaliyet açamaz", () => {
     expect(faaliyetAcabilirMi(rolsuzOgretmenYap(), "OKUL")).toBe(false);
   });
 });
@@ -73,10 +86,88 @@ describe("ulusal faaliyet onay akışı", () => {
     expect(faaliyetOnayGerekiyorMu(projeYoneticisiYap(), "ULUSAL")).toBe(false);
   });
 
-  it("onaylama yetkisi yalnızca proje yöneticisindedir", () => {
+  it("faaliyet verilmeden sorulduğunda yalnızca proje yöneticisi geçer", () => {
+    // İl koordinatörünün onay yetkisi HANGİ faaliyet olduğuna bağlıdır;
+    // faaliyetsiz sorulduğunda cevap "hayır"dır.
     expect(faaliyetOnaylayabilirMi(projeYoneticisiYap())).toBe(true);
     expect(faaliyetOnaylayabilirMi(koordinatorYap())).toBe(false);
     expect(faaliyetOnaylayabilirMi(danismanYap())).toBe(false);
+  });
+});
+
+describe("öğrenci faaliyeti onay akışı", () => {
+  const ogrenciFaaliyeti = (ozellikler = {}) =>
+    faaliyetYap({
+      duzenleyenKullaniciId: 100,
+      duzenleyenOgrenciMi: true,
+      onayliMi: false,
+      kapsamIlKodu: "34",
+      ...ozellikler,
+    });
+
+  it("öğrencinin açtığı her faaliyet onay bekler", () => {
+    // Kapsam sınırı yok, onay sınırı var: 18 yaş altı bir kullanıcının açtığı
+    // çağrı okul içine bile sorumlusuz çıkmamalı.
+    const ogrenci = ogrenciYap();
+    expect(faaliyetOnayGerekiyorMu(ogrenci, "OKUL")).toBe(true);
+    expect(faaliyetOnayGerekiyorMu(ogrenci, "IL")).toBe(true);
+    expect(faaliyetOnayGerekiyorMu(ogrenci, "ULUSAL")).toBe(true);
+  });
+
+  it("öğrencinin ilinin koordinatörü onaylayabilir", () => {
+    // Onay yalnızca merkeze bırakılsaydı bir okulun kendi içindeki öğrenci
+    // etkinliği YEĞİTEK sırası gelene kadar bekler, öneri pratikte ölürdü.
+    expect(
+      ogrenciFaaliyetiniOnaylayabilirMi(
+        koordinatorYap({ ilKodu: "34" }),
+        ogrenciFaaliyeti(),
+      ),
+    ).toBe(true);
+    expect(faaliyetOnaylayabilirMi(koordinatorYap(), ogrenciFaaliyeti())).toBe(
+      true,
+    );
+  });
+
+  it("başka ilin koordinatörü onaylayamaz", () => {
+    expect(
+      ogrenciFaaliyetiniOnaylayabilirMi(
+        koordinatorYap({ ilKodu: "06" }),
+        ogrenciFaaliyeti(),
+      ),
+    ).toBe(false);
+  });
+
+  it("öğretmenin açtığı faaliyette koordinatöre ek yetki doğmaz", () => {
+    const ogretmenFaaliyeti = faaliyetYap({
+      onayliMi: false,
+      kapsamIlKodu: "34",
+    });
+    expect(
+      ogrenciFaaliyetiniOnaylayabilirMi(koordinatorYap(), ogretmenFaaliyeti),
+    ).toBe(false);
+  });
+
+  it("danışman öğretmen öğrenci faaliyetini onaylayamaz", () => {
+    expect(faaliyetOnaylayabilirMi(danismanYap(), ogrenciFaaliyeti())).toBe(
+      false,
+    );
+  });
+
+  it("onay bekleyen öğrenci faaliyeti onaylayacak koordinatöre görünür", () => {
+    // Onaylayacak kişi onaylayacağı şeyi görmek zorunda.
+    const faaliyet = ogrenciFaaliyeti();
+    expect(faaliyetGorunurMu(koordinatorYap({ ilKodu: "34" }), faaliyet)).toBe(
+      true,
+    );
+    expect(faaliyetGorunurMu(koordinatorYap({ ilKodu: "06" }), faaliyet)).toBe(
+      false,
+    );
+  });
+
+  it("onay bekleyen öğrenci faaliyeti diğer öğrencilere görünmez", () => {
+    expect(
+      faaliyetGorunurMu(ogrenciYap({ id: 101 }), ogrenciFaaliyeti()),
+    ).toBe(false);
   });
 });
 
@@ -368,6 +459,20 @@ describe("rol ve görev atama", () => {
     expect(ilTemsilcisiAtayabilirMi(danismanYap(), "34")).toBe(false);
   });
 
+  it("ilçe temsilcisini ilçenin bağlı olduğu ilin koordinatörü atar", () => {
+    /*
+     * Fonksiyon ilçe kodunu değil İL kodunu alır: sistemde ilçe düzeyinde
+     * görevli yoktur (RolKodu'nda ILCE_KOORDINATOR diye bir değer yok), ilçe
+     * ilin içindeki bir basamaktır. Danışman öğretmen kendi okulunun ilçesinde
+     * bile atama yapamaz — temsilcilik okul sınırını aşıyor.
+     */
+    const koordinator = koordinatorYap({ ilKodu: "34" });
+    expect(ilceTemsilcisiAtayabilirMi(koordinator, "34")).toBe(true);
+    expect(ilceTemsilcisiAtayabilirMi(koordinator, "06")).toBe(false);
+    expect(ilceTemsilcisiAtayabilirMi(danismanYap(), "34")).toBe(false);
+    expect(ilceTemsilcisiAtayabilirMi(projeYoneticisiYap(), "34")).toBe(true);
+  });
+
   it("çalışma grubunu yalnızca proje yöneticisi tanımlar", () => {
     expect(calismaGrubuTanimlayabilirMi(projeYoneticisiYap())).toBe(true);
     expect(calismaGrubuTanimlayabilirMi(koordinatorYap())).toBe(false);
@@ -412,7 +517,12 @@ describe("öğrenci görev rolleri ek yetki vermez", () => {
     expect(basvuruYapabilirMi(ilTemsilcisiOgrenci)).toBe(
       basvuruYapabilirMi(sıradanOgrenci),
     );
-    expect(faaliyetAcabilirMi(ilTemsilcisiOgrenci, "OKUL")).toBe(false);
+    // Temsilci de sıradan öğrenci de faaliyet önerebilir ve ikisinin önerisi de
+    // aynı biçimde onay bekler; temsilcilik onay atlatmaz.
+    expect(faaliyetAcabilirMi(ilTemsilcisiOgrenci, "OKUL")).toBe(
+      faaliyetAcabilirMi(sıradanOgrenci, "OKUL"),
+    );
+    expect(faaliyetOnayGerekiyorMu(ilTemsilcisiOgrenci, "OKUL")).toBe(true);
   });
 });
 

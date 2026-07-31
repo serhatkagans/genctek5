@@ -59,6 +59,38 @@ export function csvBelgesi(
   );
 }
 
+const TURKCE_HARFLER: Record<string, string> = {
+  ç: "c",
+  ğ: "g",
+  ı: "i",
+  ö: "o",
+  ş: "s",
+  ü: "u",
+};
+
+/**
+ * Serbest bir metni dosya adına eklenebilir hâle getirir.
+ *
+ * Tek bir faaliyetin/kaydın raporu indirilirken adı dosyaya yazılır; yazılmasa
+ * üç ayrı faaliyetin listesini indiren kişinin klasöründe birbirinden ayırt
+ * edilemeyen üç dosya olurdu. Türkçe harfler sadeleştirilir ve boşluklar
+ * tireye çevrilir: dosya adı e-posta eki olarak da dolaşıyor.
+ *
+ * Metinden geriye bir şey kalmazsa (yalnızca noktalama içeren bir ad) `yedek`
+ * kullanılır — adsız bir dosya, adı bozuk bir dosyadan daha kötüdür.
+ */
+export function csvAdParcasi(metin: string, yedek: string): string {
+  const sade = metin
+    .toLocaleLowerCase("tr")
+    .replace(/[çğıöşü]/g, (harf) => TURKCE_HARFLER[harf] ?? harf)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+/, "")
+    .slice(0, 40)
+    .replace(/-+$/, "");
+
+  return sade || yedek;
+}
+
 /**
  * İndirme yanıtı.
  *

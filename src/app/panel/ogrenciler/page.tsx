@@ -14,6 +14,7 @@ import {
   egitimOgretimYillariGetir,
   okulTurleriGetir,
 } from "@/lib/rapor/secenekler";
+import { gorevRolAdi } from "@/lib/yetki/etiketler";
 import { ogrenciListeFiltresi as ogrenciListesiFiltresi } from "@/lib/yetki/kapsam";
 import {
   danismanMi,
@@ -168,6 +169,20 @@ export default async function OgrencilerSayfasi({
       ilce: { select: { ad: true } },
       calismaGruplari: {
         select: { calismaGrubu: { select: { ad: true } } },
+      },
+      /*
+       * Temsilcilikler listede de görünür: koordinatör "ilimde kim temsilci"
+       * sorusunun cevabını tek tek profillere girmeden alabilmeli. Yalnızca
+       * içinde bulunulan dönem — geçmiş görevler profilin katkı kartında.
+       */
+      gorevRolleri: {
+        where: { egitimOgretimYili: kullanici.egitimOgretimYili },
+        select: {
+          rolKodu: true,
+          il: { select: { ad: true } },
+          ilce: { select: { ad: true } },
+          kurum: { select: { ad: true } },
+        },
       },
       ogrenciAtamalari: {
         where: { bitisTarihi: null },
@@ -486,6 +501,7 @@ export default async function OgrencilerSayfasi({
                 <th className="px-4 py-3 font-medium">Okul</th>
                 <th className="px-4 py-3 font-medium">İl / İlçe</th>
                 <th className="px-4 py-3 font-medium">Danışman</th>
+                <th className="px-4 py-3 font-medium">Temsilcilik</th>
                 <th className="px-4 py-3 font-medium">Çalışma grupları</th>
               </tr>
             </thead>
@@ -527,6 +543,22 @@ export default async function OgrencilerSayfasi({
                       ) : (
                         <span className="rounded-full bg-uyari-zemin px-2 py-0.5 text-xs text-uyari-metin">
                           Atanmadı
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-metin-yumusak">
+                      {ogrenci.gorevRolleri.length === 0 ? (
+                        "—"
+                      ) : (
+                        <span className="flex flex-wrap gap-1.5">
+                          {ogrenci.gorevRolleri.map((gorev) => (
+                            <span
+                              key={gorev.rolKodu}
+                              className="rounded-full bg-rol-ogrenci-zemin px-2 py-0.5 text-xs text-rol-ogrenci-metin"
+                            >
+                              {gorevRolAdi(gorev)}
+                            </span>
+                          ))}
                         </span>
                       )}
                     </td>

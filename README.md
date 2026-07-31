@@ -348,7 +348,7 @@ src/lib/
   bildirim/              şablonlu bildirim + e-posta ve SMS kopyası
   eposta/                EpostaSaglayici soyutlaması (günlük / SMTP)
   sms/                   SmsSaglayici soyutlaması (kapalı / günlük / operatör)
-  kazanim/               rozet kuralları (rozetler.ts saf, getir.ts veritabanı)
+  kazanim/               kazanım/nişan kuralları (kurallar.ts + rozetler.ts saf, getir.ts veritabanı)
   rapor/                 rol envanteri, CSV üretimi ve filtre seçenekleri
 src/app/page.tsx         açılış ekranı (EBA ile giriş kapısı)
 src/app/giris/           kimlik seçimi (mock aşama) ve giriş eylemi
@@ -359,11 +359,11 @@ src/app/panel/           Next.js ekranları ve sunucu eylemleri
   ogrenciler/            öğrenci envanteri, filtreler ve CSV çıktısı
   ogrenciler/[id]/       tekil öğrenci profili, çalışma grubu ekleme, CV indirme
   ogretmenler/           öğretmen envanteri, filtreler ve CSV çıktısı
-  ogretmenler/[id]/      tekil öğretmen kaydı: görev yılları, etkinlikleri
+  ogretmenler/[id]/      tekil öğretmen kaydı: görev yılları, etkinlikleri, kazanımları
   paydaslar/             il bazlı paydaş envanteri + CSV
   paydaslar/[id]/        tekil paydaş kaydı ve düzenleme
   profil/                kendi profili: iletişim, kazanım girişi, CV yükleme
-  kazanimlarim/          öğrencinin katılım geçmişi ve rozetleri
+  kazanimlarim/          katılım geçmişi, katkı kartı ve nişanlar (öğrenci + öğretmen)
 src/app/globals.css      dört temanın renk değişkenleri
 src/components/          ortak arayüz parçaları (kart, buton, rol etiketi)
 tests/                   birim testler
@@ -387,13 +387,15 @@ Skill'deki 13 adımlık geliştirme sırasına göre:
 | 9 | Başvuru ve değerlendirme | Tamam |
 | 10 | Raporlama ve filtreleme | Tamam (filtreler + CSV dışa aktarma) |
 | 11 | KVKK aydınlatma ve saklama süresi | Tamam |
-| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (287 test) |
+| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (363 test) |
 | 13 | Gerçek EBA SSO entegrasyonu | Erişim bekleniyor |
 | 14 | Danışman öğretmen envanteri (analiz Bölüm 2) | Tamam |
 | 15 | İl bazlı paydaş bilgi sistemi (analiz Bölüm 3) | Tamam |
 | 16 | Öğretmen ve vekaleten başvuru (analiz 4.2) | Tamam |
 | 17 | Etkinlik takvimi ve duyuru şeridi (analiz Bölüm 6) | Tamam |
 | 18 | Bildirim şablonu yönetimi ve SMS kanalı (analiz 6.1) | Tamam |
+| 19 | Öğrenci paneli: ilçe temsilciliği, katkı kartı, ürünler, mesleki bağlantılar, öğrenci faaliyet önerisi | Tamam |
+| 20 | Öğretmen paneli: katılım geçmişi, katkı sistemi, başvuru CSV | Tamam |
 
 ### Tanıtıcı görsel
 
@@ -563,6 +565,18 @@ Faaliyetler ekranındadır.
   çalışmak kullanılabilirlik hatasıdır, sürekli hareket ise vestibüler
   duyarlılığı olan kullanıcıda rahatsızlık yaratır.
 
+**Başvuruya açık faaliyetler** kartı takvimin altında, başvurabilen kullanıcılara
+(öğrenci ve öğretmen) görünür: kapsamındaki başvurusu açık **son 5** faaliyet ve
+tümüne giden bağlantı. Sıra başvurusu **en son açılandan** başlar — takvim "en
+yakın tarihli", şerit "en önce kapanacak" sıralamasını zaten gösteriyor; üçüncü
+bir yerde aynı sırayı tekrarlamak yeni bilgi vermezdi. Buradaki soru "son
+girdiğimden beri ne açıldı".
+
+Her satır, kişinin **o faaliyete başvurup başvuramayacağını** da söyler
+(kontenjan canlı sayılır): "Başvurabilirsiniz" ya da engelin adı ("zaten
+başvurdunuz", "kontenjan doldu"). Rozet olmasaydı kullanıcı tıklayıp içeri
+girdikten sonra öğrenirdi — boşuna dolaştırmak olurdu.
+
 ### Bildirim şablonları ve SMS
 
 Şablon metinleri `bildirim_sablonu` tablosundadır ve **Yönetim** ekranından
@@ -603,6 +617,14 @@ dosya ekrandaki kümenin aynısıdır.
 |---|---|
 | `/panel/ogrenciler/disa-aktar` | Ad, sınıf, okul, il/ilçe, danışman, çalışma grupları |
 | `/panel/faaliyetler/disa-aktar` | Faaliyet, tarih, kapsam, kategori, kontenjan/başvuru sayıları, onay ve faaliyet durumu |
+| `/panel/faaliyetler/:id/basvurular/disa-aktar` | Tek faaliyetin başvuranları: ad, katılımcı tipi, sınıf/branş, okul, il, çalışma grupları, başvuru tarihi, durum, adına başvuran, gerekçe |
+
+Başvuru dosyasını değerlendirme kartını görebilen indirir: faaliyeti açan
+kullanıcı, yetki devrolmuşsa ilin koordinatörü, bir de proje yöneticisi
+(`basvuruDegerlendirebilirMi`). Yetkisi olmayan 404 alır. Geri çekilmiş
+başvurular ekranda olmadığı için dosyada da yoktur. Burada satır sınırı
+uygulanmaz: liste zaten tek faaliyetle sınırlı ve daraltılacak bir filtre yok,
+sınır yalnızca kalabalık bir faaliyetin listesini alınamaz kılardı.
 
 Üç kural:
 
@@ -658,8 +680,10 @@ için kaçış hatalarına açık kapı bırakır. Bildirimin işi "panele bak" 
 
 ### Kazanımlar ve rozetler
 
-**Panel → Kazanımlarım** (yalnızca öğrenci) katılım geçmişini ve rozetleri
-gösterir. Rozetler **elle verilmez**, katılımdan türetilir
+**Panel → Katkılarım** katılım geçmişini ve nişanları gösterir; öğrenci ve
+öğretmen aynı yolu kullanır, ekran rolüne göre kendi kartlarını basar (proje
+yöneticisinde alan boş kalacağı için bağlantı çıkmaz). Rozetler **elle
+verilmez**, katılımdan türetilir
 (`src/lib/kazanim/rozetler.ts` — saf, birim testli). Elle verilseydi öğrencinin
 gördüğü rozetle sistemdeki kayıt zamanla ayrışır, kimin neyi neden aldığı
 tartışma konusu olurdu.
@@ -674,12 +698,75 @@ vermek, öğrenciye yapmadığı bir şeyi başarmış gibi göstermek olurdu.
 | Çok Yönlü | Üç etkinlik kategorisinin üçünde de katılım |
 | İl Sahnesi / Türkiye Sahnesi | İl geneli / ulusal faaliyete katılım |
 | İlgi Alanı / Meraklı | 1 / 3 çalışma grubu seçimi |
-| Sorumluluk | Bir temsil görevi (İl Temsilcisi, Okul Temsilcisi) |
+| Sorumluluk | Bir temsil görevi (İl / İlçe / Okul Temsilcisi) |
 
 Kazanılmamış rozetler "yolda olanlar" başlığında ilerleme çubuğuyla görünür.
-Ekran yalnızca oturumdaki öğrencinin verisini okur; başka bir öğrencinin
-rozetlerine bakmanın yolu bu ekranda yoktur — kapsamındaki öğrencinin rozet
-özeti tekil profil ekranında görünür (aşağı bakın).
+Ekran yalnızca oturumdaki kullanıcının verisini okur; başka birinin rozetlerine
+bakmanın yolu bu ekranda yoktur — kapsamındaki öğrencinin rozet özeti tekil
+profil ekranında görünür (aşağı bakın).
+
+Aynı ekranda **Katkı kartı** ve **Yaptığım ürünler** de var (aşağı bakın); ikisi
+de kullanıcının kendi profil ekranıyla **aynı bileşenden** basılır. İki ekran
+ayrı yazılsaydı birine eklenen bir bölüm ötekinde eksik kalırdı.
+
+### Öğretmen panelinde katkı
+
+Öğretmen aynı ekranı görür, nişanları **ayrı bir listeden** hesaplanır
+(`OGRETMEN_ROZETLERI`). Öğrenci listesi olduğu gibi kullanılsaydı bir kısmı
+öğretmende hiçbir zaman dolmayacak (çalışma grubu seçimi, temsilcilik görevi),
+asıl emeği ise hiç sayılmayacaktı.
+
+| Nişan | Koşul |
+|---|---|
+| İlk Faaliyet / Sürekli Düzenleyici | 1 / 5 düzenlenen faaliyet |
+| Rehber / Yol Açan | 1 / 10 aktif danışmanlık |
+| Sahada | Katılımcı olarak bir GençTek etkinliği |
+| İş Birliği | Faaliyetine paydaş kurum dahil etmiş olmak |
+
+"Sahada" düzenlemeyi değil **katılmayı** sayar: öğretmen de kendi adına
+başvurabildiği için (bkz. *Öğretmen ve vekaleten başvuru*) bu iki şey karışırsa
+katılım geçmişi olmayan bir öğretmen katılmış gibi görünürdü.
+
+Katkı kartı öğretmende **rollerini, aktif danışmanlıklarını ve düzenlediği
+faaliyetleri** toplar (`src/components/OgretmenKatkiKarti.tsx`, verisi
+`src/lib/ogretmen/katki.ts`). Kazanım kayıtları ise aynı tabloya, aynı formla
+girilir — değişen tek şey etiketlerdir: öğretmende "verdiğim akran eğitimleri"
+yerine **"verdiğim eğitimler"** yazar, çünkü öğretmenin öğrencisine verdiği
+eğitim akran eğitimi değildir. Alan kuralları rolden bağımsızdır; aksi hâlde
+aynı kayıt, girenin rolüne göre farklı doğrulanırdı.
+
+Öğretmenin kazanım beyanları, tekil öğretmen kaydında (`/panel/ogretmenler/:id`)
+il koordinatörü ve YEĞİTEK'e de görünür; ekleme ve silme yalnızca kendi
+profilinde durur.
+
+**Panelim'de katılım geçmişi.** Öğretmen ana sayfada da **Katıldığım faaliyetler**
+bölümünü görür (son 5 tamamlanmış etkinlik). Tam liste Katkılarım ekranındadır;
+menüye kadar gitmek gereksiz adım olurdu. "Seçildiniz" yetmez — tarih geçmiş ve
+faaliyet iptal edilmemiş olmalı; aksi hâlde gerçekleşmemiş bir etkinlik katılım
+sayılırdı.
+
+**Başvuru listesini CSV.** Faaliyeti açan öğretmen (veya yetki devralan
+koordinatör), faaliyet detayındaki *Başvurular* kartından listeyi indirebilir.
+Dosya ekrandakiyle aynıdır; telefon ve e-posta yoktur (ulusal başvuru
+değerlendirme kuralı). Her indirme erişim kaydına yazılır.
+
+### Katkı kartı
+
+Temsilcilikler, çalışma grupları ve öğrencinin **düzenlediği faaliyetler** tek
+kartta toplanır (`src/components/KatkiKarti.tsx`, verisi
+`src/lib/ogrenci/katki.ts`). Üçü ayrı yerlerde dururken hiçbiri tek başına "bu
+öğrenci ne yapıyor" sorusunu cevaplamıyordu: temsilcilik danışman kartının
+dibinde, gruplar bambaşka bir kartta, düzenlediği faaliyetler ise hiç
+görünmüyordu.
+
+Kart **geçmiş dönemleri de** gösterir, görevin dönemi yanında yazar: geçen yılın
+il temsilciliği bir katkıdır ve eylülde sessizce kaybolmamalıdır. Reddedilmiş
+faaliyet önerileri karta girmez — kart bir vitrindir, red kararı zaten
+bildirimlerde ve faaliyet listesinde duruyor.
+
+Aynı kart, danışman/koordinatör/YEĞİTEK'in gördüğü tekil öğrenci profilinde de
+basılır; yalnızca metinler ("Katkı kartım" / "Katkı kartı") ve düzenleme
+kısayolları değişir.
 
 ### Öğrenci profili: kazanımlar, yarışmalar ve CV
 
@@ -688,7 +775,7 @@ rozetlerine bakmanın yolu bu ekranda yoktur — kapsamındaki öğrencinin roze
 | Bölüm | Kaynak | Kim düzenler |
 |---|---|---|
 | **Katıldığı GençTek etkinlikleri** | Türetilir: seçildiği + tarihi geçmiş + iptal edilmemiş faaliyetler | Hiç kimse — elle girilmez |
-| **Kazanımlar ve üretimler** | Öğrenci beyanı (`ogrenci_kazanim`) | Yalnızca öğrencinin kendisi |
+| **Kazanımlar ve üretimler** | Kullanıcı beyanı (`kullanici_kazanim`) | Yalnızca kullanıcının kendisi |
 | **Özgeçmiş (CV)** | Öğrencinin yüklediği pdf/doc/docx | Yalnızca öğrencinin kendisi |
 
 Kazanım kayıtları dört türdür ve öğrenci **Yeni kayıt ekle** kartındaki sekmelerden
@@ -698,10 +785,29 @@ türe göre değişir — `derece` yalnızca yarışmada, `duzenleyen` ürünler
 sorulur. Form sunucuda basılır (tür adresten gelir), istemci tarafı JavaScript
 gerekmez.
 
+Etkinliğe dayalı türlerde üç alan daha var:
+
+- **GençTek etkinliği** — `temel_etkinlik_programi` listesinden seçilir, son
+  seçenek **Diğer**dir ve düzenleyeni serbest metne bırakır. Yalnızca liste
+  olsaydı listede olmayan etkinlik hiç girilemezdi; yalnızca serbest metin
+  olsaydı aynı program ("EğitiJAM", "Egitijam", "eğiti jam") onlarca yazımla
+  girilir ve program bazlı sayım hiç yapılamazdı.
+- **Katılım biçimi** — yüz yüze / çevrim içi / karma.
+- **Hedef kitle** — akran eğitiminde kime anlatıldığı, yarışmada hangi
+  kategoride yarışıldığı. Serbest metindir: kitleyi sabit bir listeye sığdırmaya
+  çalışmak beyanı çarpıtırdı.
+
 Bunlar **beyandır**: sistem doğrulamaz, onaya girmez, rozet üretmez. Katıldığı
 GençTek etkinlikleri ise beyan değildir, o yüzden aynı tabloya yazılmaz —
 türetilebilen veriyi öğrencinin eliyle ikinci kez girmesi hem yanlış hem
 doğrulanamaz olurdu.
+
+**Yaptığım ürünler** ayrıca kendi kartında gösterilir (Kazanımlarım ekranında ve
+tekil öğrenci profilinde): öğrencinin ürettiği şey, dört türden biri olarak
+listenin içinde kaybolmayacak kadar öne çıkması gereken bir şey. Ayrı bir tablo
+değildir — aynı kayıtların `tip=URUN` olanlarıdır. Kart ekleme kısayolu verir
+ama **silme yolu vermez**: silme tek yerde, profil ekranında durur; iki yerde
+olsaydı hangisinin "asıl" liste olduğu belirsizleşirdi.
 
 CV öğrenci başına **tek kayıttır**: yeni yükleme eskisinin yerine geçer ve eski
 dosya silinir. Biçim ve boyut sınırları **Yönetim** ekranındaki `IZINLI_CV_TIPLERI`
@@ -734,7 +840,9 @@ karardır.
 |---|---|
 | Danışman öğretmen okul içi faaliyet açar | **Faaliyetler → Yeni faaliyet** |
 | İl koordinatörü il / ulusal faaliyet açar | aynı ekran; ulusal seçildiğinde onaya düşer |
+| Öğrenci faaliyet önerir | aynı ekran; her kapsamda onaya düşer |
 | YEĞİTEK onaylar | **Faaliyetler** → faaliyet detayı → *Onayla ve yayına al* (panelde sayaç da bu ekrana bağlar) |
+| İl koordinatörü kendi ilindeki öğrenci önerisini onaylar | aynı ekran |
 | Öğrenci görür ve başvurur | **Faaliyetler** → faaliyet detayı → gerekçe yazıp *Başvur* |
 | Düzenleyen değerlendirir | faaliyet detayındaki **Başvurular** kartı → *Seç / Yedeğe al / Reddet* |
 | Düzenleyen tarih/kontenjan değiştirir | faaliyet detayındaki **Faaliyeti düzenle** kartı |
@@ -742,7 +850,33 @@ karardır.
 
 Faaliyetin yeri (okul / il) forma sorulmaz, roldan türetilir; aksi halde bir
 danışman öğretmen başka okulun, bir koordinatör başka ilin adına faaliyet
-açabilirdi. Tek istisna YEĞİTEK'in il faaliyetinde ili seçmesidir.
+açabilirdi. Tek istisna YEĞİTEK'in il faaliyetinde ili seçmesidir. Öğrencide rol
+diye bir kaynak olmadığı için yer, **kayıtlı okulundan ve ilinden** gelir.
+
+### Öğrenci faaliyet önerisi
+
+Öğrenci de faaliyet açabilir ve **kapsam sınırı yoktur**: okul içi de, il geneli
+de, ulusal da önerebilir. Sınır kapsamda değil **onayda** kuruldu — öğrencinin
+açtığı hiçbir faaliyet kendiliğinden yayına girmez, okul içi öneri bile onay
+bekler. 18 yaş altı bir kullanıcının açtığı katılım çağrısı sorumlusuz
+çıkmamalıdır. Onaya kadar faaliyeti yalnızca öğrencinin kendisi ve onaylayacak
+kişiler görür.
+
+Onayı **iki taraf** verebilir: öğrencinin ilinin koordinatörü ve YEĞİTEK. İkisi
+de tam yetkilidir, **ilk verilen karar geçerlidir**; sıralı ya da çift onay
+adımı yoktur. Koordinatörün de yetkili olması şart, çünkü onay yalnızca merkeze
+bırakılsaydı bir okulun kendi içindeki öğrenci etkinliği merkezin sırası gelene
+kadar bekler ve öneri pratikte ölürdü. Onaylayacak kişi onaylayacağı şeyi görmek
+zorunda olduğundan, kapsam filtresi ilin koordinatörüne o ildeki öğrencilerin
+onay bekleyen önerilerini de açar.
+
+Öneri açıldığında bildirim ikisine birden gider; ilde koordinatör yoksa uyarı
+merkeze gitmeye devam eder ve öneri kaybolmaz. Karar çıktığında sonuç (onay ya da
+red, gerekçesiyle) öneriyi açan öğrenciye bildirilir. Onaylı bir öneride tarih
+değişirse onay düşer ve uyarı yine **her iki tarafa** gider.
+
+Kartta düzenleyen birim **"Öğrenci girişimi"** olarak görünür: okulun adıyla
+anılması, öğrencinin kişisel önerisini okul yönetimine mal ederdi.
 
 ### Kapsam ≠ etkinlik kategorisi
 
@@ -798,10 +932,18 @@ envanterde kırmızı uyarı olarak görünür; ile yeni koordinatör atandığ�
 
 ### Görev rolleri
 
-`IL_TEMSILCISI` ve `OKUL_TEMSILCISI` **Görev Rolleri** ekranından verilir: il
-koordinatörü kendi ilinde, danışman öğretmen kendi okulunda, proje yöneticisi
-her yerde. Aday listesi öğrenci kapsam filtresinden geçer, dönem başına tek
-kişi kısıtı veritabanındadır.
+`IL_TEMSILCISI`, `ILCE_TEMSILCISI` ve `OKUL_TEMSILCISI` **Görev Rolleri**
+ekranından verilir: il koordinatörü kendi ilinde (il ve ilçe temsilcisi),
+danışman öğretmen kendi okulunda, proje yöneticisi her yerde. Aday listesi
+öğrenci kapsam filtresinden geçer, dönem başına tek kişi kısıtı
+veritabanındadır.
+
+İlçe temsilcisini **ilin** koordinatörü atar: sistemde ilçe düzeyinde görevli
+yoktur, ilçe ilin içindeki bir basamaktır. Görevin kapsamı (il / ilçe / kurum
+kodu) atama anında öğrencinin kaydından okunup **göreve yazılır**; öğrenci dönem
+içinde okul değiştirdiğinde görev verildiği yerde kalır. Roller, öğrenci
+listesinde ve profilde tam unvanıyla görünür ("Ankara / Çankaya İlçe
+Temsilcisi").
 
 Kimlik ve okul bilgileri bu ekrandan **da** düzenlenemez: e-Okul kaynaklı
 alanlar hiçbir rolde yazılabilir değildir (SKILL.md kural 6). Yetkilinin
@@ -820,6 +962,17 @@ tablosuna yazıldığındadır (`ogrenci_profil` / `ogretmen_profil`).
 Bilgi işe yarar: öğrenci, profilindeki *Danışman öğretmenim* kartında
 danışmanının girdiği e-posta ve telefonu görür. Bildirim e-postaları da bu
 adrese gider.
+
+Öğrencide üç alan daha var: **GitHub**, **kişisel site** ve **LinkedIn**. Bunlar
+yalnızca öğrenci profilindedir ve beyandır — sistem sayfanın gerçekten ona ait
+olduğunu doğrulamaz, yalnızca biçimi kontrol eder
+(`src/lib/ogrenci/iletisim-kurallar.ts`). Protokolsüz girilen adres reddedilmez
+**tamamlanır** (`github.com/ali` → `https://github.com/ali`): doğru bilgi vermiş
+birini biçim yüzünden geri çevirmenin karşılığı yok. Yalnızca `http`/`https`
+kabul edilir; `javascript:` ile başlayan bir adres, profile bakan danışmanın
+tarayıcısında kod çalıştırırdı. LinkedIn kutusuna GitHub adresi yazıldığında
+uyarı çıkar ama alan adı zorunlu tutulmaz — GitHub Enterprise ya da kendi alan
+adına taşınmış bir profil de geçerlidir.
 
 ## KVKK
 
@@ -1016,4 +1169,4 @@ faz olarak bırakıldı.
 Rozet sistemi kapsam dışı **değil**: türetilmiş rozetlerle uygulandı (bkz.
 *Kazanımlar ve rozetler*). `domain-rules.md` Bölüm 13'teki elle verilen kazanım
 kategorileri (belge, sertifika) hâlâ Faz 2'dedir; o aşamada yeni tablo açmak
-yerine `ogrenci_kazanim` tablosunun `tip` alanı genişletilecek.
+yerine `kullanici_kazanim` tablosunun `tip` alanı genişletilecek.

@@ -10,6 +10,7 @@ import {
   profilFotoSinirlariniGetir,
 } from "@/lib/kullanici/profil-foto";
 import { saltOkunurAlanlariAyikla } from "@/lib/kullanici/salt-okunur";
+import { baglantilariDogrula } from "@/lib/ogrenci/iletisim-kurallar";
 import { danismanlikDurumunuDegistir } from "@/lib/ogretmen/danismanlik";
 import { erisimLogla } from "@/lib/yetki/log";
 import { ogrenciMi } from "@/lib/yetki/izinler";
@@ -19,9 +20,18 @@ import { ogrenciMi } from "@/lib/yetki/izinler";
  *
  * Liste role göre değişmez: iletişim bilgisi kimlik bilgisi değildir, e-Okul'dan
  * gelmez ve kim olursa olsun sahibi tarafından girilir. Rol farkı yalnızca
- * bilginin hangi profil tablosuna yazıldığındadır.
+ * bilginin hangi profil tablosuna yazıldığındadır — bağlantı adresleri yalnızca
+ * öğrenci profilinde tutulduğu için öğretmende sessizce düşer.
  */
-const IZINLI_ALANLAR = ["eposta", "telefon"] as const;
+const IZINLI_ALANLAR = [
+  "eposta",
+  "telefon",
+  "githubUrl",
+  "kisiselSiteUrl",
+  "linkedinUrl",
+] as const;
+
+const YOL = "/panel/profil";
 
 export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
@@ -32,6 +42,9 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
   const { temizVeri, yoksayilanAlanlar } = saltOkunurAlanlariAyikla<{
     eposta: string;
     telefon: string;
+    githubUrl: string;
+    kisiselSiteUrl: string;
+    linkedinUrl: string;
   }>(gelenVeri, IZINLI_ALANLAR);
 
   // Salt okunur alanlar istekte gelirse sessizce yok sayılır, hata
@@ -57,10 +70,20 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
    * Yazılan bilgi aynı olduğu için ayrım yalnızca burada yapılır.
    */
   if (ogrenciMi(kullanici)) {
+    const karar = baglantilariDogrula({
+      githubUrl: temizVeri.githubUrl,
+      kisiselSiteUrl: temizVeri.kisiselSiteUrl,
+      linkedinUrl: temizVeri.linkedinUrl,
+    });
+    if (!karar.olurMu) {
+      redirect(`${YOL}?hata=${encodeURIComponent(karar.neden)}`);
+    }
+
+    const ogrenciVerisi = { ...iletisim, ...karar.baglantilar };
     await prisma.ogrenciProfil.upsert({
       where: { kullaniciId: kullanici.id },
-      update: iletisim,
-      create: { kullaniciId: kullanici.id, ...iletisim },
+      update: ogrenciVerisi,
+      create: { kullaniciId: kullanici.id, ...ogrenciVerisi },
     });
   } else {
     await prisma.ogretmenProfil.upsert({
@@ -78,7 +101,8 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
     detay: "İletişim bilgileri güncellendi",
   });
 
-  revalidatePath("/panel/profil");
+  revalidatePath(YOL);
+  redirect(`${YOL}?durum=iletisim-kaydedildi`);
 }
 
 export async function danismanlikEylemi(veri: FormData): Promise<void> {
@@ -102,8 +126,6 @@ export async function danismanlikEylemi(veri: FormData): Promise<void> {
  * `kullanici.id` üzerinde çalışmasıdır: hedef kimlik hiçbir yerde form
  * girdisinden okunmaz, dolayısıyla kimse başkasının fotoğrafını değiştiremez.
  */
-
-const YOL = "/panel/profil";
 
 export async function profilFotoYukleEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();

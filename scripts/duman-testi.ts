@@ -108,8 +108,8 @@ async function testVerisiniTemizle() {
       OR: [{ ogrenciId: { in: idler } }, { atayanKullaniciId: { in: idler } }],
     },
   });
-  await prisma.ogrenciKazanim.deleteMany({
-    where: { ogrenciId: { in: idler } },
+  await prisma.kullaniciKazanim.deleteMany({
+    where: { kullaniciId: { in: idler } },
   });
   await prisma.danismanAtama.deleteMany({
     where: { OR: [{ ogrenciId: { in: idler } }, { danismanKullaniciId: { in: idler } }] },
@@ -597,22 +597,36 @@ async function main() {
     programliIlEtkinligiReddedildi,
   );
 
-  // İptal izi: "kim ne zaman iptal etti" bilgisi olmadan durum değiştirilemez.
+  /*
+   * İptal izi: "kim ne zaman iptal etti" bilgisi olmadan durum değiştirilemez.
+   * Denek faaliyeti burada açılıyor; hazırda duran bir kayıt aransaydı örnek
+   * verisi yüklenmemiş bir veritabanında kontrol sessizce atlanır, kısıt
+   * düşmüş olsa bile fark edilmezdi.
+   */
   let izsizIptalReddedildi = false;
-  const iptalDenemesi = await prisma.faaliyet.findFirst({
-    where: { durum: "AKTIF" },
-    select: { id: true },
+  const iptalDenegi = await prisma.faaliyet.create({
+    data: {
+      ad: "Duman testi iptal denemesi",
+      aciklama: "test",
+      tarih: new Date(),
+      kapsam: "ULUSAL",
+      etkinlikKategorisi: "IL_ETKINLIGI",
+      kontenjan: 5,
+      duzenleyenKullaniciId: ogretmen1,
+      duzenleyenBirim: "Test",
+      basvuruBaslangic: new Date(),
+      basvuruBitis: new Date(Date.now() + 86400000),
+    },
   });
-  if (iptalDenemesi) {
-    try {
-      await prisma.faaliyet.update({
-        where: { id: iptalDenemesi.id },
-        data: { durum: "IPTAL_EDILDI" },
-      });
-    } catch {
-      izsizIptalReddedildi = true;
-    }
+  try {
+    await prisma.faaliyet.update({
+      where: { id: iptalDenegi.id },
+      data: { durum: "IPTAL_EDILDI" },
+    });
+  } catch {
+    izsizIptalReddedildi = true;
   }
+  await prisma.faaliyet.delete({ where: { id: iptalDenegi.id } });
   kontrol(
     "faaliyet iptali eden/tarih bilgisi olmadan yazılamaz",
     izsizIptalReddedildi,

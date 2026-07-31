@@ -103,15 +103,25 @@ Dağıtım rol değişiminden **sonra** yapılır: böylece "il koordinatörüne
 
 ## 4. Öğrenci görev rolleri
 
-İki görev rolü vardır ve bunlar **öğrencilere** verilir:
+Üç görev rolü vardır ve bunlar **öğrencilere** verilir:
 
 - **İl Temsilcisi** — her ilde bir öğrenci, il koordinatörü atar
+- **İlçe Temsilcisi** — her ilçede bir öğrenci, **ilin** koordinatörü atar
 - **Okul Temsilcisi** — her okulda bir öğrenci, danışman öğretmen atar
 
 Kurallar:
 - Bu roller **hiçbir ek veri görüntüleme yetkisi vermez**. Görev etiketidir; ileride rozet olarak kullanılacaktır.
 - Eğitim-öğretim yılı bazlıdır (görev dönemi). Kalıcı bayrak olarak tutma.
-- Tekillik: il başına bir İl Temsilcisi, okul başına bir Okul Temsilcisi — dönem bazında.
+- Tekillik: il başına bir İl Temsilcisi, ilçe başına bir İlçe Temsilcisi, okul başına bir Okul Temsilcisi — dönem bazında, kısmi unique index'lerle korunur.
+- Her rolün kapsamı **kendi sütununda** durur (`il_kodu` / `ilce_kodu` / `kurum_kodu`) ve rolüne göre zorunludur (`ck_ogrenci_gorev_kapsam`). Kapsam öğrencinin güncel kaydından okunmaz, göreve **yazılır**: öğrenci dönem içinde okul (dolayısıyla ilçe) değiştirdiğinde görev verildiği yerde kalmalıdır.
+- **İlçe düzeyinde görevli yoktur.** `RolKodu`'nda `ILCE_KOORDINATOR` diye bir değer yok; ilçe, ilin içindeki bir basamaktır ve temsilcisini o ilin koordinatörü belirler.
+- e-Okul kaydında ilçesi boş olan öğrenciye İlçe Temsilciliği verilemez — kapsam sütunu boş kalacağı için veritabanı kısıtı zaten reddeder.
+
+### Katkı kartı
+
+Temsilcilikler, çalışma grupları ve öğrencinin **düzenlediği faaliyetler** öğrencinin ekranlarında tek bir "Katkı kartı"nda toplanır (`/panel/profil` ve `/panel/kazanimlarim`). Kartta **geçmiş dönemlerin** görevleri de dönemiyle birlikte durur: geçen yılın il temsilciliği bir katkıdır ve eylülde sessizce silinmemelidir.
+
+Öğretmenin katkı kartı aynı ekranlarda ama **kendi kalemleriyle** durur: rolleri, aktif danışmanlıkları ve düzenlediği faaliyetler. Öğrencinin kalemleri (çalışma grubu seçimi, temsilcilik) öğretmende hiçbir zaman dolmaz; ortak bir kart bunları boş satır olarak taşırdı.
 
 ---
 
@@ -153,17 +163,28 @@ Ekleme iki kontrolden **birlikte** geçer: rol (`ogrenciCalismaGrubuYonetebilirM
 
 | Kapsam | Açan rol | Başvurabilecek öğrenciler | Değerlendiren |
 |---|---|---|---|
-| Okul içi | Danışman öğretmen | Sadece o okulun öğrencileri | Faaliyeti açan |
-| İl içi | İl koordinatörü | Sadece o ilin öğrencileri | Faaliyeti açan |
-| Ulusal | İl koordinatörü veya proje yöneticisi | Ülke genelindeki tüm öğrenciler | Faaliyeti açan |
+| Okul içi | Danışman öğretmen, öğrenci | Sadece o okulun öğrencileri | Faaliyeti açan |
+| İl içi | İl koordinatörü, öğrenci | Sadece o ilin öğrencileri | Faaliyeti açan |
+| Ulusal | İl koordinatörü, proje yöneticisi, öğrenci | Ülke genelindeki tüm öğrenciler | Faaliyeti açan |
 
 Danışman öğretmen **il içi veya ulusal faaliyet açamaz.**
 
+**Öğrencinin kapsam sınırı yoktur** ama açtığı hiçbir faaliyet kendiliğinden yayına girmez (bkz. Onay akışı). Yeri roldan değil kayıtlı okul/ilinden gelir: okul içi önerisi kendi okuluna, il geneli önerisi kendi iline yazılır. Kartta düzenleyen birim **"Öğrenci girişimi"** olarak görünür; okulun adıyla anılması etkinliği okul yönetimine mal ederdi.
+
 ### Onay akışı
 
-İl koordinatörünün açtığı **ulusal** faaliyet, proje yöneticisi onayından sonra yayına girer. Onaya kadar `onayDurumu=BEKLIYOR`, öğrencilere görünmez.
+İki kaynak vardır:
 
-Okul içi ve il içi faaliyetler onaysız yayına girer.
+1. **İl koordinatörünün açtığı ulusal faaliyet** — proje yöneticisi onayından sonra yayına girer.
+2. **Öğrencinin açtığı her faaliyet** — kapsamı ne olursa olsun. Okul içi öneri bile onay bekler: 18 yaş altı bir kullanıcının açtığı çağrı sorumlusuz çıkmamalıdır.
+
+Onaya kadar `onayDurumu=BEKLIYOR` ve faaliyet öğrencilere görünmez; yalnızca açan kişi ve onaylamaya yetkili olanlar görür.
+
+Öğrenci faaliyetini **iki taraf onaylayabilir**: öğrencinin ilinin koordinatörü ve YEĞİTEK proje yöneticileri. İkisi de tam yetkilidir ve **ilk verilen karar geçerlidir** — çift onay adımı yoktur. Öneri açıldığında bildirim ikisine birden gider (`ONAY_BEKLEYEN_OGRENCI_FAALIYETI`); ilin koordinatörü yoksa uyarı merkeze gitmeye devam eder ve öneri kaybolmaz. Karar çıktığında sonuç faaliyeti açan öğrenciye bildirilir (`FAALIYET_ONAY_SONUCU`).
+
+Onaylanmış bir öğrenci faaliyetinde tarih değişirse ya da kontenjan düşerse onay yeniden düşer ve uyarı yine **her iki tarafa** gider; yoksa koordinatör açılışta gördüğü öneriyi ikinci kez hiç görmezdi.
+
+Öğretmenlerin açtığı okul içi ve il içi faaliyetler onaysız yayına girer.
 
 ### Etkinlik kategorisi (Kapsam'dan AYRI bir alan)
 
@@ -268,6 +289,8 @@ Bildirim gereken olaylar:
 - Danışman değişikliği ("yeniden seç" durumu dahil)
 - İl koordinatörüne: okulda yeni danışman var, öğrenci devredilebilir
 - Proje yöneticisine: onay bekleyen ulusal faaliyet
+- Proje yöneticisine **ve ilin koordinatörüne**: onay bekleyen öğrenci faaliyeti
+- Faaliyeti öneren öğrenciye: onay sonucu (onaylandı / reddedildi)
 - Danışmana kopya: öğrencisi başka ilin ulusal faaliyetine başvurdu
 - Faaliyete başvurmuş öğrencilere: faaliyet iptal edildi
 - Öğrenciye: adına başvuru yapıldı / adına yapılan başvuru geri çekildi
@@ -338,7 +361,7 @@ Rozet sisteminin uygulanması sonraki faza bırakıldı; **şimdi kod yazılmaya
 - Moderatörlük yaptığı etkinlikler
 - Derece aldığı yarışmalar (EğitiJAM gibi GençTek etkinlikleri ya da GençTek dışı yarışmalar)
 
-Liste, mevcut `ogrenci_kazanim.tip` değerleriyle (DIS_ETKINLIK / URUN / AKRAN_EGITIMI / YARISMA_DERECESI) büyük ölçüde örtüşüyor. Faz 2 açıldığında **yeni tablo açmak yerine bu tabloyu genişletmek** daha az iş çıkarır. İl/Okul Temsilcisi kategorilerinin kaynağı zaten `ogrenci_gorev_rolu`'dur; türetilebilen kategoriler için ayrıca kayıt tutmayın.
+Liste, mevcut `kullanici_kazanim.tip` değerleriyle (DIS_ETKINLIK / URUN / AKRAN_EGITIMI / YARISMA_DERECESI) büyük ölçüde örtüşüyor. Faz 2 açıldığında **yeni tablo açmak yerine bu tabloyu genişletmek** daha az iş çıkarır. İl/Okul Temsilcisi kategorilerinin kaynağı zaten `ogrenci_gorev_rolu`'dur; türetilebilen kategoriler için ayrıca kayıt tutmayın.
 
 **Faz 2 olan yalnızca ROZETLERDİR.** Kayıtların kendisi (kazanım girişi ve profilde gösterimi) uygulandı — bkz. Bölüm 14.
 
@@ -351,10 +374,10 @@ Liste, mevcut `ogrenci_kazanim.tip` değerleriyle (DIS_ETKINLIK / URUN / AKRAN_E
 | Bölüm | Kaynak | Kim düzenler |
 |---|---|---|
 | Kimlik ve okul bilgileri | e-Okul (AuthProvider senkronu) | Hiç kimse — salt okunur |
-| İletişim bilgileri | Öğrencinin kendi girdisi | Öğrenci |
+| İletişim bilgileri (telefon, e-posta, GitHub, kişisel site, LinkedIn) | Öğrencinin kendi girdisi | Öğrenci |
 | Çalışma grupları, görev rolleri, danışman | `ogrenci_calisma_grubu`, `ogrenci_gorev_rolu`, `danisman_atama` | Bkz. Bölüm 3, 4, 5 |
 | **Katıldığı GençTek etkinlikleri** | **Türetilir:** `basvuru.durum=SECILDI` + faaliyet tarihi geçmiş + `faaliyet.durum=AKTIF` | Hiç kimse — elle girilmez |
-| **Kazanım kayıtları** (4 tür) | Öğrenci beyanı, `ogrenci_kazanim` | Yalnızca öğrencinin kendisi |
+| **Kazanım kayıtları** (4 tür) | Öğrenci beyanı, `kullanici_kazanim` | Yalnızca öğrencinin kendisi |
 | **Özgeçmiş (CV)** | Öğrencinin yüklediği dosya | Yalnızca öğrencinin kendisi |
 
 ### Kazanım kayıtları
@@ -372,6 +395,20 @@ Kurallar:
 - `derece` alanı yalnızca yarışmalarda, `duzenleyen` alanı ürünler dışında sorulur. Türüne uymayan alan gelirse **sessizce düşürülür**: ekran o alanı hiç göstermediği için değer ancak istek elle kurcalandığında gelir ve bunun kullanıcıya anlatılacak bir tarafı yok.
 - Bağlantı adresinde yalnızca `http`/`https` kabul edilir. `javascript:` ile başlayan bir adres, profile bakan danışmanın tarayıcısında kod çalıştırırdı.
 - **Katıldığı GençTek etkinlikleri bu tabloya yazılmaz.** Türetilebilen veriyi öğrencinin eliyle ikinci kez girmesi hem yanlış hem doğrulanamaz olurdu.
+
+Etkinliğe dayalı türlerde (dış etkinlik, akran eğitimi, yarışma derecesi) üç alan daha sorulur:
+
+- **GençTek programı** — `temel_etkinlik_programi` listesinden seçilir, son seçenek **"Diğer"**dir ve serbest metne düşer. Serbest metin tek başına bırakılsaydı aynı program ("EğitiJAM", "Egitijam", "eğiti jam") onlarca yazımla girilir ve program bazlı sayım hiç yapılamazdı.
+- **Katılım biçimi** — yüz yüze / çevrim içi / karma.
+- **Hedef kitle** — akran eğitiminde kime anlatıldığı, yarışmada hangi kategoride yarışıldığı. Serbest metindir; kitleyi listeye sığdırmaya çalışmak beyanı çarpıtırdı.
+
+**"Yaptığım ürünler" ayrı bir bölüm olarak da gösterilir** (`/panel/kazanimlarim` ve öğrenci detay ekranı). Ayrı bir tablo değildir — aynı `kullanici_kazanim` kayıtlarının `tip=URUN` olanlarıdır; ikinci bir tablo açmak, aynı kaydın iki yerde yaşamasına ve birinden silinip diğerinde kalmasına yol açardı. Kart ekleme kısayolu verir ama **silme yolu vermez**: silme tek yerde, profil ekranında durur.
+
+### Öğretmenin kazanım kayıtları
+
+Aynı dört tür **öğretmen için de** açıktır ve aynı tabloya yazılır: öğretmenin geliştirdiği ders materyali ile öğrencinin geliştirdiği oyun aynı türden kayıttır, ayrı tablo aynı kuralları ikinci kez yazdırırdı. Ayrışan tek şey **etiketlerdir** — öğretmende "verdiğim akran eğitimleri" yerine "verdiğim eğitimler" yazar; öğretmenin öğrencisine verdiği eğitim akran eğitimi değildir. Alan kuralları (hangi türde hangi alan sorulur) rolden bağımsızdır: role bağlansaydı aynı kayıt girenin rolüne göre farklı doğrulanır, öğretmenlikten ayrılan birinin kaydı geçersizleşirdi.
+
+Öğretmenin kayıtlarını il koordinatörü ve proje yöneticisi tekil öğretmen kaydında **görür ama düzenlemez**; öğrenci kayıtlarındaki kuralın aynısı.
 
 ### Özgeçmiş (CV)
 

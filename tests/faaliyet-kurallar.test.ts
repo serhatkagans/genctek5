@@ -52,8 +52,17 @@ describe("kapsam seçenekleri", () => {
     expect(kapsamSecenekleri(projeYoneticisiYap())).not.toContain("OKUL");
   });
 
-  it("öğrenci ve görev almamış öğretmen faaliyet açamaz", () => {
-    expect(faaliyetAcmaYetkisiVarMi(ogrenciYap())).toBe(false);
+  /*
+   * Öğrenciye üç kapsam da teklif edilir, sıralama dar kapsamdan geniş kapsama:
+   * formda ilk seçenek varsayılan olur ve öğrencinin olağan işi kendi
+   * okulundadır. Kapsamı daraltmak gerekmez çünkü hiçbiri kendiliğinden yayına
+   * girmiyor (bkz. "öğrencinin açtığı her faaliyet onay bekler").
+   */
+  it("öğrenciye üç kapsam da okuldan başlayarak teklif edilir", () => {
+    expect(kapsamSecenekleri(ogrenciYap())).toEqual(["OKUL", "IL", "ULUSAL"]);
+  });
+
+  it("görev almamış öğretmen faaliyet açamaz", () => {
     expect(faaliyetAcmaYetkisiVarMi(rolsuzOgretmenYap())).toBe(false);
   });
 });

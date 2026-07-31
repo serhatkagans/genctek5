@@ -3,7 +3,7 @@ import {
   Camera,
   FileText,
   IdCard,
-  Layers,
+  Link2,
   Mail,
   Plus,
   ShieldCheck,
@@ -12,6 +12,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import Link from "next/link";
+import { KatkiKarti } from "@/components/KatkiKarti";
 import {
   KatilimKarti,
   KazanimBolumleri,
@@ -40,15 +41,20 @@ import { SALT_OKUNUR_ACIKLAMASI } from "@/lib/kullanici/salt-okunur";
 import { cvSinirlariniGetir } from "@/lib/ogrenci/cv";
 import { cvTipAdlari } from "@/lib/ogrenci/cv-kurallar";
 import {
-  KAZANIM_TIPLERI,
+  ETKINLIK_KATEGORISI_ETIKETLERI,
+  TEMEL_ETKINLIK_GRUPLARI,
+} from "@/lib/faaliyet/kurallar";
+import { BAGLANTI_TANIMLARI } from "@/lib/ogrenci/iletisim-kurallar";
+import { katkiVerisiGetir } from "@/lib/ogrenci/katki";
+import {
+  KATILIM_BICIMI_ETIKETLERI,
+  KATILIM_BICIMLERI,
   kazanimTipiGecerliMi,
   kazanimTipiTanimi,
-} from "@/lib/ogrenci/kazanim-kurallar";
+  kazanimTipleri,
+} from "@/lib/kazanim/kurallar";
 import { tarihSaatYaz } from "@/lib/tarih";
-import {
-  GOREV_ROL_ETIKETLERI,
-  kullaniciRolEtiketi,
-} from "@/lib/yetki/etiketler";
+import { kullaniciRolEtiketi } from "@/lib/yetki/etiketler";
 import {
   danismanMi,
   ilKoordinatoruMu,
@@ -72,6 +78,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const DURUM_MESAJLARI: Record<string, string> = {
+  "iletisim-kaydedildi": "İletişim bilgileriniz kaydedildi.",
   "kazanim-eklendi": "Kayıt profiline eklendi.",
   "kazanim-silindi": "Kayıt silindi.",
   "cv-yuklendi": "CV'niz yüklendi.",
@@ -81,7 +88,7 @@ const DURUM_MESAJLARI: Record<string, string> = {
 };
 
 /** Kazanım ekleme formunun hangi tür için açık olduğu. */
-const VARSAYILAN_TUR = KAZANIM_TIPLERI[0].tip;
+const VARSAYILAN_TUR = kazanimTipleri()[0].tip;
 
 function tekil(deger: string | string[] | undefined): string | null {
   if (Array.isArray(deger)) return deger[0] ?? null;
@@ -109,18 +116,6 @@ export default async function ProfilSayfasi({
       ilce: { select: { ad: true } },
       ogrenciProfil: true,
       ogretmenProfil: true,
-      gorevRolleri: {
-        where: { egitimOgretimYili: kullanici.egitimOgretimYili },
-        select: { rolKodu: true },
-      },
-      calismaGruplari: {
-        select: {
-          calismaGrubuId: true,
-          secimTarihi: true,
-          calismaGrubu: { select: { ad: true, aktif: true } },
-          ekleyen: { select: { ad: true, soyad: true } },
-        },
-      },
       kazanimlar: {
         // Kullanıcının girdiği tarih boş olabildiği için ikinci sıralama ölçütü
         // gerekiyor; yoksa tarihsiz kayıtların sırası belirsiz kalır.
@@ -130,13 +125,27 @@ export default async function ProfilSayfasi({
   });
 
   const ogrenci = ogrenciMi(kullanici);
+  // Kazanım kayıtları öğretmende de var; metinler bununla ayrılıyor.
+  const kazanimSahibi = ogrenci ? "OGRENCI" : "OGRETMEN";
 
   const atama = ogrenci ? await aktifAtamaGetir(kullanici.id) : null;
 
-  // Katılım geçmişi ve rozetler yalnızca öğrenci için anlamlı; öğretmen
-  // profilinde sorgu hiç çalıştırılmıyor.
+  // Rozetler ve katkı kartı öğrenciye özgüdür; öğretmenin karşılığı
+  // /panel/kazanimlarim ekranındadır (kaynakları bambaşka tablolar).
   const kazanim = ogrenci ? await kazanimlariGetir(kullanici.id) : null;
+  const katki = ogrenci ? await katkiVerisiGetir(kullanici.id) : null;
   const cvSinirlari = ogrenci ? await cvSinirlariniGetir() : null;
+
+  /*
+   * Kazanım formunun "GençTek etkinliği" listesi, faaliyet formununkiyle AYNI
+   * kaynaktan gelir. Pasife alınmışlar teklif edilmez; geçmiş kayıtların
+   * bağlantısı korunur.
+   */
+  const programlar = await prisma.temelEtkinlikProgrami.findMany({
+    where: { aktif: true },
+    orderBy: [{ grup: "asc" }, { siraNo: "asc" }],
+    select: { id: true, ad: true, grup: true },
+  });
   // Fotoğraf sınırları role bakılmadan alınır: kart herkese gösteriliyor.
   const fotoSinirlari = await profilFotoSinirlariniGetir();
 
@@ -180,8 +189,10 @@ export default async function ProfilSayfasi({
   // için (derece yalnızca yarışmada var) form sunucuda o türe göre basılır.
   const istenenTur = tekil(parametreler.tur);
   const seciliTur =
-    istenenTur && kazanimTipiGecerliMi(istenenTur) ? istenenTur : VARSAYILAN_TUR;
-  const seciliTanim = kazanimTipiTanimi(seciliTur);
+    istenenTur && kazanimTipiGecerliMi(istenenTur)
+      ? istenenTur
+      : VARSAYILAN_TUR;
+  const seciliTanim = kazanimTipiTanimi(seciliTur, kazanimSahibi);
 
   const cv = kayit.ogrenciProfil;
   const cvVar = Boolean(cv?.cvDepolamaYolu);
@@ -313,9 +324,7 @@ export default async function ProfilSayfasi({
           {ogrenci ? (
             <SaltOkunurAlan etiket="Sınıf" deger={kayit.sinif} />
           ) : (
-            kayit.brans && (
-              <SaltOkunurAlan etiket="Branş" deger={kayit.brans} />
-            )
+            kayit.brans && <SaltOkunurAlan etiket="Branş" deger={kayit.brans} />
           )}
           <SaltOkunurAlan
             etiket="Sistem görevi"
@@ -324,7 +333,9 @@ export default async function ProfilSayfasi({
           {sorumluIlKodu && (
             <SaltOkunurAlan
               etiket="Sorumlu olduğu il"
-              deger={sorumluIl ? `${sorumluIl.ad} (${sorumluIlKodu})` : sorumluIlKodu}
+              deger={
+                sorumluIl ? `${sorumluIl.ad} (${sorumluIlKodu})` : sorumluIlKodu
+              }
             />
           )}
         </dl>
@@ -361,11 +372,90 @@ export default async function ProfilSayfasi({
               />
             </label>
           </div>
+
+          {/*
+            Bağlantılar yalnızca öğrenciye sorulur: sütunlar ogrenci_profil
+            tablosunda. Öğretmenin GitHub adresi bir eksiklik değil, sistemin
+            işine yaramayan bir bilgi.
+          */}
+          {ogrenci && (
+            <fieldset className="space-y-4 border-t border-cizgi pt-4">
+              <legend className="flex items-center gap-2 text-sm font-medium text-metin">
+                <Link2 size={15} aria-hidden />
+                Bağlantılarım
+              </legend>
+              <p className="text-sm text-metin-yumusak">
+                İsteğe bağlıdır. Girdiğiniz adresleri danışmanınız, il
+                koordinatörünüz ve proje yöneticisi profilinizde görür.
+                &quot;https://&quot; yazmasanız da olur.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {BAGLANTI_TANIMLARI.map((tanim) => (
+                  <label key={tanim.alan} className="block">
+                    <span className="text-sm font-medium text-metin">
+                      {tanim.etiket}
+                    </span>
+                    <input
+                      type="text"
+                      name={tanim.alan}
+                      maxLength={200}
+                      placeholder={tanim.ornek}
+                      defaultValue={kayit.ogrenciProfil?.[tanim.alan] ?? ""}
+                      className={SINIF_GIRDI}
+                    />
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
           <button type="submit" className={SINIF_BIRINCIL_BUTON}>
             Kaydet
           </button>
         </form>
       </Kart>
+
+      {/*
+        Danışmanlık işareti öğretmenin bu ekrandaki asıl EYLEMİdir; kazanım
+        kartlarından önce durur, yoksa iki uzun listenin altında kaybolurdu.
+      */}
+      {danismanlikSecimiGosterilir && (
+        <Kart>
+          <KartBasligi
+            baslik="GençTek danışman öğretmenliği"
+            aciklama="Bu görevi işaretlediğinizde okulunuzdaki öğrencilerin danışman seçim listesinde görünürsünüz. Onay süreci yoktur."
+            Ikon={ShieldCheck}
+          />
+          <form action={danismanlikEylemi}>
+            <input
+              type="hidden"
+              name="gorevAlmakIstiyor"
+              value={danismanMi(kullanici) ? "hayir" : "evet"}
+            />
+            {danismanMi(kullanici) ? (
+              <div className="flex flex-wrap items-center gap-4">
+                <p className="inline-flex items-center gap-2 rounded-full bg-olumlu-zemin px-3 py-1 text-sm font-medium text-olumlu-metin">
+                  <BadgeCheck size={15} aria-hidden />
+                  Danışman öğretmen olarak görev alıyorsunuz.
+                </p>
+                <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                  Görevi bırak
+                </button>
+              </div>
+            ) : (
+              <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                GençTek danışman öğretmeni olarak görev almak istiyorum
+              </button>
+            )}
+          </form>
+          {danismanMi(kullanici) && (
+            <p className="mt-3 text-sm text-metin-yumusak">
+              Görevi bıraktığınızda danışmanlığınızdaki öğrenciler okuldaki
+              diğer danışmanlara ya da il koordinatörüne devredilir.
+            </p>
+          )}
+        </Kart>
+      )}
 
       {ogrenci && (
         <>
@@ -383,66 +473,22 @@ export default async function ProfilSayfasi({
                 {danismanIletisimi.join(" · ")}
               </p>
             )}
-            {kayit.calismaGruplari.length > 0 && (
-              <>
-                <h3 className="mt-5 flex items-center gap-2 text-sm font-medium text-metin-yumusak">
-                  <Layers size={15} aria-hidden />
-                  Çalışma gruplarım
-                </h3>
-                <ul className="mt-2 space-y-1.5">
-                  {kayit.calismaGruplari.map((secim) => (
-                    <li
-                      key={secim.calismaGrubuId}
-                      className="flex flex-wrap items-center gap-2"
-                    >
-                      <span className="rounded-full bg-vurgu-zemin px-3 py-1 text-sm text-vurgu-metin">
-                        {secim.calismaGrubu.ad}
-                      </span>
-                      {/*
-                       * Grubu danışmanı ya da koordinatörü eklemiş olabilir;
-                       * öğrenci profilinde bir grubun nereden geldiğini
-                       * görebilmeli.
-                       */}
-                      {secim.ekleyen && (
-                        <span className="text-sm text-metin-yumusak">
-                          {secim.ekleyen.ad} {secim.ekleyen.soyad} ekledi
-                        </span>
-                      )}
-                      {!secim.calismaGrubu.aktif && (
-                        <span className="rounded-full bg-uyari-zemin px-2 py-0.5 text-xs text-uyari-metin">
-                          Kapatılmış grup
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="/panel/calisma-gruplari"
-                  className="mt-3 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
-                >
-                  Grup seçimimi düzenle
-                </Link>
-              </>
-            )}
-            {kayit.gorevRolleri.length > 0 && (
-              <>
-                <h3 className="mt-5 flex items-center gap-2 text-sm font-medium text-metin-yumusak">
-                  <BadgeCheck size={15} aria-hidden />
-                  Görevlerim
-                </h3>
-                <ul className="mt-2 flex flex-wrap gap-2">
-                  {kayit.gorevRolleri.map((gorev) => (
-                    <li
-                      key={gorev.rolKodu}
-                      className="rounded-full bg-rol-ogrenci-zemin px-3 py-1 text-sm text-rol-ogrenci-metin"
-                    >
-                      {GOREV_ROL_ETIKETLERI[gorev.rolKodu]}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
           </Kart>
+
+          {/*
+            Temsilcilik, çalışma grubu ve düzenlenen faaliyetler bu kartta
+            TOPLANDI; daha önce ilki danışman kartının dibinde, ikincisi ayrı
+            bir listede duruyor ve üçüncüsü hiç görünmüyordu.
+          */}
+          {katki && (
+            <KatkiKarti
+              kendiMi
+              gorevler={katki.gorevler}
+              gruplar={katki.gruplar}
+              faaliyetler={katki.faaliyetler}
+              egitimOgretimYili={kullanici.egitimOgretimYili}
+            />
+          )}
 
           <Kart>
             <KartBasligi
@@ -503,165 +549,216 @@ export default async function ProfilSayfasi({
           </Kart>
 
           {kazanim && <KatilimKarti kazanim={kazanim} />}
-
-          <Kart>
-            <KartBasligi
-              baslik="Ekosisteme katkı"
-              aciklama="GençTek dışı etkinlikler, yaptığınız ürünler, verdiğiniz akran eğitimleri ve derece aldığınız yarışmalar. Kayıtları siz girersiniz; danışmanınız ve koordinatörünüz profilinizde görür."
-              Ikon={Sparkles}
-            />
-            <KazanimBolumleri
-              kazanimlar={kayit.kazanimlar}
-              silmeEylemi={kazanimSilEylemi}
-              bosMesaji="Henüz kayıt girmediniz."
-            />
-          </Kart>
-
-          <Kart>
-            <KartBasligi baslik="Yeni kayıt ekle" Ikon={Plus} />
-
-            <nav className="mb-5 flex flex-wrap gap-2" aria-label="Kayıt türü">
-              {KAZANIM_TIPLERI.map((tanim) => (
-                <Link
-                  key={tanim.tip}
-                  href={`/panel/profil?tur=${tanim.tip}`}
-                  className={
-                    tanim.tip === seciliTur ? SINIF_SEKME_SECILI : SINIF_SEKME
-                  }
-                >
-                  {tanim.baslik}
-                </Link>
-              ))}
-            </nav>
-
-            <p className="mb-4 text-sm text-metin-yumusak">
-              {seciliTanim.aciklama}
-            </p>
-
-            <form action={kazanimEkleEylemi} className="space-y-4">
-              <input type="hidden" name="tip" value={seciliTur} />
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block sm:col-span-2">
-                  <span className="text-sm font-medium text-metin">
-                    {seciliTanim.baslikEtiketi}
-                  </span>
-                  <input
-                    type="text"
-                    name="baslik"
-                    required
-                    maxLength={250}
-                    placeholder={seciliTanim.baslikOrnegi}
-                    className={SINIF_GIRDI}
-                  />
-                </label>
-
-                {seciliTanim.duzenleyenVarMi && (
-                  <label className="block">
-                    <span className="text-sm font-medium text-metin">
-                      Düzenleyen kurum
-                    </span>
-                    <input
-                      type="text"
-                      name="duzenleyen"
-                      maxLength={200}
-                      className={SINIF_GIRDI}
-                    />
-                  </label>
-                )}
-
-                {seciliTanim.dereceVarMi && (
-                  <label className="block">
-                    <span className="text-sm font-medium text-metin">
-                      Aldığınız derece
-                    </span>
-                    <input
-                      type="text"
-                      name="derece"
-                      maxLength={120}
-                      placeholder="Türkiye 1.si"
-                      className={SINIF_GIRDI}
-                    />
-                  </label>
-                )}
-
-                <label className="block">
-                  <span className="text-sm font-medium text-metin">Tarih</span>
-                  <input type="date" name="tarih" className={SINIF_GIRDI} />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-medium text-metin">
-                    Bağlantı (isteğe bağlı)
-                  </span>
-                  <input
-                    type="url"
-                    name="baglantiUrl"
-                    maxLength={500}
-                    placeholder="https://"
-                    className={SINIF_GIRDI}
-                  />
-                </label>
-
-                <label className="block sm:col-span-2">
-                  <span className="text-sm font-medium text-metin">
-                    Açıklama (isteğe bağlı)
-                  </span>
-                  <textarea
-                    name="aciklama"
-                    rows={3}
-                    maxLength={2000}
-                    className={SINIF_GIRDI}
-                  />
-                </label>
-              </div>
-
-              <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-                <Plus size={15} aria-hidden />
-                Ekle
-              </button>
-            </form>
-          </Kart>
         </>
       )}
 
-      {danismanlikSecimiGosterilir && (
-        <Kart>
-          <KartBasligi
-            baslik="GençTek danışman öğretmenliği"
-            aciklama="Bu görevi işaretlediğinizde okulunuzdaki öğrencilerin danışman seçim listesinde görünürsünüz. Onay süreci yoktur."
-            Ikon={ShieldCheck}
-          />
-          <form action={danismanlikEylemi}>
-            <input
-              type="hidden"
-              name="gorevAlmakIstiyor"
-              value={danismanMi(kullanici) ? "hayir" : "evet"}
-            />
-            {danismanMi(kullanici) ? (
-              <div className="flex flex-wrap items-center gap-4">
-                <p className="inline-flex items-center gap-2 rounded-full bg-olumlu-zemin px-3 py-1 text-sm font-medium text-olumlu-metin">
-                  <BadgeCheck size={15} aria-hidden />
-                  Danışman öğretmen olarak görev alıyorsunuz.
-                </p>
-                <button type="submit" className={SINIF_IKINCIL_BUTON}>
-                  Görevi bırak
-                </button>
-              </div>
-            ) : (
-              <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-                GençTek danışman öğretmeni olarak görev almak istiyorum
-              </button>
+      {/*
+        Kazanım kayıtları ÖĞRETMENDE DE VAR: dışarıda katıldığı etkinlik,
+        geliştirdiği materyal, verdiği eğitim ve derece aldığı yarışma da
+        ekosisteme katkıdır. Kayıt, alanları ve doğrulaması aynı; değişen
+        yalnızca etiketler (bkz. lib/kazanim/kurallar.ts).
+      */}
+      <Kart>
+        <KartBasligi
+          baslik="Ekosisteme katkı"
+          aciklama={
+            ogrenci
+              ? "GençTek dışı etkinlikler, yaptığınız ürünler, verdiğiniz akran eğitimleri ve derece aldığınız yarışmalar. Kayıtları siz girersiniz; danışmanınız ve koordinatörünüz profilinizde görür."
+              : "GençTek dışı etkinlikler, geliştirdiğiniz ürünler, verdiğiniz eğitimler ve derece aldığınız yarışmalar. Kayıtları siz girersiniz; il koordinatörünüz ve proje yöneticisi öğretmen kaydınızda görür."
+          }
+          Ikon={Sparkles}
+        />
+        <KazanimBolumleri
+          kazanimlar={kayit.kazanimlar}
+          silmeEylemi={kazanimSilEylemi}
+          bosMesaji="Henüz kayıt girmediniz."
+          sahip={kazanimSahibi}
+        />
+      </Kart>
+
+      <Kart>
+        <KartBasligi baslik="Yeni kayıt ekle" Ikon={Plus} />
+
+        <nav className="mb-5 flex flex-wrap gap-2" aria-label="Kayıt türü">
+          {kazanimTipleri(kazanimSahibi).map((tanim) => (
+            <Link
+              key={tanim.tip}
+              href={`/panel/profil?tur=${tanim.tip}`}
+              className={
+                tanim.tip === seciliTur ? SINIF_SEKME_SECILI : SINIF_SEKME
+              }
+            >
+              {tanim.baslik}
+            </Link>
+          ))}
+        </nav>
+
+        <p className="mb-4 text-sm text-metin-yumusak">
+          {seciliTanim.aciklama}
+        </p>
+
+        <form action={kazanimEkleEylemi} className="space-y-4">
+          <input type="hidden" name="tip" value={seciliTur} />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/*
+                  GençTek etkinliği listeden seçilir; "Diğer" bırakılırsa ad
+                  serbest yazılır. İki alan da AYNI ANDA basılır çünkü sayfada
+                  JavaScript yok ve seçime göre alan gösterip gizlemenin bir
+                  yolu yok — sunucu hangisinin dolduğuna bakıp adı ona göre
+                  belirler (bkz. lib/ogrenci/kazanim-kurallar.ts).
+                */}
+            {seciliTanim.programSecimiVarMi && (
+              <label className="block sm:col-span-2">
+                <span className="text-sm font-medium text-metin">
+                  GençTek etkinliği
+                </span>
+                <select
+                  name="temelEtkinlikProgramiId"
+                  defaultValue=""
+                  className={SINIF_GIRDI}
+                >
+                  <option value="">
+                    Diğer — adını aşağıya kendim yazacağım
+                  </option>
+                  {TEMEL_ETKINLIK_GRUPLARI.map((grup) => (
+                    <optgroup
+                      key={grup}
+                      label={ETKINLIK_KATEGORISI_ETIKETLERI[grup]}
+                    >
+                      {programlar
+                        .filter((program) => program.grup === grup)
+                        .map((program) => (
+                          <option key={program.id} value={program.id}>
+                            {program.ad}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
             )}
-          </form>
-          {danismanMi(kullanici) && (
-            <p className="mt-3 text-sm text-metin-yumusak">
-              Görevi bıraktığınızda danışmanlığınızdaki öğrenciler okuldaki
-              diğer danışmanlara ya da il koordinatörüne devredilir.
-            </p>
-          )}
-        </Kart>
-      )}
+
+            <label className="block sm:col-span-2">
+              <span className="text-sm font-medium text-metin">
+                {seciliTanim.baslikEtiketi}
+                {seciliTanim.programSecimiVarMi && (
+                  <span className="ml-1 font-normal text-metin-yumusak">
+                    (yalnızca &quot;Diğer&quot; seçtiyseniz)
+                  </span>
+                )}
+              </span>
+              <input
+                type="text"
+                name="baslik"
+                required={!seciliTanim.programSecimiVarMi}
+                maxLength={250}
+                placeholder={seciliTanim.baslikOrnegi}
+                className={SINIF_GIRDI}
+              />
+            </label>
+
+            {seciliTanim.katilimBicimiVarMi && (
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  Katılım biçimi
+                </span>
+                <select
+                  name="katilimBicimi"
+                  defaultValue=""
+                  className={SINIF_GIRDI}
+                >
+                  <option value="">Belirtmek istemiyorum</option>
+                  {KATILIM_BICIMLERI.map((bicim) => (
+                    <option key={bicim} value={bicim}>
+                      {KATILIM_BICIMI_ETIKETLERI[bicim]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {seciliTanim.hedefKitleVarMi && (
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  Hedef kitle
+                </span>
+                <input
+                  type="text"
+                  name="hedefKitle"
+                  maxLength={200}
+                  placeholder="9. sınıflar, veliler, öğretmenler"
+                  className={SINIF_GIRDI}
+                />
+              </label>
+            )}
+
+            {seciliTanim.duzenleyenVarMi && (
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  Düzenleyen kurum
+                </span>
+                <input
+                  type="text"
+                  name="duzenleyen"
+                  maxLength={200}
+                  className={SINIF_GIRDI}
+                />
+              </label>
+            )}
+
+            {seciliTanim.dereceVarMi && (
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  Aldığınız derece
+                </span>
+                <input
+                  type="text"
+                  name="derece"
+                  maxLength={120}
+                  placeholder="Türkiye 1.si"
+                  className={SINIF_GIRDI}
+                />
+              </label>
+            )}
+
+            <label className="block">
+              <span className="text-sm font-medium text-metin">Tarih</span>
+              <input type="date" name="tarih" className={SINIF_GIRDI} />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-metin">
+                Bağlantı (isteğe bağlı)
+              </span>
+              <input
+                type="url"
+                name="baglantiUrl"
+                maxLength={500}
+                placeholder="https://"
+                className={SINIF_GIRDI}
+              />
+            </label>
+
+            <label className="block sm:col-span-2">
+              <span className="text-sm font-medium text-metin">
+                Açıklama (isteğe bağlı)
+              </span>
+              <textarea
+                name="aciklama"
+                rows={3}
+                maxLength={2000}
+                className={SINIF_GIRDI}
+              />
+            </label>
+          </div>
+
+          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+            <Plus size={15} aria-hidden />
+            Ekle
+          </button>
+        </form>
+      </Kart>
     </div>
   );
 }

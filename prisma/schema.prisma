@@ -62,6 +62,16 @@ enum KazanimTipi {
   YARISMA_DERECESI
 }
 
+/// Bir etkinliğin/eğitimin nasıl yürütüldüğü. Yalnızca öğrenci kazanım
+/// kayıtlarında sorulur; faaliyetlerde YOKTUR — faaliyetin yeri kapsamından ve
+/// açıklamasından okunur, kazanım ise dışarıdan gelen bir beyandır ve "nerede
+/// yapıldı" bilgisi başka hiçbir alandan çıkarılamaz.
+enum KatilimBicimi {
+  YUZ_YUZE
+  ONLINE
+  KARMA
+}
+
 /// Faaliyetin KİME AÇIK olduğunu belirler. Etkinliğin niteliğini belirleyen
 /// EtkinlikKategorisi'nden bağımsızdır: her kapsam her kategoriyle birleşebilir.
 enum Kapsam {
@@ -194,10 +204,11 @@ model Ilce {
   ilKodu   String @map("il_kodu") @db.Char(2)
   ad       String @db.VarChar(100)
 
-  il           Il          @relation(fields: [ilKodu], references: [ilKodu])
-  kurumlar     Kurum[]
-  kullanicilar Kullanici[]
-  faaliyetler  Faaliyet[]
+  il               Il                 @relation(fields: [ilKodu], references: [ilKodu])
+  kurumlar         Kurum[]
+  kullanicilar     Kullanici[]
+  faaliyetler      Faaliyet[]
+  ogrenciGorevleri OgrenciGorevRolu[]
 
   @@index([ilKodu])
   @@map("ilce")
@@ -278,7 +289,7 @@ model Kullanici {
   ekledigiGrupSecimleri OgrenciCalismaGrubu[] @relation("GrupSecimEkleyen")
   gorevRolleri    OgrenciGorevRolu[]  @relation("GorevSahibi")
   atadigiGorevler OgrenciGorevRolu[]  @relation("GorevAtayan")
-  kazanimlar      OgrenciKazanim[]
+  kazanimlar      KullaniciKazanim[]
 
   duzenledigiFaaliyetler Faaliyet[]   @relation("FaaliyetDuzenleyen")
   onayladigiFaaliyetler  Faaliyet[]   @relation("FaaliyetOnaylayan")
@@ -403,6 +414,7 @@ model TemelEtkinlikProgrami {
   aktif  Boolean            @default(true)
 
   faaliyetler Faaliyet[]
+  kazanimlar  KullaniciKazanim[]
 
   @@index([grup, siraNo])
   @@map("temel_etkinlik_programi")
@@ -447,20 +459,38 @@ model OgrenciProfil {
   cvBoyutBayt                BigInt?   @map("cv_boyut_bayt")
   cvYuklenmeTarihi           DateTime? @map("cv_yuklenme_tarihi") @db.Timestamptz(6)
 
+  /// Öğrencinin kendi girdiği mesleki bağlantıları. e-Okul'dan GELMEZ ve
+  /// senkronda üzerine yazılmaz; e-posta ve telefonla aynı kategoridedir.
+  ///
+  /// Üçü AYRI sütundur, tek bir "bağlantılar" metni değil: ekran her birini
+  /// kendi adıyla ve kendi ikonuyla gösteriyor, tek metinde tutulsaydı hangi
+  /// adresin ne olduğu ayrıştırılamazdı. Adres doğrulaması (yalnızca
+  /// http/https) uygulama katmanındadır — bkz. lib/ogrenci/iletisim-kurallar.ts.
+  githubUrl                  String?   @map("github_url") @db.VarChar(200)
+  kisiselSiteUrl             String?   @map("kisisel_site_url") @db.VarChar(200)
+  linkedinUrl                String?   @map("linkedin_url") @db.VarChar(200)
+
   kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
 
   @@map("ogrenci_profil")
 }
 
-/// İl Temsilcisi ve Okul Temsilcisi görev rolleri HİÇBİR ek veri görüntüleme
-/// yetkisi vermez (bkz. references/permissions.md Bölüm 5). Eğitim-öğretim yılı
-/// bazlıdır; dönem başına il/okul tekilliği kısmi unique index ile korunur.
+/// İl, İlçe ve Okul Temsilcisi görev rolleri HİÇBİR ek veri görüntüleme yetkisi
+/// vermez (bkz. references/permissions.md Bölüm 5). Eğitim-öğretim yılı
+/// bazlıdır; dönem başına il/ilçe/okul tekilliği kısmi unique index ile korunur.
+///
+/// Her rolün kapsamı KENDİ sütununda durur (il / ilçe / kurum) ve o sütun rolüne
+/// göre zorunludur (ck_ogrenci_gorev_kapsam). Kapsam öğrencinin kaydından
+/// okunmaz: öğrenci okul değiştirdiğinde dönem içinde verilmiş görev, verildiği
+/// yerde kalmalıdır.
 model OgrenciGorevRolu {
   id                Int          @id @default(autoincrement())
   ogrenciId         Int          @map("ogrenci_id")
   rolKodu           GorevRolKodu @map("rol_kodu")
   egitimOgretimYili String       @map("egitim_ogretim_yili") @db.VarChar(9)
   ilKodu            String?      @map("il_kodu") @db.Char(2)
+  /// ILCE_TEMSILCISI rolünün kapsamı.
+  ilceKodu          String?      @map("ilce_kodu") @db.Char(4)
   kurumKodu         Int?         @map("kurum_kodu")
   atayanKullaniciId Int          @map("atayan_kullanici_id")
   atamaTarihi       DateTime     @default(now()) @map("atama_tarihi") @db.Timestamptz(6)
@@ -468,18 +498,26 @@ model OgrenciGorevRolu {
   ogrenci Kullanici @relation("GorevSahibi", fields: [ogrenciId], references: [id])
   atayan  Kullanici @relation("GorevAtayan", fields: [atayanKullaniciId], references: [id])
   il      Il?       @relation(fields: [ilKodu], references: [ilKodu])
+  ilce    Ilce?     @relation(fields: [ilceKodu], references: [ilceKodu])
   kurum   Kurum?    @relation(fields: [kurumKodu], references: [kurumKodu])
 
   @@index([ogrenciId])
   @@map("ogrenci_gorev_rolu")
 }
 
-/// Öğrencinin kendi girdiği başarı/üretim kayıtları: GençTek dışı etkinlikler,
-/// yaptığı ürünler, verdiği akran eğitimleri ve derece aldığı yarışmalar.
+/// Kişinin kendi girdiği başarı/üretim kayıtları: GençTek dışı etkinlikler,
+/// yaptığı ürünler, verdiği eğitimler ve derece aldığı yarışmalar.
+///
+/// SAHİBİ ÖĞRENCİ DE ÖĞRETMEN DE OLABİLİR — bu yüzden sütun `ogrenci_id` değil
+/// `kullanici_id`'dir. Kaydın kime ait olduğu sütunda TUTULMAZ, sahibin aktif
+/// rolünden okunur: kopyalanan bir "tip" alanı öğrenci mezun olduğunda ya da
+/// öğretmen görev değiştirdiğinde eskir (aynı gerekçe `basvuru.katilimci_id`
+/// için de geçerli). Ekranın etiketleri sahibe göre değişir ("verdiğim akran
+/// eğitimleri" / "verdiğim eğitimler") ama kayıt aynı kayıttır.
 ///
 /// KATILDIĞI GENÇTEK ETKİNLİKLERİ BURAYA YAZILMAZ. O liste `basvuru` + `faaliyet`
 /// üzerinden türetilir (bkz. src/lib/kazanim/getir.ts); türetilebilen veriyi
-/// öğrencinin eliyle ikinci kez girmesi hem yanlış hem de doğrulanamaz olurdu.
+/// kişinin eliyle ikinci kez girmesi hem yanlış hem de doğrulanamaz olurdu.
 ///
 /// FAZ 2 NOTU: Rozet/katkı kategorileri netleşti (İl Temsilcisi, Okul
 /// Temsilcisi, verdiği akran eğitimleri, çalışma grubu yöneticiliği /
@@ -487,9 +525,9 @@ model OgrenciGorevRolu {
 /// yarışmalar). Rozet sistemi açıldığında yeni tablo AÇILMAZ: bu tablonun
 /// `tip` alanı genişletilir — kategoriler mevcut değerlerle büyük ölçüde
 /// örtüşüyor (bkz. references/domain-rules.md Bölüm 13).
-model OgrenciKazanim {
+model KullaniciKazanim {
   id          Int         @id @default(autoincrement())
-  ogrenciId   Int         @map("ogrenci_id")
+  kullaniciId Int         @map("kullanici_id")
   tip         KazanimTipi
   baslik      String      @db.VarChar(250)
   aciklama    String?     @db.Text
@@ -501,14 +539,28 @@ model OgrenciKazanim {
   derece      String?     @db.VarChar(120)
   /// Etkinliği/yarışmayı düzenleyen kurum ya da kuruluş.
   duzenleyen  String?     @map("duzenleyen") @db.VarChar(200)
+  /// Kayıt adı bilinen bir GençTek programından geliyorsa o programa işaret
+  /// eder; "Diğer" seçilip serbest metin yazıldığında boş kalır.
+  ///
+  /// `baslik` bu durumda da DOLDURULUR (programın adı kopyalanır): program
+  /// pasife alındığında ya da adı değiştiğinde öğrencinin geçmiş kaydı
+  /// okunamaz hâle gelmemeli. Bağlantı, aynı programa ait kayıtları
+  /// gruplayabilmek için tutulur.
+  temelEtkinlikProgramiId Int? @map("temel_etkinlik_programi_id")
+  /// Yüz yüze / online / karma. Ürün kayıtlarında anlamsızdır, boş kalır.
+  katilimBicimi KatilimBicimi? @map("katilim_bicimi")
+  /// Eğitimin/etkinliğin kime yönelik olduğu ("9. sınıflar", "veliler").
+  /// Serbest metindir: sabit bir liste, akran eğitiminin çeşitliliğini taşımaz.
+  hedefKitle  String?     @map("hedef_kitle") @db.VarChar(200)
   /// Kaydın girildiği an. Kullanıcının girdiği `tarih` boş olabildiği için
   /// listeleme sırası buradan kurulur.
   olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
-  ogrenci Kullanici @relation(fields: [ogrenciId], references: [id])
+  kullanici             Kullanici              @relation(fields: [kullaniciId], references: [id])
+  temelEtkinlikProgrami TemelEtkinlikProgrami? @relation(fields: [temelEtkinlikProgramiId], references: [id])
 
-  @@index([ogrenciId])
-  @@map("ogrenci_kazanim")
+  @@index([kullaniciId])
+  @@map("kullanici_kazanim")
 }
 
 // ---------------------------------------------------------------------------

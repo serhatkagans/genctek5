@@ -11,18 +11,20 @@
 | Kazanım kaydı ekleme / silme (dış etkinlik, ürün, akran eğitimi, yarışma derecesi) | ✓ (yalnızca kendi kayıtları) | ✗ | ✗ | ✗ |
 | Öğrenci CV'si yükleme / kaldırma | ✓ (yalnızca kendisi) | ✗ | ✗ | ✗ |
 | Öğrenci CV'si indirme | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller |
-| Okul içi faaliyet açma | ✗ | ✓ | ✓ | ✓ |
-| İl içi faaliyet açma | ✗ | ✗ | ✓ | ✓ |
-| Ulusal faaliyet açma | ✗ | ✗ | ✓ (onaya tabi) | ✓ |
+| Okul içi faaliyet açma | ✓ (onaya tabi) | ✓ | ✓ | ✓ |
+| İl içi faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ | ✓ |
+| Ulusal faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ (onaya tabi) | ✓ |
 | Faaliyete dosya/görsel ekleme | ✗ | Kendi açtığı faaliyete | Kendi açtığı faaliyete | Her faaliyete |
 | Faaliyete yorum yazma | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ |
 | Kendi yorumunu silme | ✓ | ✓ | ✓ | ✓ |
 | Başkasının yorumunu silme | ✗ | Kendi faaliyetinde | Kendi faaliyetinde | Her yerde |
 | Başvuru değerlendirme | ✗ | Kendi faaliyeti | Kendi faaliyeti | Tümü |
 | Ulusal faaliyet onaylama | ✗ | ✗ | ✗ | ✓ |
+| Öğrenci faaliyeti onaylama | ✗ | ✗ | ✓ (kendi ili) | ✓ |
 | İl koordinatörü atama | ✗ | ✗ | ✗ | ✓ |
 | Okul temsilcisi atama | ✗ | ✓ (kendi okulu) | ✗ | ✓ |
 | İl temsilcisi atama | ✗ | ✗ | ✓ (kendi ili) | ✓ |
+| İlçe temsilcisi atama | ✗ | ✗ | ✓ (kendi ili) | ✓ |
 | Çalışma grubu tanımlama | ✗ | ✗ | ✗ | ✓ |
 | Faaliyete katılımcı olarak başvuru | ✓ | ✓ | ✓ | ✗ |
 | Öğrenci ADINA başvuru | ✗ | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller |
@@ -35,6 +37,10 @@
 | Rol/atama envanterini görüntüleme | ✗ | ✗ | ✗ | ✓ |
 
 **Rol/atama envanteri**, "Öğrenci/öğretmen verisi görüntüleme" satırından **ayrı** bir yetkidir: o tekil profil erişimi, bu toplu/yönetimsel görünüm. İl koordinatörü kendi ilindeki danışmansız okulları zaten görür; envanter aynı sorguyu **il filtresi olmadan** çalıştırdığı için yalnızca proje yöneticisine açıktır.
+
+**Öğrenci de faaliyet açar ve kapsam sınırı yoktur** — sınır kapsamda değil **onayda** kuruldu. Öğrencinin açtığı hiçbir faaliyet kendiliğinden yayına girmez; okul içi öneri bile onay bekler, çünkü 18 yaş altı bir kullanıcının açtığı çağrı sorumlusuz çıkmamalıdır. Onaya kadar faaliyet yalnızca öğrenciye ve onaylayacak kişilere görünür.
+
+**Öğrenci faaliyetini iki taraf onaylayabilir:** öğrencinin ilinin koordinatörü ve YEĞİTEK proje yöneticileri. İkisi de tam yetkilidir, **ilk verilen karar geçerlidir** — ayrı bir sıra ya da çift onay adımı yoktur. Koordinatörün de yetkili olması şart: onay yalnızca merkeze bırakılsaydı bir okulun kendi içindeki öğrenci etkinliği merkezin sırası gelene kadar bekler ve öneri pratikte ölürdü. Onaylayacak kişi onaylayacağı şeyi görmek zorunda olduğu için, kapsam filtresi ilin koordinatörüne o ildeki öğrencilerin **onay bekleyen** faaliyetlerini de açar.
 
 **Kazanım kayıtları ve CV öğrenci beyanıdır.** Danışman, koordinatör ve proje yöneticisi bunları **görür ama düzenlemez** — profilinde kayıt açan tek kişi öğrencinin kendisidir. Çalışma grubu eklemenin buradan farkı bilinçlidir: grup üyeliği programın işleyişine ait bir karardır (danışman öğrenciyi yönlendirebilir), kazanım beyanı ise öğrencinin kendi geçmişidir.
 
@@ -102,7 +108,11 @@ Dosya/görsel **yükleme** yetkisi yalnızca faaliyeti açan kullanıcıdadır; 
 
 ## 5. Öğrenci görev rolleri yetki vermez
 
-`IL_TEMSILCISI` ve `OKUL_TEMSILCISI` rollerine sahip öğrenciler, diğer öğrencilerle **aynı** yetkiye sahiptir. Bu roller için yetki kontrolüne dal ekleme. Sadece profilde ve ileride rozet olarak gösterilir.
+`IL_TEMSILCISI`, `ILCE_TEMSILCISI` ve `OKUL_TEMSILCISI` rollerine sahip öğrenciler, diğer öğrencilerle **aynı** yetkiye sahiptir. Bu roller için yetki kontrolüne dal ekleme. Sadece profilde, öğrenci listesinde ve katkı kartında gösterilir.
+
+Üçünün de **kapsamı kendi sütununda** durur (`il_kodu` / `ilce_kodu` / `kurum_kodu`) ve rolüne göre zorunludur (`ck_ogrenci_gorev_kapsam`). Kapsam öğrencinin güncel kaydından okunmaz: öğrenci dönem içinde okul değiştirdiğinde görev **verildiği yerde** kalmalıdır.
+
+**İlçe temsilcisini ilin koordinatörü belirler.** Sistemde ilçe düzeyinde görevli yoktur (`RolKodu`'nda `ILCE_KOORDINATOR` diye bir değer yok); ilçe, ilin içindeki bir basamaktır. Bu yüzden `ilceTemsilcisiAtayabilirMi` ilçe kodunu değil **il kodunu** alır.
 
 ## 6. Mock kimlik doğrulama aşamasında yetki
 
@@ -117,13 +127,13 @@ Dosya/görsel **yükleme** yetkisi yalnızca faaliyeti açan kullanıcıdadır; 
 | `GET /ogrenciler/:id/cv` | Kapsam filtresi + erişim logu; dosya public dizinden servis edilmez, kapsam dışında 404 |
 | `POST /ogrenciler/:id/calisma-gruplari` | Rol (`ogrenciCalismaGrubuYonetebilirMi`) **ve** kapsam filtresi birlikte; yalnızca `aktif=true` gruba yeni kayıt |
 | `DELETE /ogrenciler/:id/calisma-gruplari/:grupId` | Aynı yetki; pasif gruptan da çıkarılabilir |
-| `POST /profil/kazanimlar` | Yalnızca OGRENCI; `ogrenci_id` daima oturumdan alınır, form girdisinden **okunmaz**; bağlantıda yalnızca http/https |
-| `DELETE /profil/kazanimlar/:id` | Silme koşuluna `ogrenci_id = @kullaniciId` **eklenir** (yalnızca id'ye göre silme, başkasının kaydını silmeye açık kapı bırakır) |
+| `POST /profil/kazanimlar` | Öğrenci ve öğretmen (kendi kaydı); `kullanici_id` daima oturumdan alınır, form girdisinden **okunmaz**; bağlantıda yalnızca http/https |
+| `DELETE /profil/kazanimlar/:id` | Silme koşuluna `kullanici_id = @kullaniciId` **eklenir** (yalnızca id'ye göre silme, başkasının kaydını silmeye açık kapı bırakır) |
 | `PUT /profil/cv` | Yalnızca OGRENCI, yalnızca kendi profili; tip/boyut kontrolü `IZINLI_CV_TIPLERI` ve `CV_MAKS_BAYT` ayarlarından |
 | `DELETE /profil/cv` | Aynı yetki; kayıt temizlenir, sonra dosya silinir |
-| `POST /faaliyetler` | Kapsam yetkisi: danışman yalnızca OKUL, il koordinatörü OKUL/IL/ULUSAL |
-| `POST /faaliyetler/:id/onayla` | Yalnızca PROJE_YONETICISI |
-| `GET /faaliyetler` | Öğrenciye yalnızca kendi kapsamındaki + onaylı faaliyetler |
+| `POST /faaliyetler` | Kapsam yetkisi: danışman yalnızca OKUL, il koordinatörü ve öğrenci OKUL/IL/ULUSAL. Öğrencinin açtığı faaliyet her kapsamda `onay_durumu=BEKLIYOR` yazılır |
+| `POST /faaliyetler/:id/onayla` | PROJE_YONETICISI **veya** öğrenci faaliyetinde öğrencinin ilinin koordinatörü. Kayıt önce kapsam filtresinden çekilir: yetki faaliyete bağlı olduğu için kaydı görmeden karar verilemez |
+| `GET /faaliyetler` | Öğrenciye yalnızca kendi kapsamındaki + onaylı faaliyetler; koordinatöre ek olarak kendi ilindeki öğrencilerin onay bekleyen önerileri |
 | `POST /faaliyetler/:id/ekler` | Yalnızca `duzenleyen_kullanici_id = @kullaniciId`; tip/boyut kontrolü |
 | `GET /faaliyetler/:id/ekler` | Faaliyet görünürlük kontrolünden geçer |
 | `POST /faaliyetler/:id/yorumlar` | Faaliyet görünürlük kontrolünden geçer; içerik boş olamaz |
@@ -137,7 +147,8 @@ Dosya/görsel **yükleme** yetkisi yalnızca faaliyeti açan kullanıcıdadır; 
 | `PATCH /faaliyetler/:id` | Faaliyeti açan / yetki devralan koordinatör / PROJE_YONETICISI; kontenjan seçilen sayısının altına düşürülemez; onaylı ulusal faaliyette tarih değişirse onay düşer |
 | `POST /faaliyetler/:id/iptal` | Aynı yetki; aktif başvurular IPTAL_EDILDI'ye geçer ve öğrencilere bildirim gider |
 | `POST /danisman-secim` | Yalnızca OGRENCI; seçilen öğretmen aynı kurum kodunda ve danışman işaretli olmalı |
-| `PUT /profil` | Salt okunur alanlar gelirse **sessizce yok say**, hata döndürme yerine logla |
+| `PUT /profil` | Salt okunur alanlar gelirse **sessizce yok say**, hata döndürme yerine logla. GitHub / kişisel site / LinkedIn yalnızca öğrenci profilinde tutulur; yalnızca http/https kabul edilir |
+| `POST /gorev-rolleri` | `IL_TEMSILCISI` ve `ILCE_TEMSILCISI` için ilin koordinatörü, `OKUL_TEMSILCISI` için okulun danışmanı; öğrenci kapsam filtresinden geçmeli. Kapsam sütunu öğrencinin kaydından okunup göreve **yazılır** |
 
 ## 8. Sık yapılan hatalar
 

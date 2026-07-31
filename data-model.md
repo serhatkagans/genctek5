@@ -111,24 +111,35 @@ Silme yok. Kapanan grup `aktif=false`.
 
 ## 5. Öğrenci envanteri
 
-**ogrenci_profil** — `kullanici_id` (PK, FK), `eposta`, `telefon`, `aydinlatma_metni_onay_tarihi`, `cv_dosya_adi`, `cv_depolama_yolu`, `cv_mime_tipi`, `cv_boyut_bayt`, `cv_yuklenme_tarihi`
+**ogrenci_profil** — `kullanici_id` (PK, FK), `eposta`, `telefon`, `github_url`, `kisisel_site_url`, `linkedin_url`, `aydinlatma_metni_onay_tarihi`, `cv_dosya_adi`, `cv_depolama_yolu`, `cv_mime_tipi`, `cv_boyut_bayt`, `cv_yuklenme_tarihi`
+
+Mesleki bağlantılar (`github_url`, `kisisel_site_url`, `linkedin_url`) varchar(200), null. **Öğrenci beyanıdır**: sistem sayfanın gerçekten ona ait olduğunu doğrulamaz, yalnızca biçimi kontrol eder — yalnızca `http`/`https`, protokolsüz girilen adres reddedilmez **tamamlanır** (`github.com/ali` → `https://github.com/ali`). Doğru bilgi vermiş birini biçim yüzünden geri çevirmenin karşılığı yok. Üçü ayrı sütundur, tek bir "bağlantılar" JSON'u değil: her biri ekranda kendi ikonuyla çıkar ve LinkedIn kutusuna GitHub adresi yazıldığında uyarılabilir.
 
 CV alanları `faaliyet_ek` ile **aynı depolama soyutlamasını** kullanır: `cv_depolama_yolu` bir anahtardır, dosya yolu değil; orijinal ad yalnızca indirirken gösterilmek üzere saklanır. Öğrenci başına **tek kayıt** tutulur — yeni yükleme eskisinin yerine geçer, sürüm arşivi tutulmaz. Alanlar birlikte dolar ya da birlikte boşalır (`ck_ogrenci_profil_cv`).
 
 **ogrenci_gorev_rolu**
-`id`, `ogrenci_id` (FK), `rol_kodu` (IL_TEMSILCISI / OKUL_TEMSILCISI), `egitim_ogretim_yili`, `il_kodu` veya `kurum_kodu`, `atayan_kullanici_id`, `atama_tarihi`
+`id`, `ogrenci_id` (FK), `rol_kodu` (IL_TEMSILCISI / ILCE_TEMSILCISI / OKUL_TEMSILCISI), `egitim_ogretim_yili`, `il_kodu` / `ilce_kodu` / `kurum_kodu`, `atayan_kullanici_id`, `atama_tarihi`
 
-**ogrenci_kazanim** — öğrencinin kendi girdiği başarı/üretim kayıtları
-`id`, `ogrenci_id`, `tip` (DIS_ETKINLIK / URUN / AKRAN_EGITIMI / YARISMA_DERECESI), `baslik`, `aciklama`, `tarih`, `baglanti_url`, `derece`, `duzenleyen`, `olusturma_tarihi`
+Kapsam sütunu **role göre** dolar ve `ck_ogrenci_gorev_kapsam` ile zorlanır. Kapsam öğrencinin güncel kaydından okunmaz, atama anında göreve **yazılır**: öğrenci dönem içinde okul (dolayısıyla ilçe) değiştirdiğinde görev verildiği yerde kalmalıdır. `ilce_kodu` → `ilce(kod)` FK'sidir; ilçesi olmayan öğrenciye İlçe Temsilciliği verilemez, kısıt zaten reddeder.
+
+**kullanici_kazanim** — kullanıcının kendi girdiği başarı/üretim kayıtları
+`id`, `kullanici_id`, `tip` (DIS_ETKINLIK / URUN / AKRAN_EGITIMI / YARISMA_DERECESI), `baslik`, `aciklama`, `tarih`, `baglanti_url`, `derece`, `duzenleyen`, `temel_etkinlik_programi_id`, `katilim_bicimi`, `hedef_kitle`, `olusturma_tarihi`
+
+Tablo öğrenci için açıldı, **öğretmen de aynı tabloya yazar** (bu yüzden `ogrenci_id` → `kullanici_id` olarak yeniden adlandırıldı; öğrenci envanterinde duruyor olması tarihsel). Öğretmenin geliştirdiği ürün ile öğrencinin geliştirdiği ürün aynı kayıttır; ikinci bir tablo aynı doğrulama kurallarını, aynı formu ve aynı silme yolunu ikinci kez yazdırırdı. Ayrışan tek şey **etiketlerdir**: öğretmende "verdiğim akran eğitimleri" yerine "verdiğim eğitimler" yazar (`src/lib/kazanim/kurallar.ts`), alan kuralları rolden bağımsızdır — aksi hâlde aynı kayıt, girenin rolüne göre farklı doğrulanır, öğretmenlikten ayrılan birinin kaydı geçersizleşirdi.
 
 | Alan | Not |
 |---|---|
-| tip | DIS_ETKINLIK: GençTek dışı ulusal/uluslararası etkinlikler · URUN: web sitesi, uygulama, oyun, film · AKRAN_EGITIMI: öğrencinin **verdiği** eğitimler · YARISMA_DERECESI: bilişim alanında derece aldığı yarışmalar (GençTek içi ve dışı) |
+| tip | DIS_ETKINLIK: GençTek dışı ulusal/uluslararası etkinlikler · URUN: web sitesi, uygulama, oyun, film · AKRAN_EGITIMI: kullanıcının **verdiği** eğitimler · YARISMA_DERECESI: bilişim alanında derece aldığı yarışmalar (GençTek içi ve dışı) |
 | derece | varchar(120), null. Serbest metin ("Türkiye 1.si", "Mansiyon") — adlandırma yarışmadan yarışmaya değiştiği için sabit liste yok. Yalnızca YARISMA_DERECESI'nde anlamlı |
 | duzenleyen | varchar(200), null. Düzenleyen kurum. URUN'de anlamsızdır, o türde yazılmaz |
+| temel_etkinlik_programi_id | FK, null. Kayıt bir GençTek programına aitse (EğitiJAM, Capture The Flag…) buraya bağlanır. Formdaki **"Diğer"** seçeneği bu alanı boş bırakıp `duzenleyen`e serbest metin yazar: liste tek başına bırakılsaydı listede olmayan etkinlik hiç girilemez, serbest metin tek başına bırakılsaydı aynı program onlarca yazımla girilip sayılamaz olurdu |
+| katilim_bicimi | KatilimBicimi enum, null: YUZ_YUZE / ONLINE / KARMA. URUN'de sorulmaz |
+| hedef_kitle | varchar(200), null. Akran eğitiminde kime anlatıldığı, yarışmada hangi kategoride yarışıldığı. Serbest metin — kitleyi listeye sığdırmaya çalışmak beyanı çarpıtırdı |
 | olusturma_tarihi | Sıralama için zorunlu: kullanıcının girdiği `tarih` boş olabildiği için tek başına ölçüt olamıyor |
 
-**Katıldığı GençTek etkinlikleri bu tabloda TUTULMAZ.** O liste `basvuru` (durum=SECILDI) + `faaliyet` (tarihi geçmiş, durum=AKTIF) üzerinden türetilir. Türetilebilen veriyi öğrencinin eliyle ikinci kez girmesi hem yanlış hem doğrulanamaz olurdu; aynı gerekçeyle İl/Okul Temsilcisi görevleri de buraya yazılmaz (kaynağı `ogrenci_gorev_rolu`).
+**"Yaptığım ürünler" için ayrı tablo yoktur**: bu tablodaki `tip=URUN` kayıtlarıdır, yalnızca ayrı bir kartta gösterilir. İkinci bir tablo aynı kaydın iki yerde yaşamasına ve birinden silinip diğerinde kalmasına yol açardı.
+
+**Katıldığı GençTek etkinlikleri bu tabloda TUTULMAZ.** O liste `basvuru` (durum=SECILDI) + `faaliyet` (tarihi geçmiş, durum=AKTIF) üzerinden türetilir. Türetilebilen veriyi kullanıcının eliyle ikinci kez girmesi hem yanlış hem doğrulanamaz olurdu; aynı gerekçeyle İl/İlçe/Okul Temsilcisi görevleri (kaynağı `ogrenci_gorev_rolu`), öğretmenin danışmanlıkları (`danisman_atama`) ve düzenlediği faaliyetler (`faaliyet.duzenleyen_kullanici_id`) de buraya yazılmaz.
 
 > **Faz 2 (rozet sistemi) notu.** Rozet/katkı kategorileri netleşti: İl Temsilcisi, Okul Temsilcisi, verdiği akran eğitimleri, çalışma grubu yöneticiliği / organizasyon ekibi üyeliği (bu madde hâlâ belirsiz), moderatörlük yaptığı etkinlikler, derece aldığı yarışmalar (GençTek içi ve dışı). Liste mevcut `tip` değerleriyle büyük ölçüde örtüştüğü için Faz 2 açıldığında **yeni tablo açma**: bu tablonun `tip` alanını genişlet. Bazı kategorilerin (İl/Okul Temsilcisi) kaynağı zaten `ogrenci_gorev_rolu`, bazılarının (moderatörlük) kaynağı faaliyet ilişkisidir — türetilebilenler için ayrıca kayıt tutma.
 
@@ -157,7 +168,9 @@ CV alanları `faaliyet_ek` ile **aynı depolama soyutlamasını** kullanır: `cv
 | iptal_eden_kullanici_id | int, null, FK | durum=IPTAL_EDILDI ise zorunlu |
 | iptal_tarihi | timestamptz, null | durum=IPTAL_EDILDI ise zorunlu |
 
-Kapsam=ULUSAL ve düzenleyen il koordinatörü ise `onay_durumu=BEKLIYOR` ile oluşur. Diğer durumlarda `ONAY_GEREKMEZ`.
+İki durumda `onay_durumu=BEKLIYOR` ile oluşur: (a) kapsam=ULUSAL ve düzenleyen il koordinatörü ise, (b) **düzenleyen öğrenci ise — kapsamı ne olursa olsun**. Diğer durumlarda `ONAY_GEREKMEZ`.
+
+Öğrencinin açtığı faaliyette `kurum_kodu` / `il_kodu`, öğrencinin **kayıtlı okulundan ve ilinden** yazılır (öğrencinin koordinatör rolü olmadığı için başka kaynak yok) ve `duzenleyen_birim` **"Öğrenci girişimi"** olur: okulun adıyla anılması, öğrencinin kişisel önerisini okul yönetimine mal ederdi.
 
 **Kapsam ve etkinlik kategorisi bağımsız iki alandır.** Her kapsam her kategoriyle birleşebilir; birini diğerinden türetme. Temel Etkinlik ve Çalışma Grubu Etkinliği'nde faaliyetin **adı serbest metin değildir**, `temel_etkinlik_programi`'ndan gelir; İl Etkinliği'nde tam tersine ad serbesttir ve program bağlantısı boş kalır (ad zaten temayı taşır).
 
@@ -299,6 +312,10 @@ WHERE durum <> 'GERI_CEKILDI';
 CREATE UNIQUE INDEX ux_il_temsilcisi
 ON ogrenci_gorev_rolu(il_kodu, egitim_ogretim_yili)
 WHERE rol_kodu = 'IL_TEMSILCISI';
+
+CREATE UNIQUE INDEX ux_ilce_temsilcisi
+ON ogrenci_gorev_rolu(ilce_kodu, egitim_ogretim_yili)
+WHERE rol_kodu = 'ILCE_TEMSILCISI';
 
 CREATE UNIQUE INDEX ux_okul_temsilcisi
 ON ogrenci_gorev_rolu(kurum_kodu, egitim_ogretim_yili)

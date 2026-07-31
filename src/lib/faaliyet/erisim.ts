@@ -98,6 +98,15 @@ export function faaliyetKapsamiCikar(faaliyet: {
   duzenleyen?: { ilKodu: string | null; roller: { rolKodu: RolKodu }[] };
 }): FaaliyetKapsami {
   /*
+   * Faaliyeti öğrenci mi açtı? Rol kaydından okunur, faaliyete kopyalanmaz —
+   * kopyalanan bir alan öğrenci mezun olduğunda ya da rolü değiştiğinde eskirdi
+   * (bkz. prisma/schema.prisma · Basvuru'daki aynı gerekçe).
+   */
+  const duzenleyenOgrenciMi = faaliyet.duzenleyen
+    ? faaliyet.duzenleyen.roller.some((rol) => rol.rolKodu === "OGRENCI")
+    : false;
+
+  /*
    * Faaliyetin ili kapsam alanlarından okunamaz: okul içi faaliyette il kodu
    * boştur (okulunki geçerlidir), ulusal faaliyette ikisi de boştur ve
    * devralacak kişi düzenleyenin ilindeki koordinatördür.
@@ -121,6 +130,7 @@ export function faaliyetKapsamiCikar(faaliyet: {
           GOREV_ROLLERI.includes(rol.rolKodu),
         )
       : true,
+    duzenleyenOgrenciMi,
   };
 }
 

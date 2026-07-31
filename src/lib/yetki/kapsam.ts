@@ -395,9 +395,9 @@ export const DEGERLENDIRME_KATILIMCI_ALANLARI = {
 } as const;
 
 /**
- * Faaliyet görünürlük filtresi. Onay bekleyen faaliyet yalnızca düzenleyene ve
- * proje yöneticisine görünür; öğrenciye yalnızca kendi kapsamındaki onaylı
- * faaliyetler listelenir.
+ * Faaliyet görünürlük filtresi. Onay bekleyen faaliyet yalnızca düzenleyene,
+ * onaylamaya yetkili olana ve proje yöneticisine görünür; öğrenciye yalnızca
+ * kendi kapsamındaki onaylı faaliyetler listelenir.
  */
 export function faaliyetKapsamFiltresi(
   kullanici: OturumKullanicisi,
@@ -405,6 +405,29 @@ export function faaliyetKapsamFiltresi(
   if (projeYoneticisiMi(kullanici)) {
     return {};
   }
+
+  /*
+   * İl koordinatörü, kendi ilindeki bir ÖĞRENCİNİN açtığı onay bekleyen
+   * faaliyeti görür — onaylayacak olan kişi onaylayacağı şeyi göremezse öneri
+   * hiç ulaşmamış olurdu (bkz. ogrenciFaaliyetiniOnaylayabilirMi).
+   *
+   * Koşul düzenleyenin İLİNE bakar, faaliyetin kapsam alanlarına değil: ulusal
+   * öneride kapsam alanlarının ikisi de boştur ve öneriyi değerlendirecek
+   * koordinatör, öğrencinin kendi ilinin koordinatörüdür.
+   */
+  const koordinatorIli = koordinatorIlKodu(kullanici);
+  const onaylayabilecekleri: Prisma.FaaliyetWhereInput[] =
+    koordinatorIli !== null
+      ? [
+          {
+            onayDurumu: "BEKLIYOR",
+            duzenleyen: {
+              ilKodu: koordinatorIli,
+              roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } },
+            },
+          },
+        ]
+      : [];
 
   const yayindaOlanlar: Prisma.FaaliyetWhereInput = {
     onayDurumu: { in: ["ONAY_GEREKMEZ", "ONAYLANDI"] },
@@ -417,20 +440,19 @@ export function faaliyetKapsamFiltresi(
         ? [{ kapsam: "IL" as const, ilKodu: kullanici.ilKodu }]
         : []),
       // İl koordinatörü kendi ilinin okul içi faaliyetlerini de görür.
-      ...(koordinatorIlKodu(kullanici) !== null
-        ? [
-            {
-              kapsam: "OKUL" as const,
-              kurum: { ilKodu: koordinatorIlKodu(kullanici)! },
-            },
-          ]
+      ...(koordinatorIli !== null
+        ? [{ kapsam: "OKUL" as const, kurum: { ilKodu: koordinatorIli } }]
         : []),
     ],
   };
 
   // Kişinin kendi açtığı faaliyetler onay durumundan bağımsız görünür.
   return {
-    OR: [{ duzenleyenKullaniciId: kullanici.id }, yayindaOlanlar],
+    OR: [
+      { duzenleyenKullaniciId: kullanici.id },
+      ...onaylayabilecekleri,
+      yayindaOlanlar,
+    ],
   };
 }
 

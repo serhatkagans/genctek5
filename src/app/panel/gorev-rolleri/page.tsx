@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { GOREV_ROL_ETIKETLERI } from "@/lib/yetki/etiketler";
 import {
   danismanKurumKodu,
+  ilceTemsilcisiAtayabilirMi,
   ilTemsilcisiAtayabilirMi,
   koordinatorIlKodu,
   okulTemsilcisiAtayabilirMi,
@@ -76,9 +77,11 @@ export default async function GorevRolleriSayfasi({
       soyad: true,
       sinif: true,
       ilKodu: true,
+      ilceKodu: true,
       kurumKodu: true,
       kurum: { select: { ad: true } },
       il: { select: { ad: true } },
+      ilce: { select: { ad: true } },
       gorevRolleri: {
         where: { egitimOgretimYili: kullanici.egitimOgretimYili },
         select: { id: true, rolKodu: true },
@@ -94,6 +97,19 @@ export default async function GorevRolleriSayfasi({
       !ogrenci.gorevRolleri.some((rol) => rol.rolKodu === "IL_TEMSILCISI")
     ) {
       roller.push("IL_TEMSILCISI");
+    }
+    /*
+     * İlçe temsilciliği ancak öğrencinin ilçesi BİLİNİYORSA teklif edilir.
+     * e-Okul kaydında ilçesi boş olan öğrenciye bu görev verilemez; kapsam
+     * sütunu boş kalacağı için veritabanı kısıtı da reddederdi.
+     */
+    if (
+      ogrenci.ilKodu &&
+      ogrenci.ilceKodu &&
+      ilceTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu) &&
+      !ogrenci.gorevRolleri.some((rol) => rol.rolKodu === "ILCE_TEMSILCISI")
+    ) {
+      roller.push("ILCE_TEMSILCISI");
     }
     if (
       ogrenci.kurumKodu &&
@@ -127,7 +143,9 @@ export default async function GorevRolleriSayfasi({
             Görev rolleri <strong>hiçbir ek görüntüleme yetkisi vermez</strong>;
             dönem bazlı bir görev etiketidir. Kimlik ve okul bilgileri e-Okul
             kaynaklıdır ve bu ekrandan da değiştirilemez. Her dönem bir ilde tek
-            İl Temsilcisi, bir okulda tek Okul Temsilcisi bulunur.
+            İl Temsilcisi, bir ilçede tek İlçe Temsilcisi, bir okulda tek Okul
+            Temsilcisi bulunur. İlçe temsilcisini de ilin koordinatörü belirler;
+            ilçe düzeyinde ayrı bir görevli yoktur.
           </span>
         </span>
       </BilgiKutusu>
@@ -155,7 +173,12 @@ export default async function GorevRolleriSayfasi({
                     </Link>
                   </p>
                   <p className="text-sm text-metin-yumusak">
-                    {[ogrenci.sinif, ogrenci.kurum?.ad, ogrenci.il?.ad]
+                    {[
+                      ogrenci.sinif,
+                      ogrenci.kurum?.ad,
+                      ogrenci.ilce?.ad,
+                      ogrenci.il?.ad,
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>

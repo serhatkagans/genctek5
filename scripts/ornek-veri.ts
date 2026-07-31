@@ -187,7 +187,9 @@ async function uretilenleriSil() {
       OR: [{ ogrenciId: { in: idler } }, { atayanKullaniciId: { in: idler } }],
     },
   });
-  await prisma.ogrenciKazanim.deleteMany({ where: { ogrenciId: { in: idler } } });
+  await prisma.kullaniciKazanim.deleteMany({
+    where: { kullaniciId: { in: idler } },
+  });
   await prisma.danismanAtama.deleteMany({
     where: {
       OR: [

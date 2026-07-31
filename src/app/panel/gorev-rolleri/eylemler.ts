@@ -7,6 +7,7 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { GOREV_ROL_ETIKETLERI } from "@/lib/yetki/etiketler";
 import {
+  ilceTemsilcisiAtayabilirMi,
   ilTemsilcisiAtayabilirMi,
   okulTemsilcisiAtayabilirMi,
 } from "@/lib/yetki/izinler";
@@ -18,12 +19,18 @@ import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
  * Öğrenci görev rolü atama ve kaldırma.
  *
  * Bu roller HİÇBİR ek veri görüntüleme yetkisi vermez (permissions.md Bölüm 5);
- * dönem bazlı bir görev etiketidir. Tekillik (il başına bir İl Temsilcisi, okul
- * başına bir Okul Temsilcisi) veritabanı kısmi unique index'leriyle korunur —
- * buradaki kontrol yalnızca kullanıcıya anlamlı mesaj vermek içindir.
+ * dönem bazlı bir görev etiketidir. Tekillik (il/ilçe/okul başına bir temsilci)
+ * veritabanı kısmi unique index'leriyle korunur — buradaki kontrol yalnızca
+ * kullanıcıya anlamlı mesaj vermek içindir.
  */
 
 const YOL = "/panel/gorev-rolleri";
+
+const GOREV_ROLLERI: GorevRolKodu[] = [
+  "IL_TEMSILCISI",
+  "ILCE_TEMSILCISI",
+  "OKUL_TEMSILCISI",
+];
 
 function hataylaDon(mesaj: string): never {
   redirect(`${YOL}?hata=${encodeURIComponent(mesaj)}`);
@@ -35,7 +42,7 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
   const ogrenciId = Number.parseInt(String(veri.get("ogrenciId") ?? ""), 10);
   const rolKodu = String(veri.get("rolKodu") ?? "") as GorevRolKodu;
   if (!Number.isFinite(ogrenciId)) throw new BulunamadiHatasi();
-  if (rolKodu !== "IL_TEMSILCISI" && rolKodu !== "OKUL_TEMSILCISI") {
+  if (!GOREV_ROLLERI.includes(rolKodu)) {
     throw new BulunamadiHatasi("Geçersiz görev rolü.");
   }
 
@@ -54,38 +61,56 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
       ad: true,
       soyad: true,
       ilKodu: true,
+      ilceKodu: true,
       kurumKodu: true,
       egitimOgretimYili: true,
     },
   });
   if (!ogrenci) throw new BulunamadiHatasi();
 
+  /*
+   * Görevin kapsamı öğrencinin KAYITLI YERİNDEN alınıp kayda YAZILIR. İlçe
+   * temsilciliğinin yetkisi ilçenin değil ilin koordinatöründedir: sistemde
+   * ilçe düzeyinde görevli yoktur, ilçe ilin içindeki bir basamaktır.
+   */
+  const kapsam: {
+    ilKodu: string | null;
+    ilceKodu: string | null;
+    kurumKodu: number | null;
+  } = { ilKodu: null, ilceKodu: null, kurumKodu: null };
+
   if (rolKodu === "IL_TEMSILCISI") {
-    if (
-      !ogrenci.ilKodu ||
-      !ilTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu)
-    ) {
+    if (!ogrenci.ilKodu || !ilTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu)) {
       throw new YetkiHatasi("Bu ilde İl Temsilcisi atama yetkiniz yok.");
     }
+    kapsam.ilKodu = ogrenci.ilKodu;
+  } else if (rolKodu === "ILCE_TEMSILCISI") {
+    if (
+      !ogrenci.ilceKodu ||
+      !ogrenci.ilKodu ||
+      !ilceTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu)
+    ) {
+      throw new YetkiHatasi("Bu ilçede İlçe Temsilcisi atama yetkiniz yok.");
+    }
+    kapsam.ilceKodu = ogrenci.ilceKodu;
   } else if (
     !ogrenci.kurumKodu ||
     !okulTemsilcisiAtayabilirMi(kullanici, ogrenci.kurumKodu)
   ) {
     throw new YetkiHatasi("Bu okulda Okul Temsilcisi atama yetkiniz yok.");
+  } else {
+    kapsam.kurumKodu = ogrenci.kurumKodu;
   }
-
-  const kapsam =
-    rolKodu === "IL_TEMSILCISI"
-      ? { ilKodu: ogrenci.ilKodu, kurumKodu: null }
-      : { ilKodu: null, kurumKodu: ogrenci.kurumKodu };
 
   const mevcut = await prisma.ogrenciGorevRolu.findFirst({
     where: {
       rolKodu,
       egitimOgretimYili: ogrenci.egitimOgretimYili,
       ...(rolKodu === "IL_TEMSILCISI"
-        ? { ilKodu: ogrenci.ilKodu }
-        : { kurumKodu: ogrenci.kurumKodu }),
+        ? { ilKodu: kapsam.ilKodu }
+        : rolKodu === "ILCE_TEMSILCISI"
+          ? { ilceKodu: kapsam.ilceKodu }
+          : { kurumKodu: kapsam.kurumKodu }),
     },
     select: { id: true, ogrenci: { select: { ad: true, soyad: true } } },
   });
@@ -102,6 +127,7 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
       rolKodu,
       egitimOgretimYili: ogrenci.egitimOgretimYili,
       ilKodu: kapsam.ilKodu,
+      ilceKodu: kapsam.ilceKodu,
       kurumKodu: kapsam.kurumKodu,
       atayanKullaniciId: kullanici.id,
     },
@@ -134,6 +160,10 @@ export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
       ilKodu: true,
       kurumKodu: true,
       ogrenci: { select: { id: true, ad: true, soyad: true } },
+      // İlçe temsilciliğinin yetkisi ilçenin BAĞLI OLDUĞU İLDEN sorulur;
+      // öğrencinin güncel ilinden değil, çünkü öğrenci dönem içinde taşınmış
+      // olabilir ve görev verildiği yerde durur.
+      ilce: { select: { ilKodu: true } },
     },
   });
   if (!gorev) throw new BulunamadiHatasi();
@@ -142,8 +172,11 @@ export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
     gorev.rolKodu === "IL_TEMSILCISI"
       ? gorev.ilKodu !== null &&
         ilTemsilcisiAtayabilirMi(kullanici, gorev.ilKodu)
-      : gorev.kurumKodu !== null &&
-        okulTemsilcisiAtayabilirMi(kullanici, gorev.kurumKodu);
+      : gorev.rolKodu === "ILCE_TEMSILCISI"
+        ? gorev.ilce !== null &&
+          ilceTemsilcisiAtayabilirMi(kullanici, gorev.ilce.ilKodu)
+        : gorev.kurumKodu !== null &&
+          okulTemsilcisiAtayabilirMi(kullanici, gorev.kurumKodu);
 
   if (!yetkili) {
     throw new YetkiHatasi("Bu görevi kaldırma yetkiniz yok.");

@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   BadgeCheck,
+  ExternalLink,
   FileText,
   IdCard,
   Layers,
@@ -17,6 +18,7 @@ import {
   KazanimBolumleri,
   RozetOzeti,
   SaltOkunurAlan,
+  UrunlerKarti,
 } from "@/components/OgrenciProfilBolumleri";
 import {
   BilgiKutusu,
@@ -27,13 +29,14 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { cvTipAdlari } from "@/lib/ogrenci/cv-kurallar";
+import { BAGLANTI_TANIMLARI } from "@/lib/ogrenci/iletisim-kurallar";
 import {
   gorunurOgrenciGetir,
   ogrenciProfilVerisiGetir,
 } from "@/lib/ogrenci/profil";
 import { SALT_OKUNUR_ACIKLAMASI } from "@/lib/kullanici/salt-okunur";
 import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
-import { GOREV_ROL_ETIKETLERI } from "@/lib/yetki/etiketler";
+import { gorevRolAdi } from "@/lib/yetki/etiketler";
 import { ogrenciCalismaGrubuYonetebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import {
@@ -190,6 +193,37 @@ export default async function OgrenciProfilSayfasi({
             etiket="Telefon"
             deger={ogrenci.ogrenciProfil?.telefon ?? null}
           />
+          {/*
+            Bağlantılar tıklanabilir verilir ama dış siteye çıkar:
+            `noopener noreferrer` olmadan açılan sayfa `window.opener`
+            üzerinden bu sekmeyi yönlendirebilirdi. Protokol kontrolü kayıt
+            sırasında yapılıyor (bkz. lib/ogrenci/iletisim-kurallar.ts).
+          */}
+          {BAGLANTI_TANIMLARI.map((tanim) => {
+            const adres = ogrenci.ogrenciProfil?.[tanim.alan] ?? null;
+            return (
+              <div key={tanim.alan}>
+                <dt className="text-sm font-medium text-metin-yumusak">
+                  {tanim.etiket}
+                </dt>
+                <dd className="mt-0.5 text-metin">
+                  {adres ? (
+                    <a
+                      href={adres}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 font-medium text-vurgu-metin underline underline-offset-2"
+                    >
+                      <ExternalLink size={14} aria-hidden />
+                      {adres}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
       </Kart>
 
@@ -225,7 +259,7 @@ export default async function OgrenciProfilSayfasi({
                   key={gorev.rolKodu}
                   className="rounded-full bg-rol-ogrenci-zemin px-3 py-1 text-sm text-rol-ogrenci-metin"
                 >
-                  {GOREV_ROL_ETIKETLERI[gorev.rolKodu]}
+                  {gorevRolAdi(gorev)}
                 </li>
               ))}
             </ul>
@@ -361,6 +395,13 @@ export default async function OgrenciProfilSayfasi({
       </Kart>
 
       <KatilimKarti kazanim={kazanim} />
+
+      <UrunlerKarti
+        kendiMi={kendiProfili}
+        urunler={ogrenci.kazanimlar.filter(
+          (kazanim) => kazanim.tip === "URUN",
+        )}
+      />
 
       <Kart>
         <KartBasligi

@@ -1,11 +1,13 @@
 import {
   BellRing,
+  CalendarCheck,
   CalendarDays,
   CheckSquare,
   ClipboardCheck,
   Layers,
   MapPin,
   Send,
+  Sparkles,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -17,12 +19,22 @@ import {
   SINIF_BIRINCIL_BUTON,
 } from "@/components/ui";
 import { DuyuruSeridi } from "@/components/DuyuruSeridi";
+import { KapsamRozeti, KategoriRozeti } from "@/components/FaaliyetRozetleri";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { aktifAtamaGetir } from "@/lib/danisman/atama";
 import { ilKoordinatoruOzeti } from "@/lib/rol/koordinator";
 import { prisma } from "@/lib/db";
-import { KAPSAM_ETIKETLERI } from "@/lib/faaliyet/kurallar";
-import { seritteGosterilecekler, takvimeAyir } from "@/lib/faaliyet/takvim";
+import {
+  basvuruYapilabilirMi,
+  KAPSAM_ETIKETLERI,
+  kontenjanDurumu,
+} from "@/lib/faaliyet/kurallar";
+import {
+  kalanGunYaz,
+  seritteGosterilecekler,
+  takvimeAyir,
+} from "@/lib/faaliyet/takvim";
+import { katilimGecmisiGetir } from "@/lib/kazanim/getir";
 import { tarihYaz } from "@/lib/tarih";
 import {
   basvuruYapabilirMi,
@@ -178,6 +190,75 @@ export default async function PanelSayfasi() {
     ? await prisma.faaliyet.count({ where: { onayDurumu: "BEKLIYOR" } })
     : 0;
 
+  /*
+   * Başvuruya açık faaliyetler — panelin "kaçırma" listesi.
+   *
+   * Sıra başvurusu EN SON AÇILAN'dan başlar: takvim ve şerit zaten "en yakın
+   * tarihli" ve "en önce kapanacak" sıralamalarını gösteriyor, üçüncü bir
+   * yerde aynı sırayı tekrarlamak yeni bilgi vermezdi. Kullanıcının burada
+   * aradığı "son girdiğimden beri ne açıldı" sorusunun cevabıdır.
+   *
+   * Başvurular da çekilir çünkü kart yalnızca listelemekle kalmaz, kişinin O
+   * FAALİYETE başvurup başvuramayacağını da söyler; kontenjan canlı sayılır
+   * (bkz. lib/faaliyet/kurallar.ts · kontenjanDurumu).
+   */
+  const acikFaaliyetler = basvuruYapabilirMi(kullanici)
+    ? await prisma.faaliyet.findMany({
+        where: {
+          AND: [
+            faaliyetKapsamFiltresi(kullanici),
+            { durum: "AKTIF" },
+            { onayDurumu: { in: ["ONAY_GEREKMEZ", "ONAYLANDI"] } },
+            { basvuruBaslangic: { lte: simdi } },
+            { basvuruBitis: { gte: simdi } },
+          ],
+        },
+        orderBy: [{ basvuruBaslangic: "desc" }, { id: "desc" }],
+        take: 5,
+        select: {
+          id: true,
+          ad: true,
+          tarih: true,
+          kapsam: true,
+          durum: true,
+          onayDurumu: true,
+          kontenjan: true,
+          basvuruBitis: true,
+          duzenleyenBirim: true,
+          basvurular: { select: { durum: true, katilimciId: true } },
+        },
+      })
+    : [];
+
+  const acikFaaliyetKartlari = acikFaaliyetler.map((faaliyet) => {
+    const benimBasvurum = faaliyet.basvurular.find(
+      (basvuru) => basvuru.katilimciId === kullanici.id,
+    );
+    const durum = kontenjanDurumu(faaliyet.basvurular, faaliyet.kontenjan);
+    return {
+      faaliyet,
+      kalanYer: durum.kalanYer,
+      karar: basvuruYapilabilirMi({
+        pencere: "ACIK" as const,
+        onayDurumu: faaliyet.onayDurumu,
+        faaliyetDurumu: faaliyet.durum,
+        mevcutBasvuruDurumu: benimBasvurum?.durum ?? null,
+        kontenjanDoluMu: durum.doluMu,
+      }),
+    };
+  });
+
+  /*
+   * Öğretmenin (ve katılımcı olabilen koordinatörün) tamamlanmış katılımları.
+   * Öğrencide aynı liste Katkılarım ekranında; öğretmene Panelim'de de
+   * gösteriliyor çünkü "daha önce katıldığım etkinlikler" ana sayfada
+   * aranır — menüdeki Katkılarım'a kadar gitmek gereksiz adım olurdu.
+   */
+  const katilimGecmisi =
+    !ogrenciMi(kullanici) && basvuruYapabilirMi(kullanici)
+      ? await katilimGecmisiGetir(kullanici.id, simdi)
+      : null;
+
   const rolsuzMu = kullanici.roller.length === 0;
 
   return (
@@ -236,13 +317,34 @@ export default async function PanelSayfasi() {
         )}
 
         {danismanMi(kullanici) && (
-          <OlcumKarti
-            baslik="Danışmanlığımdaki öğrenciler"
-            Ikon={Users}
-            deger={String(kapsamdakiOgrenciSayisi)}
-            aciklama="Kendi okulunuzdaki öğrenciler"
-          />
+          <>
+            <OlcumKarti
+              baslik="Danışmanlığımdaki öğrenciler"
+              Ikon={Users}
+              deger={String(kapsamdakiOgrenciSayisi)}
+              aciklama="Kendi okulunuzdaki öğrenciler"
+            />
+            <OlcumKarti
+              baslik="Katkı kartım"
+              Ikon={Sparkles}
+              deger="Görüntüle"
+              aciklama="Görevleriniz, danışmanlığınız ve düzenlediğiniz faaliyetler"
+              yol="/panel/kazanimlarim"
+            />
+          </>
         )}
+
+        {!ogrenciMi(kullanici) &&
+          !projeYoneticisiMi(kullanici) &&
+          katilimGecmisi && (
+            <OlcumKarti
+              baslik="Katıldığım faaliyetler"
+              Ikon={CalendarCheck}
+              deger={String(katilimGecmisi.ozet.toplamKatilim)}
+              aciklama="Tamamlanmış etkinlikler"
+              yol="/panel/kazanimlarim"
+            />
+          )}
 
         {koordinatorGosterilir && (
           <OlcumKarti
@@ -268,12 +370,21 @@ export default async function PanelSayfasi() {
         )}
 
         {ilKoordinatoruMu(kullanici) && (
-          <OlcumKarti
-            baslik="İlimdeki öğrenciler"
-            Ikon={MapPin}
-            deger={String(kapsamdakiOgrenciSayisi)}
-            aciklama={`İl kodu: ${koordinatorIlKodu(kullanici) ?? "—"}`}
-          />
+          <>
+            <OlcumKarti
+              baslik="İlimdeki öğrenciler"
+              Ikon={MapPin}
+              deger={String(kapsamdakiOgrenciSayisi)}
+              aciklama={`İl kodu: ${koordinatorIlKodu(kullanici) ?? "—"}`}
+            />
+            <OlcumKarti
+              baslik="Katkı kartım"
+              Ikon={Sparkles}
+              deger="Görüntüle"
+              aciklama="Görevleriniz ve düzenlediğiniz faaliyetler"
+              yol="/panel/kazanimlarim"
+            />
+          </>
         )}
 
         {projeYoneticisiMi(kullanici) && (
@@ -301,6 +412,118 @@ export default async function PanelSayfasi() {
           yol="/panel/faaliyetler?acik=1"
         />
       </div>
+
+      {basvuruYapabilirMi(kullanici) && (
+        <section>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
+              <Send size={18} className="text-vurgu-metin" aria-hidden />
+              Başvuruya açık faaliyetler
+            </h2>
+            <Link
+              href="/panel/faaliyetler?acik=1"
+              className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
+            >
+              Tüm faaliyetler
+            </Link>
+          </div>
+
+          {acikFaaliyetKartlari.length === 0 ? (
+            <Kart className="text-metin-yumusak">
+              Kapsamınızda şu an başvuru alan faaliyet yok. Yenileri açıldığında
+              burada ve bildirimlerinizde görürsünüz.
+            </Kart>
+          ) : (
+            <ul className="space-y-2">
+              {acikFaaliyetKartlari.map(({ faaliyet, karar, kalanYer }) => (
+                <li
+                  key={faaliyet.id}
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-kart border border-cizgi bg-kart px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <Link
+                      href={`/panel/faaliyetler/${faaliyet.id}`}
+                      className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
+                    >
+                      {faaliyet.ad}
+                    </Link>
+                    <p className="mt-1 text-sm text-metin-yumusak">
+                      {tarihYaz(faaliyet.tarih)} ·{" "}
+                      {KAPSAM_ETIKETLERI[faaliyet.kapsam]} ·{" "}
+                      {faaliyet.duzenleyenBirim}
+                    </p>
+                    <p className="mt-0.5 text-sm text-metin-yumusak">
+                      Başvuru {kalanGunYaz(faaliyet.basvuruBitis, simdi)} ·{" "}
+                      {kalanYer} kişilik yer kaldı
+                    </p>
+                  </div>
+                  {/*
+                    Rozet "başvurabilir misin" sorusunu SATIRDA cevaplar:
+                    tıklayıp içeri girdikten sonra "zaten başvurmuşsun"
+                    demek, kullanıcıyı boşuna dolaştırmak olurdu.
+                  */}
+                  {karar.olurMu ? (
+                    <span className="shrink-0 rounded-full bg-olumlu-zemin px-3 py-1 text-xs font-semibold text-olumlu-metin">
+                      Başvurabilirsiniz
+                    </span>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-zemin px-3 py-1 text-xs font-medium text-metin-yumusak">
+                      {karar.neden}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {katilimGecmisi && (
+        <section>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
+              <CalendarCheck size={18} className="text-vurgu-metin" aria-hidden />
+              Katıldığım faaliyetler
+            </h2>
+            <Link
+              href="/panel/kazanimlarim"
+              className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
+            >
+              Tüm katkılarım
+            </Link>
+          </div>
+
+          {katilimGecmisi.katilimlar.length === 0 ? (
+            <Kart className="text-metin-yumusak">
+              Henüz tamamlanmış bir faaliyetiniz yok. Başvurusu açık etkinliklere
+              yukarıdaki listeden ya da Faaliyetler ekranından başvurabilirsiniz.
+            </Kart>
+          ) : (
+            <ul className="space-y-2">
+              {katilimGecmisi.katilimlar.slice(0, 5).map((katilim) => (
+                <li
+                  key={katilim.faaliyetId}
+                  className="rounded-kart border border-cizgi bg-kart px-4 py-3"
+                >
+                  <Link
+                    href={`/panel/faaliyetler/${katilim.faaliyetId}`}
+                    className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
+                  >
+                    {katilim.ad}
+                  </Link>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-metin-yumusak">
+                      {tarihYaz(katilim.tarih)}
+                    </span>
+                    <KategoriRozeti kategori={katilim.etkinlikKategorisi} />
+                    <KapsamRozeti kapsam={katilim.kapsam} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">

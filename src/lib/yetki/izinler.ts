@@ -50,35 +50,83 @@ export function danismanKurumKodu(
 // Faaliyet
 // ---------------------------------------------------------------------------
 
-/** Danışman öğretmen yalnızca okul içi faaliyet açabilir. */
+/**
+ * Danışman öğretmen yalnızca okul içi faaliyet açabilir.
+ *
+ * ÖĞRENCİ DE FAALİYET AÇABİLİR ve kapsam sınırı yoktur: okul, il ve ulusal
+ * kapsamın üçünü de önerebilir. Sınır kapsamda değil ONAYDA kuruldu — öğrencinin
+ * açtığı faaliyet hiçbir kapsamda kendiliğinden yayına girmez
+ * (bkz. faaliyetOnayGerekiyorMu), o yüzden kapsamı ayrıca daraltmak öneriyi
+ * baştan kesmekten başka bir şey yapmazdı.
+ */
 export function faaliyetAcabilirMi(
   kullanici: OturumKullanicisi,
   kapsam: Kapsam,
 ): boolean {
   if (projeYoneticisiMi(kullanici)) return true;
   if (ilKoordinatoruMu(kullanici)) return true;
+  if (ogrenciMi(kullanici)) return true;
   if (danismanMi(kullanici)) return kapsam === "OKUL";
   return false;
 }
 
-/** İl koordinatörünün açtığı ulusal faaliyet proje yöneticisi onayı bekler. */
+/**
+ * Faaliyet onaya tabi mi?
+ *
+ * İki durum var:
+ *   1. İl koordinatörünün açtığı ULUSAL faaliyet — ülke geneline açılan bir
+ *      çağrıyı merkez görmeden yayına almıyoruz.
+ *   2. Öğrencinin açtığı HER faaliyet — kapsamı ne olursa olsun. Öğrenci
+ *      etkinliği düzenleyebilir ama 18 yaş altı bir kullanıcının açtığı
+ *      çağrının okul dışına (hatta okul içine) sorumlusuz çıkması olmaz.
+ */
 export function faaliyetOnayGerekiyorMu(
   kullanici: OturumKullanicisi,
   kapsam: Kapsam,
 ): boolean {
   if (projeYoneticisiMi(kullanici)) return false;
+  if (ogrenciMi(kullanici)) return true;
   return kapsam === "ULUSAL" && ilKoordinatoruMu(kullanici);
 }
 
+/**
+ * Öğrencinin açtığı faaliyeti, öğrencinin ilinin koordinatörü de onaylayabilir.
+ *
+ * Onay merkeze bırakılsaydı bir okulun kendi içindeki öğrenci etkinliği YEĞİTEK
+ * sırası gelene kadar bekler ve öneri pratikte ölürdü; ilin koordinatörü hem
+ * öğrenciyi hem okulu tanıyan en yakın sorumludur. İkisi de yetkilidir, hangisi
+ * önce karar verirse faaliyet sonuçlanır — ayrı bir sıra kurulmaz.
+ */
+export function ogrenciFaaliyetiniOnaylayabilirMi(
+  kullanici: OturumKullanicisi,
+  faaliyet: FaaliyetKapsami,
+): boolean {
+  if (faaliyet.duzenleyenOgrenciMi !== true) return false;
+  if (!ilKoordinatoruMu(kullanici)) return false;
+
+  const faaliyetIli = faaliyet.kapsamIlKodu ?? faaliyet.ilKodu;
+  return faaliyetIli !== null && koordinatorIlKodu(kullanici) === faaliyetIli;
+}
+
+/**
+ * Faaliyeti onaylama/reddetme yetkisi.
+ *
+ * Faaliyet verilmezse yalnızca "her koşulda onaylayabilen" proje yöneticisi
+ * geçer; il koordinatörünün yetkisi hangi faaliyet olduğuna bağlıdır ve
+ * faaliyetsiz sorulduğunda yanıt "hayır"dır.
+ */
 export function faaliyetOnaylayabilirMi(
   kullanici: OturumKullanicisi,
+  faaliyet?: FaaliyetKapsami,
 ): boolean {
-  return projeYoneticisiMi(kullanici);
+  if (projeYoneticisiMi(kullanici)) return true;
+  if (!faaliyet) return false;
+  return ogrenciFaaliyetiniOnaylayabilirMi(kullanici, faaliyet);
 }
 
 /**
  * Faaliyetin kullanıcıya görünüp görünmediğini söyler. Onay bekleyen faaliyet
- * yalnızca düzenleyene ve proje yöneticisine görünür.
+ * yalnızca düzenleyene, onaylamaya yetkili olana ve proje yöneticisine görünür.
  */
 export function faaliyetGorunurMu(
   kullanici: OturumKullanicisi,
@@ -86,6 +134,8 @@ export function faaliyetGorunurMu(
 ): boolean {
   if (projeYoneticisiMi(kullanici)) return true;
   if (faaliyet.duzenleyenKullaniciId === kullanici.id) return true;
+  // Onaylayacak kişi, onaylayacağı şeyi görmek zorunda.
+  if (ogrenciFaaliyetiniOnaylayabilirMi(kullanici, faaliyet)) return true;
   if (!faaliyet.onayliMi) return false;
 
   switch (faaliyet.kapsam) {
@@ -264,6 +314,22 @@ export function ilTemsilcisiAtayabilirMi(
   return (
     ilKoordinatoruMu(kullanici) && koordinatorIlKodu(kullanici) === ilKodu
   );
+}
+
+/**
+ * İlçe Temsilcisi atama yetkisi — ilçenin BAĞLI OLDUĞU İL üzerinden sorulur.
+ *
+ * Sistemde ilçe düzeyinde bir görevli yoktur (RolKodu'nda ILCE_KOORDINATOR
+ * diye bir değer yok); ilçe, ilin içindeki bir basamaktır ve temsilcisini o ilin
+ * koordinatörü belirler. Bu yüzden fonksiyon ilçe kodunu değil il kodunu alır:
+ * ilçe kodundan ili çözmek veritabanına gitmek olurdu ve bu dosya saf kalmalı.
+ * Çağıran, öğrencinin ilçesiyle ilinin tutarlılığını sorgudan alır.
+ */
+export function ilceTemsilcisiAtayabilirMi(
+  kullanici: OturumKullanicisi,
+  ilKodu: string,
+): boolean {
+  return ilTemsilcisiAtayabilirMi(kullanici, ilKodu);
 }
 
 export function calismaGrubuTanimlayabilirMi(

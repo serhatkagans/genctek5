@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   ClipboardList,
+  Download,
   FileText,
   Handshake,
   Info,
@@ -272,7 +273,8 @@ export default async function FaaliyetDetaySayfasi({
   const yorumYazabilir =
     yorumYazabilirMi(kullanici, kapsamBilgisi) && icerikEklenebilir;
   const onayBekliyor =
-    faaliyet.onayDurumu === "BEKLIYOR" && faaliyetOnaylayabilirMi(kullanici);
+    faaliyet.onayDurumu === "BEKLIYOR" &&
+    faaliyetOnaylayabilirMi(kullanici, kapsamBilgisi);
 
   // Silinen ek dosyası listelenmez; kaydı log için veritabanında durur.
   const ekler = await prisma.faaliyetEk.findMany({
@@ -1217,6 +1219,23 @@ export default async function FaaliyetDetaySayfasi({
             Ikon={ClipboardList}
           />
 
+          {/*
+            İndirme bağlantısı yalnızca başvuru VARKEN gösteriliyor: boş bir
+            listeyi indirmeye davet etmenin anlamı yok. Dosya bu kartın
+            aynısıdır; telefon ve e-posta orada da yoktur.
+          */}
+          {basvuranlar.length > 0 && (
+            <a
+              href={uygulamaYolu(
+                `/panel/faaliyetler/${faaliyet.id}/basvurular/disa-aktar`,
+              )}
+              className={`${SINIF_IKINCIL_BUTON} mb-4`}
+            >
+              <Download size={16} aria-hidden />
+              Başvuru listesini CSV indir
+            </a>
+          )}
+
           {devroldu && (
             <div className="mb-4">
               <BilgiKutusu cesit="uyari">
@@ -1250,6 +1269,9 @@ export default async function FaaliyetDetaySayfasi({
                           basvuru.katilimci.sinif ?? basvuru.katilimci.brans,
                           basvuru.katilimci.kurum?.ad,
                           basvuru.katilimci.il?.ad,
+                          // Liste başvuru sırasına göre dizili; tarih yazmadan
+                          // "önce başvurana öncelik" kararı verilemiyordu.
+                          `${tarihYaz(basvuru.basvuruTarihi)} tarihinde başvurdu`,
                         ]
                           .filter(Boolean)
                           .join(" · ")}

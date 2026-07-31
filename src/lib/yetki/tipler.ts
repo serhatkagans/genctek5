@@ -46,6 +46,13 @@ export interface FaaliyetKapsami {
    * yetkisi ilin koordinatörüne devrolur. Belirtilmezse "görevde" varsayılır.
    */
   duzenleyenGorevdeMi?: boolean;
+  /**
+   * Faaliyeti bir öğrenci mi açtı? Öğrencinin açtığı faaliyet her kapsamda
+   * onaya tabidir ve onayı, YEĞİTEK'in yanında öğrencinin ilinin koordinatörü
+   * de verebilir. Belirtilmezse `false` varsayılır — eksik veriyle onay
+   * yetkisini genişletmek yerine dar tarafta kalıyoruz.
+   */
+  duzenleyenOgrenciMi?: boolean;
 }
 
 export class YetkiHatasi extends Error {

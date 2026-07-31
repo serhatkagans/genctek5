@@ -182,6 +182,18 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\n{{duzenleyenAdSoyad}} tarafından {{faaliyetAdi}} adlı ulusal faaliyet oluşturuldu ve onayınızı bekliyor.\n\nGençTek",
   },
   {
+    kod: "ONAY_BEKLEYEN_OGRENCI_FAALIYETI",
+    konu: "Öğrenci faaliyeti onayınızı bekliyor: {{faaliyetAdi}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{okulAdi}} okulundan {{duzenleyenAdSoyad}}, {{kapsam}} kapsamında {{faaliyetAdi}} adlı faaliyeti önerdi ve onay bekliyor.\n\nBu öneriyi hem siz hem de YEĞİTEK proje yöneticileri onaylayabilir; ilk verilen karar geçerlidir. Faaliyet, onaylanana kadar öğrencilere görünmez.\n\nGençTek",
+  },
+  {
+    kod: "FAALIYET_ONAY_SONUCU",
+    konu: "{{faaliyetAdi}} faaliyetiniz {{sonuc}}",
+    govdeSablonu:
+      "Merhaba,\n\nOnaya sunduğunuz {{faaliyetAdi}} adlı faaliyet {{kararVerenAdSoyad}} tarafından {{sonuc}}.\n\nFaaliyetin güncel durumunu panelinizden görebilirsiniz.\n\nGençTek",
+  },
+  {
     kod: "DANISMANA_KOPYA_ULUSAL_BASVURU",
     konu: "Öğrenciniz bir ulusal faaliyete başvurdu",
     govdeSablonu:

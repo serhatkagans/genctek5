@@ -23,6 +23,37 @@ export const GOREV_ROL_ETIKETLERI: Record<GorevRolKodu, string> = {
   OKUL_TEMSILCISI: "Okul Temsilcisi",
 };
 
+/** Görev kaydının kapsam adları; hangisinin dolu olduğu rol koduna bağlıdır. */
+export interface GorevKapsamAdlari {
+  rolKodu: GorevRolKodu;
+  il?: { ad: string } | null;
+  ilce?: { ad: string } | null;
+  kurum?: { ad: string } | null;
+}
+
+/**
+ * Görevi yerinin adıyla birlikte yazar: "Çankaya İlçe Temsilcisi".
+ *
+ * Yer adı, görev kaydının KENDİ kapsam sütunundan gelir; öğrencinin güncel
+ * il/ilçe/okul kaydından değil. Öğrenci dönem içinde taşındığında görev
+ * verildiği yerde kalır ve etiketin de orayı göstermesi gerekir.
+ *
+ * Kapsam adı çekilmediyse (ör. yalnızca rol kodu seçilen bir sorgu) sade rol
+ * adına düşülür — eksik veriyle "undefined Temsilcisi" yazmaktansa etiketi
+ * kısaltmak yeğdir.
+ */
+export function gorevRolAdi(gorev: GorevKapsamAdlari): string {
+  const yer =
+    gorev.rolKodu === "IL_TEMSILCISI"
+      ? gorev.il?.ad
+      : gorev.rolKodu === "ILCE_TEMSILCISI"
+        ? gorev.ilce?.ad
+        : gorev.kurum?.ad;
+
+  const etiket = GOREV_ROL_ETIKETLERI[gorev.rolKodu];
+  return yer ? `${yer} ${etiket}` : etiket;
+}
+
 export const LOG_ISLEM_ETIKETLERI: Record<LogIslemi, string> = {
   GORUNTULEME: "Görüntüleme",
   DEGISIKLIK: "Değişiklik",

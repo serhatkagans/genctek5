@@ -2,6 +2,9 @@ import {
   type KatilimKaydi,
   type KazanimGirdisi,
   katilimOzeti,
+  OGRETMEN_ROZETLERI,
+  type OgretmenKatkiGirdisi,
+  ogretmenRozetDurumlari,
   ROZETLER,
   rozetDurumlari,
 } from "../src/lib/kazanim/rozetler";
@@ -108,6 +111,86 @@ describe("rozetDurumlari", () => {
     const girdi = { ...bosGirdi, calismaGrubuSayisi: 9 };
     expect(durum(girdi, "MERAKLI").ilerleme).toBe(3);
     expect(durum(girdi, "MERAKLI").kazanildiMi).toBe(true);
+  });
+});
+
+/*
+ * Öğretmen nişanları ayrı bir listedir: öğretmenin çalışma grubu seçimi ve
+ * temsilcilik görevi yoktur, katkısı düzenlediği faaliyette ve danışmanlığında
+ * görünür. Öğrenci listesi olduğu gibi kullanılsaydı bir kısmı hiçbir zaman
+ * dolmayacak, asıl emeği ise hiç sayılmayacaktı.
+ */
+describe("ogretmenRozetDurumlari", () => {
+  const bosOgretmen: OgretmenKatkiGirdisi = {
+    katilimlar: [],
+    duzenledigiFaaliyetSayisi: 0,
+    aktifDanismanlikSayisi: 0,
+    paydasliFaaliyetSayisi: 0,
+  };
+
+  const ogretmenDurumu = (girdi: OgretmenKatkiGirdisi, kod: string) =>
+    ogretmenRozetDurumlari(girdi).find((rozet) => rozet.kod === kod)!;
+
+  it("hiç katkısı olmayan öğretmen hiçbir nişan kazanmaz", () => {
+    expect(
+      ogretmenRozetDurumlari(bosOgretmen).every((rozet) => !rozet.kazanildiMi),
+    ).toBe(true);
+  });
+
+  it("her nişan için bir durum döndürür", () => {
+    expect(ogretmenRozetDurumlari(bosOgretmen)).toHaveLength(
+      OGRETMEN_ROZETLERI.length,
+    );
+  });
+
+  it("öğrenci nişanlarıyla kod paylaşmaz", () => {
+    const ogrenciKodlari = new Set(ROZETLER.map((rozet) => rozet.kod));
+    expect(
+      OGRETMEN_ROZETLERI.some((rozet) => ogrenciKodlari.has(rozet.kod)),
+    ).toBe(false);
+  });
+
+  it("ilk faaliyette İlk Faaliyet nişanı açılır, beşincide Sürekli Düzenleyici", () => {
+    const tek = { ...bosOgretmen, duzenledigiFaaliyetSayisi: 1 };
+    expect(ogretmenDurumu(tek, "ILK_FAALIYET").kazanildiMi).toBe(true);
+    expect(ogretmenDurumu(tek, "SUREKLI_DUZENLEYICI").kazanildiMi).toBe(false);
+
+    const bes = { ...bosOgretmen, duzenledigiFaaliyetSayisi: 5 };
+    expect(ogretmenDurumu(bes, "SUREKLI_DUZENLEYICI").kazanildiMi).toBe(true);
+  });
+
+  it("danışmanlık nişanları eşiklerine göre açılır", () => {
+    const bir = { ...bosOgretmen, aktifDanismanlikSayisi: 1 };
+    expect(ogretmenDurumu(bir, "REHBER").kazanildiMi).toBe(true);
+    expect(ogretmenDurumu(bir, "YOL_ACAN").kazanildiMi).toBe(false);
+    expect(ogretmenDurumu(bir, "YOL_ACAN").ilerleme).toBe(1);
+
+    const on = { ...bosOgretmen, aktifDanismanlikSayisi: 10 };
+    expect(ogretmenDurumu(on, "YOL_ACAN").kazanildiMi).toBe(true);
+  });
+
+  // Öğretmen katılımcı olarak da başvurabiliyor; bu nişan onun kendi katılımını
+  // sayar, düzenlediği faaliyetleri değil.
+  it("Sahada nişanı düzenlemeden değil katılımdan doğar", () => {
+    const duzenleyen = { ...bosOgretmen, duzenledigiFaaliyetSayisi: 3 };
+    expect(ogretmenDurumu(duzenleyen, "SAHADA").kazanildiMi).toBe(false);
+
+    const katilan = {
+      ...bosOgretmen,
+      katilimlar: [katilim("ULUSAL", "TEMEL_ETKINLIK")],
+    };
+    expect(ogretmenDurumu(katilan, "SAHADA").kazanildiMi).toBe(true);
+  });
+
+  it("paydaş bağlantısı İş Birliği nişanını açar", () => {
+    const girdi = { ...bosOgretmen, paydasliFaaliyetSayisi: 1 };
+    expect(ogretmenDurumu(girdi, "IS_BIRLIGI").kazanildiMi).toBe(true);
+  });
+
+  it("hedefi aşan ilerleme hedefe kırpılır", () => {
+    const girdi = { ...bosOgretmen, aktifDanismanlikSayisi: 24 };
+    expect(ogretmenDurumu(girdi, "YOL_ACAN").ilerleme).toBe(10);
+    expect(ogretmenDurumu(girdi, "YOL_ACAN").kazanildiMi).toBe(true);
   });
 });
 

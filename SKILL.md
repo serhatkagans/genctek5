@@ -123,7 +123,7 @@ Bunlar sonraki faza bırakıldı. İstenmediği sürece kod yazma, tabloya yer a
 
 - Mezun öğrenci modülü ve mezun–öğrenci mentor eşleştirmesi
 - Çalışma grubu bazlı sohbet odaları
-- Rozet sistemi — **Faz 2**. Kategori listesi netleşti (İl Temsilcisi, Okul Temsilcisi, verdiği akran eğitimleri, çalışma grubu yöneticiliği / organizasyon ekibi üyeliği *(belirsiz)*, moderatörlük yaptığı etkinlikler, derece aldığı yarışmalar) ama **kod yazılmayacak**; yalnızca `references/domain-rules.md` Bölüm 13'te kayıtlı. Faz 2 açıldığında yeni tablo yerine `ogrenci_kazanim.tip` genişletilecek.
+- Rozet sistemi — **Faz 2**. Kategori listesi netleşti (İl Temsilcisi, Okul Temsilcisi, verdiği akran eğitimleri, çalışma grubu yöneticiliği / organizasyon ekibi üyeliği *(belirsiz)*, moderatörlük yaptığı etkinlikler, derece aldığı yarışmalar) ama **kod yazılmayacak**; yalnızca `references/domain-rules.md` Bölüm 13'te kayıtlı. Faz 2 açıldığında yeni tablo yerine `kullanici_kazanim.tip` genişletilecek.
   **Not:** Faz 2 olan yalnızca rozetlerdir. Kazanım **kayıtlarının** girişi ve profilde gösterimi (dış etkinlik, ürün, akran eğitimi, yarışma derecesi) uygulandı — bkz. `references/domain-rules.md` Bölüm 14.
 - İl bazlı paydaş bilgi sistemi
 - Toplu öğrenci ekleme (faaliyete topluca öğrenci ekleme özelliği **kaldırıldı**, geri getirme)

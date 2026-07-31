@@ -11,6 +11,7 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
   BILDIRIM_KODLARI,
   bildirimGonder,
+  ilKoordinatorlerineBildir,
   projeYoneticilerineBildir,
 } from "@/lib/bildirim/gonder";
 import { prisma } from "@/lib/db";
@@ -32,6 +33,7 @@ import {
   FaaliyetKuralHatasi,
   type FaaliyetYeri,
   faaliyetYeriBelirle,
+  KAPSAM_ETIKETLERI,
   kapsamSecenekleri,
   katilimciTipi,
   vekaletenBasvuruGecerliMi,
@@ -51,6 +53,7 @@ import {
   faaliyetIptalEdebilirMi,
   faaliyetOnaylayabilirMi,
   koordinatorIlKodu,
+  ogrenciMi,
 } from "@/lib/yetki/izinler";
 import { ogrenciKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
@@ -162,14 +165,23 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
   /*
    * Birim adı için gereken il, faaliyetin ili DEĞİL düzenleyenin ilidir:
    * ulusal faaliyette yer alanları boş kalır ama kartta yine "İstanbul İl
-   * Koordinatörlüğü" yazması gerekir.
+   * Koordinatörlüğü" yazması gerekir. Öğrencinin rol kapsamı olmadığı için
+   * onun ili kayıtlı ilinden okunur.
    */
-  const birimIlKodu = yer.ilKodu ?? koordinatorIlKodu(kullanici);
+  const birimIlKodu =
+    yer.ilKodu ?? koordinatorIlKodu(kullanici) ?? kullanici.ilKodu;
+
+  /*
+   * Okul adı, faaliyetin okulu YOKKEN de gerekebiliyor: öğrencinin açtığı il ya
+   * da ulusal öneride onaycıya "hangi okuldan geldi" bilgisi gidiyor. Bu yüzden
+   * yerin okulu boşsa kullanıcının kendi okuluna düşülüyor.
+   */
+  const birimKurumKodu = yer.kurumKodu ?? kullanici.kurumKodu;
 
   const [okul, il] = await Promise.all([
-    yer.kurumKodu
+    birimKurumKodu
       ? prisma.kurum.findUnique({
-          where: { kurumKodu: yer.kurumKodu },
+          where: { kurumKodu: birimKurumKodu },
           select: { ad: true },
         })
       : null,
@@ -251,14 +263,41 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
     }
   }
 
+  /*
+   * Onay bildirimi iki ayrı akıştır.
+   *
+   * Öğrencinin açtığı faaliyette uyarı HEM ilin koordinatörüne HEM merkeze
+   * gider; ikisi de onaylayabilir ve ilk verilen karar geçerlidir. Koordinatöre
+   * de gitmesi şart: merkez sırası gelene kadar bekleyen bir okul içi öğrenci
+   * etkinliği pratikte ölürdü. İl koordinatörü yoksa (boş il) uyarı merkeze
+   * gitmeye devam eder, öneri kaybolmaz.
+   */
   if (onayDurumu === "BEKLIYOR") {
-    await projeYoneticilerineBildir(
-      BILDIRIM_KODLARI.ONAY_BEKLEYEN_ULUSAL_FAALIYET,
-      {
+    if (ogrenciMi(kullanici)) {
+      const degiskenler = {
         faaliyetAdi: ad,
         duzenleyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
-      },
-    );
+        kapsam: KAPSAM_ETIKETLERI[kapsam],
+        okulAdi: okul?.ad ?? "—",
+      };
+      await ilKoordinatorlerineBildir(
+        kullanici.ilKodu,
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
+        degiskenler,
+      );
+      await projeYoneticilerineBildir(
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
+        degiskenler,
+      );
+    } else {
+      await projeYoneticilerineBildir(
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_ULUSAL_FAALIYET,
+        {
+          faaliyetAdi: ad,
+          duzenleyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+        },
+      );
+    }
   }
 
   await erisimLogla({
@@ -317,7 +356,7 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
   const faaliyetId = sayi(veri, "faaliyetId");
   if (faaliyetId === null) throw new BulunamadiHatasi();
 
-  const { kullanici, faaliyet, yol } =
+  const { kullanici, faaliyet, kapsam, yol } =
     await duzenlenebilirFaaliyetGetir(faaliyetId);
 
   if (faaliyet.durum === "IPTAL_EDILDI") {
@@ -385,14 +424,38 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
     },
   });
 
+  /*
+   * Onay düştüğünde uyarı, faaliyeti AÇANA göre yönlendirilir: öğrenci
+   * faaliyetinin onaycıları arasında ilin koordinatörü de var ve düzenleme
+   * sonrası yeniden onay onlara da düşmeli, yoksa faaliyet açılışta gördükleri
+   * bir öneriyi ikinci kez hiç görmezlerdi.
+   */
   if (onayDusuyorMu) {
-    await projeYoneticilerineBildir(
-      BILDIRIM_KODLARI.ONAY_BEKLEYEN_ULUSAL_FAALIYET,
-      {
+    if (kapsam.duzenleyenOgrenciMi) {
+      const degiskenler = {
         faaliyetAdi: faaliyet.ad,
-        duzenleyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
-      },
-    );
+        duzenleyenAdSoyad: `${faaliyet.duzenleyen.ad} ${faaliyet.duzenleyen.soyad}`,
+        kapsam: KAPSAM_ETIKETLERI[faaliyet.kapsam],
+        okulAdi: faaliyet.kurum?.ad ?? "—",
+      };
+      await ilKoordinatorlerineBildir(
+        kapsam.kapsamIlKodu ?? null,
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
+        degiskenler,
+      );
+      await projeYoneticilerineBildir(
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
+        degiskenler,
+      );
+    } else {
+      await projeYoneticilerineBildir(
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_ULUSAL_FAALIYET,
+        {
+          faaliyetAdi: faaliyet.ad,
+          duzenleyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+        },
+      );
+    }
   }
 
   await erisimLogla({
@@ -493,15 +556,19 @@ export async function faaliyetIptalEylemi(veri: FormData): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Ulusal faaliyet onayı
+// Faaliyet onayı
 // ---------------------------------------------------------------------------
 
+/**
+ * Onaya sunulmuş faaliyeti sonuçlandırır.
+ *
+ * İki kaynak var: il koordinatörünün açtığı ulusal faaliyet (yalnızca YEĞİTEK
+ * onaylar) ve öğrencinin açtığı faaliyet (öğrencinin ilinin koordinatörü de
+ * onaylayabilir). Karar hangi kapıdan gelirse gelsin tektir; ikinci bir onay
+ * adımı YOKTUR, ilk verilen karar faaliyeti sonuçlandırır.
+ */
 export async function faaliyetOnayEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
-
-  if (!faaliyetOnaylayabilirMi(kullanici)) {
-    throw new YetkiHatasi("Faaliyet onayı yalnızca proje yöneticisindedir.");
-  }
 
   const faaliyetId = sayi(veri, "faaliyetId");
   if (faaliyetId === null) throw new BulunamadiHatasi();
@@ -511,11 +578,17 @@ export async function faaliyetOnayEylemi(veri: FormData): Promise<void> {
     throw new BulunamadiHatasi("Geçersiz karar.");
   }
 
-  const faaliyet = await prisma.faaliyet.findUnique({
-    where: { id: faaliyetId },
-    select: { id: true, ad: true, onayDurumu: true },
-  });
+  /*
+   * Faaliyet merkezi kapsam filtresinden çekiliyor: onay yetkisi faaliyete
+   * bağlı olduğu için (koordinatör yalnızca KENDİ İLİNDEKİ öğrencinin
+   * önerisini onaylar) kaydı görmeden karar verilemez. Kapsam dışı kayıt 404.
+   */
+  const faaliyet = await gorunurFaaliyetGetir(kullanici, faaliyetId);
   if (!faaliyet) throw new BulunamadiHatasi();
+
+  if (!faaliyetOnaylayabilirMi(kullanici, faaliyetKapsamiCikar(faaliyet))) {
+    throw new YetkiHatasi("Bu faaliyeti onaylama yetkiniz yok.");
+  }
 
   if (faaliyet.onayDurumu !== "BEKLIYOR") {
     hataylaDon(
@@ -533,12 +606,29 @@ export async function faaliyetOnayEylemi(veri: FormData): Promise<void> {
     },
   });
 
+  /*
+   * Faaliyeti açan kişi sonucu öğrenmeli. Kararı kendisi verdiyse (proje
+   * yöneticisi kendi faaliyetini onaylamaz ama veri elle değişebilir) kendine
+   * bildirim gitmez.
+   */
+  if (faaliyet.duzenleyenKullaniciId !== kullanici.id) {
+    await bildirimGonder({
+      kullaniciId: faaliyet.duzenleyenKullaniciId,
+      kod: BILDIRIM_KODLARI.FAALIYET_ONAY_SONUCU,
+      degiskenler: {
+        faaliyetAdi: faaliyet.ad,
+        sonuc: karar === "onayla" ? "onaylandı" : "reddedildi",
+        kararVerenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+      },
+    });
+  }
+
   await erisimLogla({
     kullaniciId: kullanici.id,
     islem: "DEGISIKLIK",
     hedefTip: "FAALIYET",
     hedefId: faaliyetId,
-    detay: `Ulusal faaliyet ${karar === "onayla" ? "onaylandı" : "reddedildi"}: ${faaliyet.ad}`,
+    detay: `Faaliyet ${karar === "onayla" ? "onaylandı" : "reddedildi"}: ${faaliyet.ad}`,
   });
 
   revalidatePath("/panel/faaliyetler");

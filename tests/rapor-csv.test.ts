@@ -1,4 +1,9 @@
-import { csvBelgesi, csvHucresi, csvSatiri } from "../src/lib/rapor/csv";
+import {
+  csvAdParcasi,
+  csvBelgesi,
+  csvHucresi,
+  csvSatiri,
+} from "../src/lib/rapor/csv";
 
 describe("csvHucresi", () => {
   it("boş değerleri boş hücreye çevirir", () => {
@@ -65,5 +70,39 @@ describe("csvBelgesi", () => {
 
   it("kaydı olmayan raporda yalnızca başlık üretir", () => {
     expect(csvBelgesi(["Ad"], [])).toBe("\uFEFFAd\r\n");
+  });
+});
+
+describe("csvAdParcasi", () => {
+  it("boşlukları tireye çevirir ve küçük harfe indirir", () => {
+    expect(csvAdParcasi("Robotik Atölyesi", "1")).toBe("robotik-atolyesi");
+  });
+
+  /*
+   * "I" harfinin küçüğü Türkçe'de "ı"dır; yerel ayar verilmeseydi "IHTIYAÇ"
+   * gibi bir ad "ihtiyac" değil "i̇htiyac" olur ve dosya adına bozuk bir
+   * karakter sızardı.
+   */
+  it("Türkçe harfleri sadeleştirir", () => {
+    expect(csvAdParcasi("Işık Çağrısı: Güneş Ölçümü", "1")).toBe(
+      "isik-cagrisi-gunes-olcumu",
+    );
+  });
+
+  it("baştaki ve sondaki tireleri atar", () => {
+    expect(csvAdParcasi("  Zirve 2026!  ", "1")).toBe("zirve-2026");
+  });
+
+  it("uzun adı kırpar ve kırpma tirede bitmez", () => {
+    const parca = csvAdParcasi(
+      "Ulusal Bilişim Teknolojileri ve Yapay Zekâ Zirvesi Kapanış Oturumu",
+      "1",
+    );
+    expect(parca.length).toBeLessThanOrEqual(40);
+    expect(parca.endsWith("-")).toBe(false);
+  });
+
+  it("harf kalmayan adda yedeğe düşer", () => {
+    expect(csvAdParcasi("!!! ???", "42")).toBe("42");
   });
 });

@@ -4,10 +4,16 @@ import {
   IdCard,
   Mail,
   Phone,
+  Sparkles,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { OgretmenKatkiKarti } from "@/components/OgretmenKatkiKarti";
+import {
+  KazanimBolumleri,
+  UrunlerKarti,
+} from "@/components/OgrenciProfilBolumleri";
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import {
   BilgiKutusu,
@@ -20,6 +26,7 @@ import { prisma } from "@/lib/db";
 import { KAPSAM_ETIKETLERI } from "@/lib/faaliyet/kurallar";
 import { SALT_OKUNUR_ACIKLAMASI } from "@/lib/kullanici/salt-okunur";
 import { gorevYillari, gorevYillariYaz } from "@/lib/ogretmen/gorev-yillari";
+import { ogretmenKatkiVerisiGetir } from "@/lib/ogretmen/katki";
 import { tarihYaz } from "@/lib/tarih";
 import { ogretmenEnvanteriGorebilirMi } from "@/lib/yetki/izinler";
 import {
@@ -95,6 +102,15 @@ export default async function OgretmenDetaySayfasi({
           bitisTarihi: true,
         },
       },
+      /*
+       * Kazanım beyanları kapsam filtresi GEREKTİRMEZ: kaydın kendisi zaten bu
+       * öğretmene ait ve öğretmen kaydını görebilen kişi beyanını da görür.
+       * Kayıtları yalnızca sahibi girip silebilir — bu ekranda silme formu
+       * basılmaz (KazanimBolumleri'ne eylem verilmiyor).
+       */
+      kazanimlar: {
+        orderBy: [{ tarih: "desc" }, { olusturmaTarihi: "desc" }],
+      },
       _count: {
         select: { danismanAtamalari: { where: { bitisTarihi: null } } },
       },
@@ -107,7 +123,7 @@ export default async function OgretmenDetaySayfasi({
    * Sayılar (toplam öğrenci sayısı) kesişimden bağımsız gösterilir: kişisel veri
    * değildir ve envanterin işi zaten yükün nerede olduğunu göstermek.
    */
-  const [ogrenciler, duzenledigi, katildigi] = await Promise.all([
+  const [ogrenciler, katildigi, katki] = await Promise.all([
     prisma.kullanici.findMany({
       where: {
         AND: [
@@ -121,22 +137,6 @@ export default async function OgretmenDetaySayfasi({
       },
       select: { id: true, ad: true, soyad: true, sinif: true },
       orderBy: [{ ad: "asc" }, { soyad: "asc" }],
-    }),
-    prisma.faaliyet.findMany({
-      where: {
-        AND: [
-          faaliyetKapsamFiltresi(kullanici),
-          { duzenleyenKullaniciId: ogretmen.id },
-        ],
-      },
-      orderBy: { tarih: "desc" },
-      select: {
-        id: true,
-        ad: true,
-        tarih: true,
-        kapsam: true,
-        durum: true,
-      },
     }),
     // Katıldığı etkinlikler: seçilmiş başvurular. Öğretmen de katılımcı
     // olabildiği için bu liste artık boş kalmıyor (analiz dokümanı 4.2).
@@ -154,6 +154,7 @@ export default async function OgretmenDetaySayfasi({
         },
       },
     }),
+    ogretmenKatkiVerisiGetir(ogretmen.id),
   ]);
 
   await erisimLogla({
@@ -309,36 +310,12 @@ export default async function OgretmenDetaySayfasi({
         )}
       </Kart>
 
-      <Kart>
-        <KartBasligi
-          baslik="Düzenlediği etkinlikler"
-          aciklama="Kapsamınızda görünen faaliyetler."
-          Ikon={CalendarDays}
-        />
-        {duzenledigi.length === 0 ? (
-          <p className="text-sm text-metin-yumusak">
-            Kapsamınızda bu öğretmenin düzenlediği faaliyet yok.
-          </p>
-        ) : (
-          <ul className="divide-y divide-cizgi">
-            {duzenledigi.map((faaliyet) => (
-              <li key={faaliyet.id} className="py-2.5">
-                <Link
-                  href={`/panel/faaliyetler/${faaliyet.id}`}
-                  className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
-                >
-                  {faaliyet.ad}
-                </Link>
-                <p className="text-sm text-metin-yumusak">
-                  {tarihYaz(faaliyet.tarih)} ·{" "}
-                  {KAPSAM_ETIKETLERI[faaliyet.kapsam]}
-                  {faaliyet.durum === "IPTAL_EDILDI" ? " · iptal edildi" : ""}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Kart>
+      <OgretmenKatkiKarti
+        kendiMi={false}
+        gorevler={katki.gorevler}
+        aktifDanismanlik={katki.aktifDanismanlik}
+        faaliyetler={katki.faaliyetler}
+      />
 
       <Kart>
         <KartBasligi
@@ -372,6 +349,27 @@ export default async function OgretmenDetaySayfasi({
             ))}
           </ul>
         )}
+      </Kart>
+
+      <UrunlerKarti
+        kendiMi={false}
+        sahip="OGRETMEN"
+        urunler={ogretmen.kazanimlar.filter(
+          (kazanim) => kazanim.tip === "URUN",
+        )}
+      />
+
+      <Kart>
+        <KartBasligi
+          baslik="Kazanımlar ve üretimler"
+          aciklama="Öğretmenin kendi beyan ettiği kayıtlardır; sistem doğrulamaz."
+          Ikon={Sparkles}
+        />
+        <KazanimBolumleri
+          kazanimlar={ogretmen.kazanimlar}
+          bosMesaji="Kayıt girilmemiş."
+          sahip="OGRETMEN"
+        />
       </Kart>
     </div>
   );

@@ -160,17 +160,17 @@ async function calistir() {
    * Kazanım beyanları. Ön ek `baslik` alanında taşınır ki temizlik aynı desenle
    * yapılabilsin — bu tabloda faaliyet gibi ayrı bir kimlik alanı yok.
    */
-  await prisma.ogrenciKazanim.deleteMany({
-    where: { ogrenciId: ogrenci.id, baslik: { startsWith: ON_EK } },
+  await prisma.kullaniciKazanim.deleteMany({
+    where: { kullaniciId: ogrenci.id, baslik: { startsWith: ON_EK } },
   });
 
   for (const ornek of ORNEK_KAZANIMLAR) {
     const tarih = new Date();
     tarih.setDate(tarih.getDate() - ornek.gunOnce);
 
-    await prisma.ogrenciKazanim.create({
+    await prisma.kullaniciKazanim.create({
       data: {
-        ogrenciId: ogrenci.id,
+        kullaniciId: ogrenci.id,
         tip: ornek.tip,
         baslik: `${ON_EK}${ornek.baslik}`,
         aciklama: ornek.aciklama ?? null,

@@ -31,17 +31,40 @@ Durum işaretleri: `[x]` bitti · `[ ]` bekliyor · `[?]` karar/bilgi bekliyor
 - [x] "Kazanımlarım ve üretimlerim" → **"Ekosisteme katkı"**
 - [x] "Rozetlerim" → **"Katkılarım"** (sayfa içi kart: "Katkı nişanlarım")
 - [x] **İlçe temsilcisi** rolü — şema + etiket hazır
-- [ ] İlçe temsilciliğinin ekranlarda gösterilmesi (rol atama, profil, listeler)
-- [ ] **Katkı kartı**: okul temsilcisi / il temsilcisi / çalışma grupları /
+- [x] İlçe temsilciliğinin ekranlarda gösterilmesi (rol atama, profil, listeler)
+      → Görev Rolleri ekranından **ilin koordinatörü** verir (ilçe düzeyinde
+      görevli yok). Kapsam göreve yazılır, dönem başına tek kişi kısıtı
+      veritabanında (`ux_ilce_temsilcisi`). Unvan öğrenci listesinde, profilde
+      ve katkı kartında tam yazılır ("Ankara / Çankaya İlçe Temsilcisi").
+- [x] **Katkı kartı**: okul temsilcisi / il temsilcisi / çalışma grupları /
       aldığı görevler tek kartta
-- [ ] **Panelim**: açık başvurulardan son 5'i + "tüm faaliyetler" bağlantısı
-- [ ] **Panelim**: başvurabileceği açık faaliyetler
-- [ ] **Yeni kayıt ekle** formu: GençTek etkinlikleri + "diğer" seçeneği,
+      → `src/components/KatkiKarti.tsx`. Aynı bileşen hem öğrencinin kendi
+      ekranına hem yetkilinin gördüğü profile basılır. Geçmiş dönem görevleri
+      dönemiyle birlikte durur, silinmez.
+- [x] **Panelim**: açık başvurulardan son 5'i + "tüm faaliyetler" bağlantısı
+- [x] **Panelim**: başvurabileceği açık faaliyetler
+      → İkisi tek kartta birleşti: liste zaten kapsam filtresinden geçiyor,
+      her satır ayrıca "başvurabilir misin"i rozetle söylüyor. İki ayrı kart
+      aynı faaliyeti iki kez gösterirdi.
+- [x] **Yeni kayıt ekle** formu: GençTek etkinlikleri + "diğer" seçeneği,
       yüz yüze / online, hedef kitle alanı
-- [ ] **"Yaptığım ürünler"** bölümü
-- [ ] Profil iletişim bilgilerine **GitHub · kişisel site · LinkedIn**
-- [ ] **Öğrenci faaliyet oluşturabilsin** — onay il koordinatörü ve YEĞİTEK
+      → Program listeden seçilir, "Diğer" serbest metne düşer: yalnızca liste
+      olsaydı listede olmayan etkinlik girilemez, yalnızca serbest metin olsaydı
+      aynı program onlarca yazımla girilip sayılamazdı.
+- [x] **"Yaptığım ürünler"** bölümü
+      → Ayrı tablo değil, `ogrenci_kazanim`'ın `tip=URUN` kayıtları; Katkılarım
+      ekranında ve öğrenci profilinde kendi kartında. Kart ekleme kısayolu
+      verir, silme yolu vermez (silme tek yerde: profil).
+- [x] Profil iletişim bilgilerine **GitHub · kişisel site · LinkedIn**
+      → Beyandır, yalnızca biçim doğrulanır; protokolsüz adres reddedilmez
+      tamamlanır (`github.com/ali` → `https://github.com/ali`).
+- [x] **Öğrenci faaliyet oluşturabilsin** — onay il koordinatörü ve YEĞİTEK
       yöneticilerine düşsün (büyük iş: yetki + onay akışı + bildirim)
+      → Kapsam sınırı yok (okul/il/ulusal), sınır onayda: öğrencinin açtığı her
+      faaliyet `BEKLIYOR` başlar. Onayı ilin koordinatörü de YEĞİTEK de
+      verebilir, **ilk karar geçerlidir**. Açılışta ikisine, sonuçta öğrenciye
+      bildirim gider; onaylı öneride tarih değişirse onay düşer ve uyarı
+      yeniden gider.
 
 ### Kod gerektirmeyen
 - [x] **Çalışma grupları** (Bilişim Hukuku, Güvenli İnternet, GençX, Diğer)
@@ -56,9 +79,17 @@ Durum işaretleri: `[x]` bitti · `[ ]` bekliyor · `[?]` karar/bilgi bekliyor
       süre değişimi onayı düşürüyor
 - [x] **İl koordinatörü kartı** — ad soyad + e-posta. Koordinatörün
       kendisine ve proje yöneticisine gösterilmez.
-- [ ] Daha önce katıldığı kendi etkinlikleri
-- [ ] Öğretmene de **katkı sistemi**
-- [ ] Kendi faaliyetinin **başvuru listesini CSV** alabilme
+- [x] Daha önce katıldığı kendi etkinlikleri
+      → Panelim'de son 5 tamamlanmış katılım + Katkılarım ekranında tam liste.
+      "Seçildin" yetmez, tarih geçmiş ve faaliyet iptal edilmemiş olmalı.
+- [x] Öğretmene de **katkı sistemi**
+      → Katkılarım ekranı: katkı kartı (görevler, danışmanlık, düzenlediği
+      faaliyetler), öğretmene özel nişanlar, profilde kazanım kaydı. Öğrenci
+      listesi birebir kullanılamazdı — öğretmenin katkısı danışmanlık ve
+      faaliyet düzenlemede, temsilcilikte değil.
+- [x] Kendi faaliyetinin **başvuru listesini CSV** alabilme
+      → Faaliyet detayındaki Başvurular kartından; telefon/e-posta yok,
+      erişim logu yazılır. Yalnızca değerlendirme yetkisi olan görür.
 
 ---
 

@@ -19,8 +19,21 @@ export const OGRENCI_PROFIL_ICERIGI = {
   il: { select: { ad: true } },
   ilce: { select: { ad: true } },
   ogrenciProfil: true,
+  /*
+   * Görevin KAPSAMI da çekilir ("Çankaya İlçe Temsilcisi"), yalnızca rol kodu
+   * değil: aynı öğrenci farklı dönemlerde farklı yerlerde temsilci olmuş
+   * olabilir ve kapsam öğrencinin güncel kaydından okunamaz — okul değiştirmiş
+   * olabilir.
+   */
   gorevRolleri: {
-    select: { rolKodu: true, egitimOgretimYili: true },
+    orderBy: { egitimOgretimYili: "desc" as const },
+    select: {
+      rolKodu: true,
+      egitimOgretimYili: true,
+      il: { select: { ad: true } },
+      ilce: { select: { ad: true } },
+      kurum: { select: { ad: true } },
+    },
   },
   calismaGruplari: {
     select: {

@@ -16,6 +16,10 @@ export const BILDIRIM_KODLARI = {
   DANISMAN_YENIDEN_SECIM: "DANISMAN_YENIDEN_SECIM",
   KOORDINATOR_DEVREDILEBILIR_OGRENCI: "KOORDINATOR_DEVREDILEBILIR_OGRENCI",
   ONAY_BEKLEYEN_ULUSAL_FAALIYET: "ONAY_BEKLEYEN_ULUSAL_FAALIYET",
+  /** Öğrenci faaliyet açtı; il koordinatörüne ve YEĞİTEK'e birlikte gider. */
+  ONAY_BEKLEYEN_OGRENCI_FAALIYETI: "ONAY_BEKLEYEN_OGRENCI_FAALIYETI",
+  /** Faaliyet onaylandı ya da reddedildi; faaliyeti açana gider. */
+  FAALIYET_ONAY_SONUCU: "FAALIYET_ONAY_SONUCU",
   DANISMANA_KOPYA_ULUSAL_BASVURU: "DANISMANA_KOPYA_ULUSAL_BASVURU",
   OGRENCI_ATANAMADI: "OGRENCI_ATANAMADI",
   FAALIYET_IPTAL_EDILDI: "FAALIYET_IPTAL_EDILDI",
@@ -82,6 +86,20 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "İl koordinatörü ulusal faaliyet açtığında proje yöneticilerine gider.",
     degiskenler: ["faaliyetAdi", "duzenleyenAdSoyad"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
+    baslik: "Onay bekleyen öğrenci faaliyeti",
+    aciklama:
+      "Öğrenci faaliyet açtığında hem öğrencinin ilinin koordinatörüne hem proje yöneticilerine gider. İkisi de onaylayabilir.",
+    degiskenler: ["faaliyetAdi", "duzenleyenAdSoyad", "kapsam", "okulAdi"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.FAALIYET_ONAY_SONUCU,
+    baslik: "Faaliyet onay sonucu",
+    aciklama:
+      "Onaya sunulan faaliyet sonuçlandığında faaliyeti açan kullanıcıya gider.",
+    degiskenler: ["faaliyetAdi", "sonuc", "kararVerenAdSoyad"],
   },
   {
     kod: BILDIRIM_KODLARI.DANISMANA_KOPYA_ULUSAL_BASVURU,
