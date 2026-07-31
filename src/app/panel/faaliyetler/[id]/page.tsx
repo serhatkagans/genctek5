@@ -55,6 +55,7 @@ import {
   kontenjanAltSiniri,
   kontenjanDurumu,
 } from "@/lib/faaliyet/kurallar";
+import { KATILIM_BICIMI_ETIKETLERI } from "@/lib/kazanim/kurallar";
 import { PAYDAS_TURU_ETIKETLERI } from "@/lib/paydas/kurallar";
 import { girdiTarihi, girdiTarihSaati, tarihSaatYaz, tarihYaz } from "@/lib/tarih";
 import {
@@ -516,6 +517,14 @@ export default async function FaaliyetDetaySayfasi({
                 : tarihSaatYaz(faaliyet.tarih)}
             </span>
           </Satir>
+          {faaliyet.katilimBicimi && (
+            <Satir etiket="Katılım biçimi">
+              {KATILIM_BICIMI_ETIKETLERI[faaliyet.katilimBicimi]}
+            </Satir>
+          )}
+          {faaliyet.hedefKitle && (
+            <Satir etiket="Hedef kitle">{faaliyet.hedefKitle}</Satir>
+          )}
           <Satir etiket="Süre">
             {faaliyetSuresiYaz(faaliyet.tarih, faaliyet.bitisTarihi)}
           </Satir>

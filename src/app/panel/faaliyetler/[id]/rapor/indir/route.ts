@@ -9,6 +9,7 @@ import {
   faaliyetSuresiYaz,
   KAPSAM_ETIKETLERI,
 } from "@/lib/faaliyet/kurallar";
+import { KATILIM_BICIMI_ETIKETLERI } from "@/lib/kazanim/kurallar";
 import { csvAdParcasi, csvBelgesi, csvYaniti } from "@/lib/rapor/csv";
 import {
   faaliyetRaporuHtml,
@@ -105,6 +106,10 @@ export async function GET(
       ? `${tarihSaatYaz(faaliyet.tarih)} — ${tarihSaatYaz(faaliyet.bitisTarihi)}`
       : tarihSaatYaz(faaliyet.tarih),
     sure: faaliyetSuresiYaz(faaliyet.tarih, faaliyet.bitisTarihi),
+    katilimBicimi: faaliyet.katilimBicimi
+      ? KATILIM_BICIMI_ETIKETLERI[faaliyet.katilimBicimi]
+      : null,
+    hedefKitle: faaliyet.hedefKitle,
     duzenleyen: `${faaliyet.duzenleyen.ad} ${faaliyet.duzenleyen.soyad}`,
     duzenleyenBirim: faaliyet.duzenleyenBirim,
     kontenjan: faaliyet.kontenjan,
@@ -154,6 +159,8 @@ export async function GET(
       ["Yer", veri.yer],
       ["Tarih", veri.tarih],
       ["Süre", veri.sure],
+      ["Katılım biçimi", veri.katilimBicimi ?? "—"],
+      ["Hedef kitle", veri.hedefKitle ?? "—"],
       ["Düzenleyen", veri.duzenleyen],
       ["Kontenjan", veri.kontenjan],
       ["Toplam başvuru", veri.toplamBasvuru],

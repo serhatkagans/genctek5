@@ -29,6 +29,9 @@ export interface RaporVerisi {
   yer: string;
   tarih: string;
   sure: string;
+  /** Yüz yüze / online / karma; girilmemişse null. */
+  katilimBicimi: string | null;
+  hedefKitle: string | null;
   duzenleyen: string;
   duzenleyenBirim: string;
   kontenjan: number;
@@ -117,6 +120,8 @@ ${satir("Etkinlik kategorisi", veri.kategori)}
 ${satir("Yer", veri.yer)}
 ${satir("Tarih", veri.tarih)}
 ${satir("Süre", veri.sure)}
+${veri.katilimBicimi ? satir("Katılım biçimi", veri.katilimBicimi) : ""}
+${veri.hedefKitle ? satir("Hedef kitle", veri.hedefKitle) : ""}
 ${satir("Düzenleyen", veri.duzenleyen)}
 ${satir("Düzenleyen birim", veri.duzenleyenBirim)}
 </table>

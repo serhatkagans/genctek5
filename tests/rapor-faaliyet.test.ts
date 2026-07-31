@@ -20,6 +20,8 @@ const VERI: RaporVerisi = {
   yer: "Ankara",
   tarih: "1 Mart 2026 10:00",
   sure: "2 gün",
+  katilimBicimi: "Yüz yüze",
+  hedefKitle: "11. sınıflar",
   duzenleyen: "Ayşe Yılmaz",
   duzenleyenBirim: "Ankara İl Koordinatörlüğü",
   kontenjan: 20,
@@ -170,5 +172,25 @@ describe("raporun yazılı kısmı çıktıya girer", () => {
     });
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("katılım biçimi ve hedef kitle çıktıda", () => {
+  it("girilmişse yazılır", () => {
+    const html = faaliyetRaporuHtml(VERI);
+    expect(html).toContain("Katılım biçimi");
+    expect(html).toContain("Yüz yüze");
+    expect(html).toContain("11. sınıflar");
+  });
+
+  it("girilmemişse satır hiç basılmaz", () => {
+    // Boş satır basmak, bilginin girildiği ama kaybolduğu izlenimi verirdi.
+    const html = faaliyetRaporuHtml({
+      ...VERI,
+      katilimBicimi: null,
+      hedefKitle: null,
+    });
+    expect(html).not.toContain("Katılım biçimi");
+    expect(html).not.toContain("Hedef kitle");
   });
 });

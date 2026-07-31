@@ -148,10 +148,21 @@ export function etkinlikKategorisiDogrula(
     return { olurMu: true };
   }
 
+  /*
+   * "DİĞER" YOLU: program seçilmediyse ama faaliyetin adı yazıldıysa kayıt
+   * geçerlidir. Eskiden Temel Etkinlik ve Çalışma Grubu Etkinliği'nde ad
+   * ZORUNLU olarak listeden geliyordu; listede olmayan bir etkinlik açmak
+   * isteyen kişi kategoriyi İl Etkinliği'ne çevirmek zorunda kalıyor ve
+   * etkinliğin gerçek niteliğini kaybediyordu.
+   *
+   * Program seçildiğinde grup kontrolü aynen sürüyor: yanlış gruptan program
+   * seçilemez.
+   */
   if (girdi.programGrubu === null) {
+    if (girdi.serbestAd) return { olurMu: true };
     return {
       olurMu: false,
-      neden: `${ETKINLIK_KATEGORISI_ETIKETLERI[girdi.kategori]} için listeden bir program seçilmelidir.`,
+      neden: `${ETKINLIK_KATEGORISI_ETIKETLERI[girdi.kategori]} için listeden bir program seçin ya da "Diğer" işaretleyip faaliyet adını yazın.`,
     };
   }
 

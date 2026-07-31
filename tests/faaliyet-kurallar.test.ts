@@ -274,14 +274,41 @@ describe("kontenjan değişikliği", () => {
 });
 
 describe("etkinlik kategorisi", () => {
-  it("temel etkinlikte program zorunludur", () => {
+  /*
+   * KURAL DEĞİŞTİ: Temel Etkinlik ve Çalışma Grubu Etkinliği'nde ad eskiden
+   * ZORUNLU olarak listeden geliyordu. Listede olmayan bir etkinlik açmak
+   * isteyen kişi kategoriyi İl Etkinliği'ne çevirmek zorunda kalıyor ve
+   * etkinliğin gerçek niteliğini kaybediyordu. Artık "Diğer" yolu var.
+   */
+  it("temel etkinlikte program YA DA serbest ad gerekir", () => {
+    // Program yok + ad yok -> reddedilir
+    expect(
+      etkinlikKategorisiDogrula({
+        kategori: "TEMEL_ETKINLIK",
+        programGrubu: null,
+        serbestAd: null,
+      }).olurMu,
+    ).toBe(false);
+
+    // Program yok + ad var ("Diğer" yolu) -> kabul edilir
+    expect(
+      etkinlikKategorisiDogrula({
+        kategori: "TEMEL_ETKINLIK",
+        programGrubu: null,
+        serbestAd: "Listede olmayan etkinlik",
+      }).olurMu,
+    ).toBe(true);
+
+    expect(programSecimiGerekiyorMu("TEMEL_ETKINLIK")).toBe(true);
+  });
+
+  it("program da ad da yoksa gerekçe iki yolu birden söyler", () => {
     const karar = etkinlikKategorisiDogrula({
       kategori: "TEMEL_ETKINLIK",
       programGrubu: null,
-      serbestAd: "Elle yazılmış ad",
+      serbestAd: null,
     });
-    expect(karar.olurMu).toBe(false);
-    expect(programSecimiGerekiyorMu("TEMEL_ETKINLIK")).toBe(true);
+    expect(karar.neden).toContain("Diğer");
   });
 
   it("program yanlış gruptansa reddedilir", () => {

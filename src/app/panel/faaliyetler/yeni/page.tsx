@@ -20,6 +20,10 @@ import {
   kapsamSecenekleri,
   onayDurumuBelirle,
 } from "@/lib/faaliyet/kurallar";
+import {
+  KATILIM_BICIMI_ETIKETLERI,
+  KATILIM_BICIMLERI,
+} from "@/lib/kazanim/kurallar";
 import { girdiTarihi } from "@/lib/tarih";
 import {
   danismanKurumKodu,
@@ -207,7 +211,14 @@ export default async function YeniFaaliyetSayfasi({
                 defaultValue=""
                 className={SINIF_GIRDI}
               >
-                <option value="">Seçiniz</option>
+                {/*
+                  "Diğer": listede olmayan bir etkinlik de açılabilsin. Eskiden
+                  bu kategorilerde ad ZORUNLU olarak listeden geliyordu; listede
+                  olmayan etkinliği açmak isteyen kişi kategoriyi İl Etkinliği'ne
+                  çevirmek zorunda kalıp etkinliğin gerçek niteliğini
+                  kaybediyordu.
+                */}
+                <option value="">Diğer — adını aşağıya kendim yazacağım</option>
                 <optgroup label="Temel Etkinlik">
                   {programlar
                     .filter((program) => program.grup === "TEMEL_ETKINLIK")
@@ -325,6 +336,40 @@ export default async function YeniFaaliyetSayfasi({
                 </select>
               </label>
             )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className={SINIF_ETIKET}>
+                  Katılım biçimi{" "}
+                  <span className="text-metin-yumusak">(isteğe bağlı)</span>
+                </span>
+                <select
+                  name="katilimBicimi"
+                  defaultValue=""
+                  className={SINIF_GIRDI}
+                >
+                  <option value="">Belirtilmedi</option>
+                  {KATILIM_BICIMLERI.map((bicim) => (
+                    <option key={bicim} value={bicim}>
+                      {KATILIM_BICIMI_ETIKETLERI[bicim]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className={SINIF_ETIKET}>
+                  Hedef kitle{" "}
+                  <span className="text-metin-yumusak">(isteğe bağlı)</span>
+                </span>
+                <input
+                  type="text"
+                  name="hedefKitle"
+                  maxLength={200}
+                  placeholder="9. sınıflar, veliler, öğretmenler…"
+                  className={SINIF_GIRDI}
+                />
+              </label>
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <label className="block">

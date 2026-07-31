@@ -48,6 +48,7 @@ import {
   baslangicOnayDurumu,
   degerlendirmeyeHazirMi,
 } from "@/lib/basvuru/il-disi";
+import { katilimBicimiGecerliMi } from "@/lib/kazanim/kurallar";
 import { gunBasi, gunSonu, yerelTarihSaat } from "@/lib/tarih";
 import {
   baskasiAdinaBasvurabilirMi,
@@ -153,6 +154,17 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
     hataylaDon(yol, sureKarari.neden ?? "Faaliyet süresi geçersiz.");
   }
 
+  /*
+   * Katılım biçimi ve hedef kitle İSTEĞE BAĞLI: her faaliyette söylenecek bir
+   * şey olmayabilir ve zorunlu kılmak kullanıcıyı rastgele seçmeye iter.
+   * Geçersiz bir enum değeri gelirse sessizce boş bırakılır.
+   */
+  const katilimBicimiHam = metin(veri, "katilimBicimi");
+  const katilimBicimi = katilimBicimiGecerliMi(katilimBicimiHam)
+    ? katilimBicimiHam
+    : null;
+  const hedefKitle = metin(veri, "hedefKitle").slice(0, 200) || null;
+
   const kontenjan = sayi(veri, "kontenjan");
   if (kontenjan === null || kontenjan < 1) {
     hataylaDon(yol, "Kontenjan en az 1 olmalıdır.");
@@ -227,6 +239,8 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
       aciklama,
       tarih,
       bitisTarihi: faaliyetBitisi,
+      katilimBicimi,
+      hedefKitle,
       kapsam,
       etkinlikKategorisi,
       temelEtkinlikProgramiId: program?.id ?? null,

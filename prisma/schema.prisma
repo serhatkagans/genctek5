@@ -598,6 +598,15 @@ model Faaliyet {
   /// Sayı tutulsaydı tarih değiştiğinde güncellenmesi unutulur ve ekranda
   /// tarihle çelişen bir süre görünürdü.
   bitisTarihi           DateTime?          @map("bitis_tarihi") @db.Timestamptz(6)
+  /// Yüz yüze / online / karma. Kazanım kayıtlarında zaten vardı; faaliyette
+  /// yoktu — faaliyeti AÇAN kişi aynı bilgiyi giremiyordu.
+  ///
+  /// NULL kabul eder ve varsayılan verilmez: "yüz yüze" varsaymak, online
+  /// yapılmış geçmiş faaliyetleri sessizce yanlış etiketlerdi.
+  katilimBicimi         KatilimBicimi?     @map("katilim_bicimi")
+  /// Faaliyetin kime yönelik olduğu ("9. sınıflar", "veliler", "öğretmenler").
+  /// Serbest metin: sabit bir liste bu çeşitliliği taşımıyor.
+  hedefKitle            String?            @map("hedef_kitle") @db.VarChar(200)
   kapsam                Kapsam
   /// Etkinliğin niteliği. Kapsam'dan BAĞIMSIZDIR: kapsam kimin
   /// başvurabileceğini, kategori etkinliğin ne olduğunu söyler.
