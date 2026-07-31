@@ -40,6 +40,15 @@ const CALISMA_GRUPLARI = [
   "Dijital Sanatlar ve İçerik Geliştirme",
   "Açık Kaynak",
   "Espor",
+  "Bilişim Hukuku",
+  "Güvenli İnternet",
+  "GençX",
+  /*
+   * "Diğer" listenin SONUNDA: başta olsaydı öğrenci diğer alanları okumadan
+   * onu seçerdi. Grup adları seed'de tutuluyor çünkü panelden eklenen bir grup
+   * yalnızca o ortamın veritabanına yazılır ve başka bir kuruluma taşınmaz.
+   */
+  "Diğer",
 ];
 
 /**
