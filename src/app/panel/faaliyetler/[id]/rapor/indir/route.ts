@@ -50,7 +50,7 @@ export async function GET(
     return new Response("Bulunamadı", { status: 404 });
   }
 
-  const [basvurular, ekler] = await Promise.all([
+  const [basvurular, ekler, rapor] = await Promise.all([
     prisma.basvuru.findMany({
       where: { faaliyetId: faaliyet.id },
       orderBy: [{ durum: "asc" }, { basvuruTarihi: "asc" }],
@@ -72,6 +72,19 @@ export async function GET(
     prisma.faaliyetEk.findMany({
       where: { faaliyetId: faaliyet.id, silindiMi: false, mimeTipi: { startsWith: "image/" } },
       select: { dosyaAdi: true },
+    }),
+    /*
+     * Raporun YAZILI kısmı. Çıktının asıl içeriği budur; ilk sürümde
+     * okunmuyordu ve indirilen belgede değerlendirme boş çıkıyordu.
+     */
+    prisma.faaliyetRaporu.findUnique({
+      where: { faaliyetId: faaliyet.id },
+      select: {
+        degerlendirme: true,
+        kazanimlar: true,
+        guncellemeTarihi: true,
+        yazan: { select: { ad: true, soyad: true } },
+      },
     }),
   ]);
 
@@ -105,6 +118,10 @@ export async function GET(
       il: basvuru.katilimci.il?.ad ?? null,
     })),
     gorselAdlari: ekler.map((ek) => ek.dosyaAdi),
+    degerlendirme: rapor?.degerlendirme ?? null,
+    kazanimlar: rapor?.kazanimlar ?? null,
+    raporYazan: rapor ? `${rapor.yazan.ad} ${rapor.yazan.soyad}` : null,
+    raporTarihi: rapor ? tarihSaatYaz(rapor.guncellemeTarihi) : null,
     olusturan: `${kullanici.ad} ${kullanici.soyad}`,
     olusturmaTarihi: tarihSaatYaz(new Date()),
   };
@@ -142,6 +159,16 @@ export async function GET(
       ["Toplam başvuru", veri.toplamBasvuru],
       ["Katılan (seçilmiş)", veri.katilanSayisi],
       ["Farklı kişi sayısı", veri.tekilKatilimci],
+      ["", ""],
+      /*
+       * Değerlendirme CSV'de de yer alır. Satır sonları hücre içinde korunur;
+       * csvHucresi tırnaklama yaptığı için Excel çok satırlı hücreyi doğru
+       * okur.
+       */
+      ["Değerlendirme", veri.degerlendirme ?? "Rapor henüz yazılmadı."],
+      ["Kazanımlar", veri.kazanimlar ?? "—"],
+      ["Raporu yazan", veri.raporYazan ?? "—"],
+      ["Rapor tarihi", veri.raporTarihi ?? "—"],
       ["", ""],
       ["Katılımcı", "Sınıf / Branş · Okul / İl"],
       ...veri.katilimcilar.map((katilimci) => [

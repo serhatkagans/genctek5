@@ -30,6 +30,10 @@ const VERI: RaporVerisi = {
     { adSoyad: "Elif Demir", sinifVeyaBrans: "11-A", okul: "Kadıköy AL", il: "İstanbul" },
   ],
   gorselAdlari: ["acilis.jpg"],
+  degerlendirme: "Atölye planlandığı gibi yürüdü.\nKatılım yüksekti.",
+  kazanimlar: "Takım çalışması gelişti.",
+  raporYazan: "Ayşe Yılmaz",
+  raporTarihi: "20 Temmuz 2026 09:00",
   olusturan: "Burcu Yılmaz",
   olusturmaTarihi: "31 Temmuz 2026 14:00",
 };
@@ -111,5 +115,60 @@ describe("faaliyetRaporuHtml", () => {
   it("faaliyet adındaki tırnak başlık etiketini bozmaz", () => {
     const html = faaliyetRaporuHtml({ ...VERI, faaliyetAdi: 'A "B" C' });
     expect(html).toContain("A &quot;B&quot; C");
+  });
+});
+
+describe("raporun yazılı kısmı çıktıya girer", () => {
+  /*
+   * Bu bölüm ilk sürümde ÇIKTIYA HİÇ GİRMİYORDU: dışa aktarma, rapor modeli
+   * eklenmeden önce yazılmıştı ve model geldiğinde geri dönülmemişti. İndirilen
+   * belgede değerlendirme boş çıkıyordu.
+   */
+  it("değerlendirmeyi yazar", () => {
+    const html = faaliyetRaporuHtml(VERI);
+    expect(html).toContain("Atölye planlandığı gibi yürüdü.");
+  });
+
+  it("değerlendirmedeki satır sonlarını korur", () => {
+    expect(faaliyetRaporuHtml(VERI)).toContain(
+      "Atölye planlandığı gibi yürüdü.<br>Katılım yüksekti.",
+    );
+  });
+
+  it("kazanımları yazar", () => {
+    expect(faaliyetRaporuHtml(VERI)).toContain("Takım çalışması gelişti.");
+  });
+
+  it("raporu yazanı ve tarihini yazar", () => {
+    const html = faaliyetRaporuHtml(VERI);
+    expect(html).toContain("Ayşe Yılmaz");
+    expect(html).toContain("20 Temmuz 2026 09:00");
+  });
+
+  it("rapor yazılmamışsa bunu AÇIKÇA söyler", () => {
+    // Sessizce boş bölüm bırakmak, raporun yazıldığı ama içeriğin kaybolduğu
+    // izlenimi verirdi.
+    const html = faaliyetRaporuHtml({
+      ...VERI,
+      degerlendirme: null,
+      kazanimlar: null,
+      raporYazan: null,
+      raporTarihi: null,
+    });
+    expect(html).toContain("raporu henüz yazılmadı");
+  });
+
+  it("kazanım boşsa başlığı hiç basmaz", () => {
+    const html = faaliyetRaporuHtml({ ...VERI, kazanimlar: null });
+    expect(html).not.toContain("<h2>Kazanımlar</h2>");
+  });
+
+  it("değerlendirmedeki HTML'i kaçırır", () => {
+    const html = faaliyetRaporuHtml({
+      ...VERI,
+      degerlendirme: "<script>alert(1)</script>",
+    });
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).toContain("&lt;script&gt;");
   });
 });

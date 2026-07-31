@@ -13,6 +13,7 @@ import { aydinlatmaOnayDurumu } from "@/lib/kvkk/durum";
 import { taahhutDurumu } from "@/lib/kvkk/taahhut";
 import { aktifTema } from "@/lib/tema";
 import {
+  basvuruYapabilirMi,
   danismanMi,
   ilKoordinatoruMu,
   ogrenciMi,
@@ -73,6 +74,15 @@ export default async function PanelDuzeni({
   // Faaliyetler herkese açıktır; kimin ne göreceğini kapsam filtresi belirler.
   // Görev almamış öğretmen de okulunun ve ulusal faaliyetleri görür.
   baglantilar.push({ yol: "/panel/faaliyetler", etiket: "Faaliyetler" });
+
+  /*
+   * Talep panosu faaliyete başvurabilen herkese açık (öğrenci ve öğretmen).
+   * Merkez personeli dışarıda: YEĞİTEK'in takım arkadaşı araması diye bir
+   * durum yok, onun duyuru kanalı ayrı.
+   */
+  if (basvuruYapabilirMi(kullanici)) {
+    baglantilar.push({ yol: "/panel/talepler", etiket: "Talep Panosu" });
+  }
 
   if (
     danismanMi(kullanici) ||

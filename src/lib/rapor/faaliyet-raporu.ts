@@ -39,6 +39,17 @@ export interface RaporVerisi {
   tekilKatilimci: number;
   katilimcilar: RaporKatilimcisi[];
   gorselAdlari: string[];
+  /*
+   * Koordinatörün/düzenleyenin YAZDIĞI değerlendirme. Rapor sayfasında
+   * giriliyor; çıktının asıl içeriği budur. Boşsa rapor henüz yazılmamıştır
+   * ve çıktı bunu açıkça söyler — sessizce boş bölüm bırakmak, raporun
+   * yazıldığı ama içeriğin kaybolduğu izlenimi verirdi.
+   */
+  degerlendirme: string | null;
+  kazanimlar: string | null;
+  /** Değerlendirmeyi yazan ve son güncelleme; boşsa rapor yazılmamıştır. */
+  raporYazan: string | null;
+  raporTarihi: string | null;
   olusturan: string;
   olusturmaTarihi: string;
 }
@@ -120,6 +131,24 @@ ${satir("Toplam başvuru", String(veri.toplamBasvuru))}
 ${satir("Katılan (seçilmiş)", String(veri.katilanSayisi))}
 ${satir("Farklı kişi sayısı", String(veri.tekilKatilimci))}
 </table>
+
+<h2>Değerlendirme</h2>
+${
+  veri.degerlendirme
+    ? `<p>${htmlKacir(veri.degerlendirme).replace(/\n/g, "<br>")}</p>` +
+      (veri.raporYazan
+        ? `<p class="not">Yazan: ${htmlKacir(veri.raporYazan)}${
+            veri.raporTarihi ? ` · ${htmlKacir(veri.raporTarihi)}` : ""
+          }</p>`
+        : "")
+    : "<p><em>Bu faaliyetin raporu henüz yazılmadı.</em></p>"
+}
+
+${
+  veri.kazanimlar
+    ? `<h2>Kazanımlar</h2><p>${htmlKacir(veri.kazanimlar).replace(/\n/g, "<br>")}</p>`
+    : ""
+}
 
 <h2>Katılımcılar</h2>
 <table>
