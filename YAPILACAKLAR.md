@@ -100,10 +100,15 @@ Durum işaretleri: `[x]` bitti · `[ ]` bekliyor · `[?]` karar/bilgi bekliyor
       (`paydasEkleyebilirMi`); düzenleme dar kaldı (kendi ili **veya** kendi
       eklediği kayıt). Kapsam filtresi genişletildi ki başka ile eklenen
       kayıt listeden kaybolmasın.
-- [ ] Danışman öğretmenlerinin girdiği etkinlikleri **görme ve onaylama**
-- [ ] Başka ildeki etkinliğe başvuran kendi öğrencilerini görme
-- [ ] **Çift onay akışı**: önce başvuran öğrencinin koordinatörü, sonra
-      etkinliğin yapıldığı ilin koordinatörü
+- [x] Danışman öğretmenlerinin girdiği etkinlikleri **görme ve onaylama**
+      → Öğretmen faaliyeti artık ilin koordinatörünün onayını bekliyor.
+      Bildirim yalnızca koordinatöre gider; koordinatörsüz ilde merkeze düşer.
+- [x] Başka ildeki etkinliğe başvuran kendi öğrencilerini görme
+      → `/panel/il-disi-basvurular`
+- [x] **Çift onay akışı**. İkinci onay YENİ BİR ADIM DEĞİL: düzenleyenin
+      değerlendirmesi zaten etkinliğin yapıldığı ilin kararıdır. Eklenen adım,
+      öğrencinin kendi ilinin izni. Kaynak il karar vermeden değerlendirme
+      yapılamıyor; ret gerekçesi zorunlu.
 - [ ] Biten etkinlik için **faaliyet raporu sayfası**: kaç öğrenci katıldı,
       kim katıldı, etkinliğe ait görsel ekleme
 - [ ] **Gizlilik / taahhütname imzası** — koordinatör öğretmen verilerini
@@ -148,12 +153,28 @@ Durum işaretleri: `[x]` bitti · `[ ]` bekliyor · `[?]` karar/bilgi bekliyor
 
 ## Sunucu / işletim
 
-- [ ] **Yedekleme cron'u kurulu değil** — `dagitim/yedek.sh` hazır, cron kaydı
-      yok. Yedekler şu an elle alınıyor. Komutlar DAGITIM.md Bölüm 9'da.
-- [ ] **Geri yükleme provası** hiç yapılmadı (DAGITIM.md kontrol listesi
-      maddesi). Denenmemiş yedek yedek değildir.
-- [ ] Root ve DirectAdmin **parolalarının değiştirilmesi**
-- [ ] `guncelle.bat` yerelde duruyor ama işaret ettiği betik yok — silinecek
-      ya da tamamlanacak
-- [ ] Sunucu deposu GitHub yerine **bundle dosyasından** besleniyor. Kalıcı
-      çözüm: GitHub deploy key + `origin`'in gerçek depoya çevrilmesi.
+- [x] **Yedekleme cron'u kuruldu** — `/usr/local/bin/genctek-yedek`, her gece
+      02:00, günlük `/var/log/genctek-yedek.log`. Elle bir kez çalıştırılıp
+      doğrulandı. Cron satırında `sudo -u postgres` YOK: olsaydı yüklenen
+      dosyalar sessizce yedeklenmezdi (depolama arşivi 120 bayt kalırdı).
+- [x] **Geri yükleme provası yapıldı** (31 Temmuz 2026) — yedek geçerli:
+      10 kullanıcı, 81 il, 92 kısıt, 11 migration geri yüklendi, canlıya
+      dokunulmadı.
+
+      **Prova bir hata yakaladı:** rehberdeki geri yükleme komutu çalışmıyordu.
+      Yedekler `600 root:root` olduğu için `sudo -u postgres pg_restore <dosya>`
+      "Permission denied" alıyor. Doğrusu içeriği boruyla geçirmek:
+      `sudo cat <dump> | sudo -u postgres pg_restore -d genctek`.
+      `dagitim/yedek.sh` ve DAGITIM.md düzeltildi.
+- [ ] Root ve DirectAdmin **parolalarının değiştirilmesi** — SENDE. Parolayı
+      ben değiştirmiyorum: yanlış giderse sunucuya erişimin kesilir ve bu
+      senin kararın olmalı.
+- [x] `guncelle.bat` silindi (işaret ettiği betik yoktu, commit edilmemişti)
+- [ ] **GitHub deploy key** — sunucu tarafı HAZIR: `genctek` kullanıcısı için
+      anahtar üretildi, `~/.ssh/config` yazıldı. Kalan tek adım GitHub'da
+      **Settings → Deploy keys → Add deploy key** ile açık anahtarı eklemek.
+      Eklenene kadar `origin` bundle dosyasında bırakıldı; erkenden
+      çevirseydim `guncelle.sh` çalışmaz hâle gelirdi.
+
+      Açık anahtar:
+      `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP10DkXWh+JLUo5JZBAcRd91Zyt37Izge4PFVI17g+BP genctek-deploy@aiotechs`

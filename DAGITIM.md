@@ -294,7 +294,8 @@ systemctl list-timers genctek-senkron.timer
 ```
 
 Yedekleme betiğini kurun ve **geri yüklemeyi bir kez deneyin** — denenmemiş
-yedek, yedek değildir:
+yedek, yedek değildir. (31 Temmuz 2026'daki ilk provada rehberdeki geri yükleme
+komutunun çalışmadığı ortaya çıktı; ayrıntı `dagitim/yedek.sh` dipnotunda.)
 
 ```bash
 sudo install -m 700 -o root -g root /opt/genctek/dagitim/yedek.sh /usr/local/bin/genctek-yedek
@@ -302,6 +303,14 @@ sudo touch /var/log/genctek-yedek.log && sudo chmod 640 /var/log/genctek-yedek.l
 sudo crontab -e
 # 0 2 * * * /usr/local/bin/genctek-yedek >> /var/log/genctek-yedek.log 2>&1
 ```
+
+> **Geri yüklerken `pg_restore`'a dosya yolu vermeyin**, içeriği boruyla
+> geçirin: yedekler `600 root:root` olduğu için `sudo -u postgres pg_restore
+> <dosya>` "Permission denied" alır. Doğrusu:
+>
+> ```bash
+> sudo cat /var/backups/genctek/veritabani-DAMGA.dump | sudo -u postgres pg_restore -d genctek
+> ```
 
 > Cron satırında **`sudo -u postgres` YAZMAYIN**. Betik root ile çalışmak
 > zorundadır: `postgres` kullanıcısı veritabanını dökebilir ama
