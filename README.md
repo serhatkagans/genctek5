@@ -72,7 +72,7 @@ Kısa hâli: `git clone` → `.env` doldur → `npm ci && npm run build` →
 |---|---|
 | `npm run dev` | Geliştirme sunucusu |
 | `npm run build` / `npm start` | Üretim derlemesi ve sunucu |
-| `npm test` | Birim testler (287 test) |
+| `npm test` | Birim testler (511 test) |
 | `npm run test:duman` | Gerçek veritabanında uçtan uca doğrulama (40 kontrol) |
 | `npm run test:eposta` | E-posta kopyasının bildirim akışına doğru bağlandığını sınar (4 kontrol) |
 | `npm run senaryo:goruntu` | Yetki senaryolarını ve faaliyet akışını tarayıcıda gezer, ekran görüntüsü alır (`--tema=a` / `--tema=b` / `--tema=c` ile diğer temalar) |
@@ -387,7 +387,7 @@ Skill'deki 13 adımlık geliştirme sırasına göre:
 | 9 | Başvuru ve değerlendirme | Tamam |
 | 10 | Raporlama ve filtreleme | Tamam (filtreler + CSV dışa aktarma) |
 | 11 | KVKK aydınlatma ve saklama süresi | Tamam |
-| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (363 test) |
+| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (511 test) |
 | 13 | Gerçek EBA SSO entegrasyonu | Erişim bekleniyor |
 | 14 | Danışman öğretmen envanteri (analiz Bölüm 2) | Tamam |
 | 15 | İl bazlı paydaş bilgi sistemi (analiz Bölüm 3) | Tamam |

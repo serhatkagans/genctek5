@@ -18,6 +18,14 @@ dist/
 # Tema karşılaştırması için alınan ekran görüntüleri
 /ekran-goruntuleri/
 
+# Yerel çalışma dosyaları: geçici script'ler, araçlara verilen istem metinleri,
+# inceleme çıktıları. Kalıcı belge değiller; depoya girerlerse bir sonraki
+# incelemede yeniden "bu ne, güncel mi?" sorusunu doğururlar.
+/scripts/_*.ts
+/belge-promptu.md
+/PROJE-INCELEME-RAPORU.md
+/.claude/settings.local.json
+
 *.log
 npm-debug.log*
 .DS_Store
