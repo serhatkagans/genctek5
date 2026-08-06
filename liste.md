@@ -1,14 +1,18 @@
 # Kalanlar
 
-5 Ağustos 2026 istek listesinden **geriye kalanlar**. Kaynak:
-[`YAPILACAKLAR.md`](YAPILACAKLAR.md) (planın kendisi) ve
-[`SORULAR.md`](SORULAR.md) (açık sorular). Bu dosya onların özeti — ayrıntı
-oralarda, burada yalnızca "ne kaldı, neden bekliyor" var.
+5–6 Ağustos 2026 istek listesinden **geriye kalanlar**. Üç kaynağın özeti:
+
+- [`YAPILACAKLAR.md`](YAPILACAKLAR.md) — **açık** maddelerin planı (C4, G).
+- [`YAPILACAKLAR-ARSIV.md`](YAPILACAKLAR-ARSIV.md) — **biten 25 maddenin**
+  gerekçeleri. 6 Ağustos'ta oraya taşındı.
+- [`SORULAR.md`](SORULAR.md) — açık sorular.
+
+Burada yalnızca "ne kaldı, neden bekliyor" var.
 
 > **6 Ağustos 2026 · uçtan uca denetim:** biten 25 maddenin tamamı çalışan
 > uygulamada beş rolle gezilerek sınandı — **64 kontrol, 64'ü geçti.** Çıkan
 > tek kusur (`/panel/dis-basvurular` yetkisiz kullanıcıya "Beklenmeyen bir
-> hata" diyordu) düzeltildi. Ayrıntı: `YAPILACAKLAR.md` · "Uçtan uca denetim".
+> hata" diyordu) düzeltildi. Ayrıntı: `YAPILACAKLAR-ARSIV.md` · "Uçtan uca denetim".
 
 **Durum:** 27 maddenin **25'i bitti**, **2'si duruyor: C4 ve G.**
 **Öğretmen tarafı (J1–J5), profil bölümünün tamamı (D1–D8), Algoritmam (E) ve
@@ -52,7 +56,7 @@ maddenin artığı var: D5'ten **ürün taahhütnamesi** (→ S12), E'den **dör
 
 ## Yapılanlardan artakalan küçük sorular
 
-Ayrıntı `YAPILACAKLAR.md`'deki "YAPILDI" bölümlerinde; buraya yalnızca
+Ayrıntı `YAPILACAKLAR-ARSIV.md`'deki "YAPILDI" bölümlerinde; buraya yalnızca
 **cevap bekleyen artıklar** yazıldı:
 
 | # | Kalan | Ne gerekiyor |
