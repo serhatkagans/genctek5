@@ -33,11 +33,16 @@ export const AYAR_ANAHTARLARI = {
   BILDIRIM_SAKLAMA_AYI: "BILDIRIM_SAKLAMA_AYI",
   KVKK_AYDINLATMA_METNI: "KVKK_AYDINLATMA_METNI",
   /*
-   * Koordinatör gizlilik taahhüdü AYRI bir metindir: aydınlatma metni
-   * öğrenciye "verini şöyle işliyoruz" der, taahhüt koordinatöre "başkasının
-   * verisiyle şöyle davranacaksın" dedirtir. Farklı taraflara, farklı amaçla.
+   * Dört onay belgesinin dördü de AYRI metindir ve ayrı ayarlarda tutulur:
+   * aydınlatma "verini şöyle işliyoruz" der, açık rıza kişiye "şu isteğe bağlı
+   * işlemlere rıza gösteriyorum" dedirtir, taahhütname koordinatöre görevini
+   * nasıl yürüteceğini, gizlilik sözleşmesi ise başkasının verisiyle nasıl
+   * davranacağını taahhüt ettirir. Tek metinde toplansalardı birinin
+   * güncellenmesi diğerlerinin onayını da eskitirdi.
    */
-  KOORDINATOR_TAAHHUT_METNI: "KOORDINATOR_TAAHHUT_METNI",
+  KVKK_ACIK_RIZA_METNI: "KVKK_ACIK_RIZA_METNI",
+  KOORDINATOR_TAAHHUTNAME_METNI: "KOORDINATOR_TAAHHUTNAME_METNI",
+  GIZLILIK_SOZLESMESI_METNI: "GIZLILIK_SOZLESMESI_METNI",
   DISA_AKTARMA_UST_SINIRI: "DISA_AKTARMA_UST_SINIRI",
 } as const;
 
@@ -65,13 +70,13 @@ export const YONETILEBILIR_AYARLAR: AyarTanimi[] = [
     anahtar: AYAR_ANAHTARLARI.GORSEL_MAKS_BAYT,
     baslik: "Görsel boyut sınırı (bayt)",
     bicim: "sayi",
-    yardim: "Faaliyete eklenen görsel başına üst sınır. 5 MB = 5242880.",
+    yardim: "Etkinliğe eklenen görsel başına üst sınır. 5 MB = 5242880.",
   },
   {
     anahtar: AYAR_ANAHTARLARI.BELGE_MAKS_BAYT,
     baslik: "Belge boyut sınırı (bayt)",
     bicim: "sayi",
-    yardim: "Faaliyete eklenen belge başına üst sınır. 10 MB = 10485760.",
+    yardim: "Etkinliğe eklenen belge başına üst sınır. 10 MB = 10485760.",
   },
   {
     anahtar: AYAR_ANAHTARLARI.IZINLI_GORSEL_TIPLERI,
@@ -133,18 +138,32 @@ export const YONETILEBILIR_AYARLAR: AyarTanimi[] = [
       "Tek CSV indirmesinde en fazla kaç kayıt olabilir. Sınır aşıldığında indirme yapılmaz, filtre daraltılması istenir.",
   },
   {
-    anahtar: AYAR_ANAHTARLARI.KOORDINATOR_TAAHHUT_METNI,
-    baslik: "İl koordinatörü gizlilik taahhütnamesi",
-    bicim: "uzun-metin",
-    yardim:
-      "Boş bırakılırsa koddaki varsayılan metin gösterilir. Metni değiştirmek tüm il koordinatörlerinden YENİDEN ONAY ister.",
-  },
-  {
     anahtar: AYAR_ANAHTARLARI.KVKK_AYDINLATMA_METNI,
     baslik: "KVKK aydınlatma metni",
     bicim: "uzun-metin",
     yardim:
       "Boş bırakılırsa koddaki varsayılan metin gösterilir. Metni değiştirmek öğrencilerden YENİDEN ONAY ister.",
+  },
+  {
+    anahtar: AYAR_ANAHTARLARI.KVKK_ACIK_RIZA_METNI,
+    baslik: "KVKK açık rıza metni",
+    bicim: "uzun-metin",
+    yardim:
+      "Boş bırakılırsa koddaki varsayılan metin gösterilir. Bu metin TÜM kullanıcılara gösterilir; değiştirmek herkesten YENİDEN ONAY ister. Rızaya bağlanmayan bir işlemi metne eklemeyin — açık rıza yalnızca kanunî dayanağı olmayan işlemleri kapsar.",
+  },
+  {
+    anahtar: AYAR_ANAHTARLARI.KOORDINATOR_TAAHHUTNAME_METNI,
+    baslik: "İl koordinatörü taahhütnamesi",
+    bicim: "uzun-metin",
+    yardim:
+      "Görevin nasıl yürütüleceğine ilişkin taahhüt. Boş bırakılırsa koddaki varsayılan metin gösterilir. Metni değiştirmek tüm il koordinatörlerinden YENİDEN ONAY ister.",
+  },
+  {
+    anahtar: AYAR_ANAHTARLARI.GIZLILIK_SOZLESMESI_METNI,
+    baslik: "İl koordinatörü gizlilik sözleşmesi",
+    bicim: "uzun-metin",
+    yardim:
+      "Eriştiği kişisel veriye ilişkin gizlilik yükümlülükleri. Taahhütnameden AYRI bir belgedir. Boş bırakılırsa koddaki varsayılan metin gösterilir; değiştirmek YENİDEN ONAY ister.",
   },
 ];
 

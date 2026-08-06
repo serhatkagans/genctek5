@@ -2,39 +2,43 @@
 
 ## 1. Tam yetki matrisi
 
-| İşlem | Öğrenci | Danışman öğretmen | İl koordinatörü | Proje yöneticisi |
-|---|---|---|---|---|
-| Kendi profilini düzenleme | ✓ | ✓ | ✓ | ✓ |
-| Öğrenci/öğretmen verisi görüntüleme | ✗ | Kendi okulu | Kendi ili | Tüm iller |
-| Tekil öğrenci profilini görüntüleme | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller |
-| Öğrenciyi çalışma grubuna ekleme / çıkarma | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller |
-| Kazanım kaydı ekleme / silme (dış etkinlik, ürün, akran eğitimi, yarışma derecesi) | ✓ (yalnızca kendi kayıtları) | ✗ | ✗ | ✗ |
-| Öğrenci CV'si yükleme / kaldırma | ✓ (yalnızca kendisi) | ✗ | ✗ | ✗ |
-| Öğrenci CV'si indirme | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller |
-| Okul içi faaliyet açma | ✓ (onaya tabi) | ✓ | ✓ | ✓ |
-| İl içi faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ | ✓ |
-| Ulusal faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ (onaya tabi) | ✓ |
-| Faaliyete dosya/görsel ekleme | ✗ | Kendi açtığı faaliyete | Kendi açtığı faaliyete | Her faaliyete |
-| Faaliyete yorum yazma | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ |
-| Kendi yorumunu silme | ✓ | ✓ | ✓ | ✓ |
-| Başkasının yorumunu silme | ✗ | Kendi faaliyetinde | Kendi faaliyetinde | Her yerde |
-| Başvuru değerlendirme | ✗ | Kendi faaliyeti | Kendi faaliyeti | Tümü |
-| Ulusal faaliyet onaylama | ✗ | ✗ | ✗ | ✓ |
-| Öğrenci faaliyeti onaylama | ✗ | ✗ | ✓ (kendi ili) | ✓ |
-| İl koordinatörü atama | ✗ | ✗ | ✗ | ✓ |
-| Okul temsilcisi atama | ✗ | ✓ (kendi okulu) | ✗ | ✓ |
-| İl temsilcisi atama | ✗ | ✗ | ✓ (kendi ili) | ✓ |
-| İlçe temsilcisi atama | ✗ | ✗ | ✓ (kendi ili) | ✓ |
-| Çalışma grubu tanımlama | ✗ | ✗ | ✗ | ✓ |
-| Faaliyete katılımcı olarak başvuru | ✓ | ✓ | ✓ | ✗ |
-| Öğrenci ADINA başvuru | ✗ | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller |
-| Faaliyet düzenleme / iptal etme | ✗ | Kendi açtığı faaliyette | Kendi açtığı faaliyette | Her faaliyette |
-| Öğretmen envanterini görüntüleme | ✗ | Kendi okulu | Kendi ili | Tüm iller |
-| Paydaş envanterini görüntüleme | ✗ | Kendi ili | Kendi ili | Tüm iller |
-| Paydaş kaydı ekleme / düzenleme | ✗ | ✗ | Kendi ili | Tüm iller |
-| Faaliyete paydaş bağlama | ✗ | Kendi açtığı faaliyete | Kendi açtığı faaliyete | Her faaliyete |
-| Bildirim şablonu düzenleme | ✗ | ✗ | ✗ | ✓ |
-| Rol/atama envanterini görüntüleme | ✗ | ✗ | ✗ | ✓ |
+| İşlem | Öğrenci | Danışman öğretmen | İl koordinatörü | Proje yöneticisi | Mezun | Paydaş temsilcisi |
+|---|---|---|---|---|---|---|
+| Kendi profilini düzenleme | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Öğrenci/öğretmen verisi görüntüleme | ✗ | Kendi okulu | Kendi ili | Tüm iller | ✗ | ✗ |
+| Tekil öğrenci profilini görüntüleme | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller | ✗ | ✗ |
+| Öğrenciyi çalışma grubuna ekleme / çıkarma | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller | ✗ | ✗ |
+| Kazanım kaydı ekleme / silme (dış etkinlik, ürün, akran eğitimi, yarışma derecesi) | ✓ (yalnızca kendi kayıtları) | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Öğrenci CV'si yükleme / kaldırma | ✓ (yalnızca kendisi) | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Öğrenci CV'si indirme | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller | ✗ | ✗ |
+| Okul içi faaliyet açma | ✓ (onaya tabi) | ✓ | ✓ | ✓ | ✗ | ✗ |
+| İl içi faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ | ✓ | ✗ | ✗ |
+| Ulusal faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ (onaya tabi) | ✓ | ✗ | ✗ |
+| Faaliyete dosya/görsel ekleme | ✗ | Kendi açtığı faaliyete | Kendi açtığı faaliyete | Her faaliyete | ✗ | ✗ |
+| Faaliyete yorum yazma | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ | ✗ | ✗ |
+| Kendi yorumunu silme | ✓ | ✓ | ✓ | ✓ | — | — |
+| Başkasının yorumunu silme | ✗ | Kendi faaliyetinde | Kendi faaliyetinde | Her yerde | ✗ | ✗ |
+| Başvuru değerlendirme | ✗ | Kendi faaliyeti | Kendi faaliyeti | Tümü | ✗ | ✗ |
+| Ulusal faaliyet onaylama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Öğrenci faaliyeti onaylama | ✗ | ✗ | ✓ (kendi ili) | ✓ | ✗ | ✗ |
+| İl koordinatörü atama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Okul temsilcisi atama | ✗ | ✓ (kendi okulu) | ✗ | ✓ | ✗ | ✗ |
+| İl temsilcisi atama | ✗ | ✗ | ✓ (kendi ili) | ✓ | ✗ | ✗ |
+| İlçe temsilcisi atama | ✗ | ✗ | ✓ (kendi ili) | ✓ | ✗ | ✗ |
+| Çalışma grubu tanımlama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Faaliyete katılımcı olarak başvuru | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Öğrenci ADINA başvuru | ✗ | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller | ✗ | ✗ |
+| Faaliyet düzenleme / iptal etme | ✗ | Kendi açtığı faaliyette | Kendi açtığı faaliyette | Her faaliyette | ✗ | ✗ |
+| Öğretmen envanterini görüntüleme | ✗ | Kendi okulu | Kendi ili | Tüm iller | ✗ | ✗ |
+| Paydaş envanterini görüntüleme | ✗ | Kendi ili | Kendi ili | Tüm iller | ✗ | ✗ |
+| Paydaş kaydı ekleme / düzenleme | ✗ | ✗ | Kendi ili | Tüm iller | ✗ | ✗ |
+| Faaliyete paydaş bağlama | ✗ | Kendi açtığı faaliyete | Kendi açtığı faaliyete | Her faaliyete | ✗ | ✗ |
+| Bildirim şablonu düzenleme | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Rol/atama envanterini görüntüleme | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Etkinlik takvimini görüntüleme | ✓ | ✓ | ✓ | ✓ | Ulusal + kendi ili | Ulusal + kendi ili |
+| Talep panosunu görme / ilan açma | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
+| Bağlantı isteği gönderme (onaya tabi) | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
+| EBA dışı giriş başvurusunu onaylama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 
 **Rol/atama envanteri**, "Öğrenci/öğretmen verisi görüntüleme" satırından **ayrı** bir yetkidir: o tekil profil erişimi, bu toplu/yönetimsel görünüm. İl koordinatörü kendi ilindeki danışmansız okulları zaten görür; envanter aynı sorguyu **il filtresi olmadan** çalıştırdığı için yalnızca proje yöneticisine açıktır.
 
@@ -46,11 +50,45 @@
 
 **"Öğrenciyi çalışma grubuna ekleme"** ile **"çalışma grubu tanımlama"** ayrı satırlardır: ilki mevcut bir gruba öğrenci yazmak, ikincisi grup listesini yönetmektir (yalnızca proje yöneticisi).
 
-**Faaliyete başvuruyu öğretmen de yapar.** Katılımcı "öğrenci" değil "kişi"dir; dışarıda kalan tek rol, ulusal faaliyetleri düzenleyip onaylayan proje yöneticisidir. **Öğrenci adına başvuru** ayrı bir satırdır ve yalnızca öğrenciler için geçerlidir: bir öğretmen başka bir öğretmen adına başvuramaz. Hedef öğrenci, başvuranın kapsam filtresinden geçmek zorundadır ve öğrenciye bildirim gider — başvuruyu kendisi geri çekebilir.
+**Faaliyete başvuruyu öğretmen de yapar.** Katılımcı "öğrenci" değil "kişi"dir. Dışarıda kalanlar: ulusal faaliyetleri düzenleyip onaylayan **proje yöneticisi** ile **mezun ve paydaş temsilcisi** (bkz. Bölüm 1.1 — dar başlangıç). **Öğrenci adına başvuru** ayrı bir satırdır ve yalnızca öğrenciler için geçerlidir: bir öğretmen başka bir öğretmen adına başvuramaz. Hedef öğrenci, başvuranın kapsam filtresinden geçmek zorundadır ve öğrenciye bildirim gider — başvuruyu kendisi geri çekebilir.
 
 **Paydaş envanterinde görme ile yönetme ayrı satırlardır.** Danışman öğretmen kendi ilinin paydaşlarını görür ve faaliyetine bağlar ama listeye kayıt ekleyemez: her öğretmen ekleyebilseydi aynı kurum onlarca kez farklı yazımla girilir ve il bazlı iş birliği haritası kullanılamaz hâle gelirdi.
 
 **Öğretmen envanterinde danışmanın kapsamı okuldur**, öğrencide olduğu gibi "kendi danışmanlığındakiler" değil: meslektaş listesi kişisel veri bakımından daha dardır (sınıf, çalışma grubu, kazanım yoktur) ve okuldaki diğer danışmanı görmek iş birliğinin ön koşuludur.
+
+### 1.1 Mezun ve paydaş temsilcisi — DAR BAŞLANGIÇ
+
+İki rol EBA hesabı olmayan kullanıcılar içindir; hesapları başvuruyla açılır ve
+proje yöneticisinin onayından geçer (bkz. `domain-rules.md` Bölüm 15).
+Matristeki neredeyse boş iki sütun bir eksiklik değil **kasıtlı bir başlangıç
+noktasıdır**: eksik yetki sonradan verilebilir, fazla verilmiş yetkiyle görülen
+veri geri alınamaz.
+
+Bugün yapabildikleri, tam listesiyle:
+
+- kendi profillerini görmek ve iletişim bilgilerini düzenlemek,
+- ulusal ve kendi illerindeki etkinlikleri **takvimde** görmek,
+- talep panosunu görmek ve ilan açmak,
+- bağlantı isteği göndermek; onaylanırsa yazışmak.
+
+Yapamadıkları arasında özellikle dikkat edilecek üç şey var, çünkü üçü de
+"görebiliyorsa yapabilir" biçimindeki genel kurallardan kendiliğinden doğardı ve
+**tek tek kapatıldılar**:
+
+1. **Faaliyete katılımcı olarak başvuru** (`basvuruYapabilirMi`) — başvuru,
+   katılımcı listesi ve katılım belgesi akışlarının bu rollerde ne anlama
+   geldiği kararlaştırılmadı.
+2. **Faaliyet altına yorum** (`yorumYazabilirMi`) — kural "faaliyeti gören
+   yorum yazar" olduğu için takvimi gören dış kullanıcı da yazabilirdi.
+   Moderasyon faaliyeti açandadır ve alanın katılımcıları 18 yaş altıdır.
+3. **Paydaş envanteri** (`paydasKapsamFiltresi`) — filtre "ili var ve öğrenci
+   değil" dediği için paydaş temsilcisi kendi ilinin tüm paydaş kayıtlarını,
+   yetkili kişi adları ve doğrudan iletişim bilgileriyle görecekti.
+
+Kapsam genişletilecekse (ör. mezunun akran eğitimi vermek üzere etkinliğe
+eğitmen olarak eklenmesi) açılacak yerler bunlardır — ve genişletmeyle birlikte
+**gizlilik sözleşmesinin** o rolden istenip istenmeyeceği yeniden sorulmalıdır
+(bkz. `lib/kvkk/kurallar.ts`).
 
 ## 2. Kapsam filtresi
 
@@ -65,7 +103,9 @@ DANISMAN          → WHERE ogrenci.kurum_kodu = @kullanicininKurumKodu
 OGRENCI           → WHERE ogrenci.id = @kullaniciId
 
 # Öğretmen envanteri (ogretmenKapsamFiltresi)
-# "Öğretmen" = aktif OGRENCI rolü olmayan kullanıcı; YEĞİTEK personeli listede yok.
+# "Öğretmen" = aktif OGRENCI, PROJE_YONETICISI, MEZUN ve PAYDAS_TEMSILCISI rolü
+# olmayan kullanıcı. Dört rolün dördü de dışarıda: hiçbiri okulda görevli bir
+# öğretmen değil ve listede okulsuz satır olarak görünmeleri envanteri kirletir.
 PROJE_YONETICISI  → filtre yok
 IL_KOORDINATOR    → WHERE kullanici.il_kodu = @kullanicininIlKodu
 DANISMAN          → WHERE kullanici.kurum_kodu = @kullanicininKurumKodu
@@ -76,7 +116,15 @@ PROJE_YONETICISI  → filtre yok
 IL_KOORDINATOR    → WHERE paydas.il_kodu = @koordinatorunIli
 DANISMAN          → WHERE paydas.il_kodu = @kullanicininIlKodu
 OGRENCI           → hiçbir kayıt
+MEZUN / PAYDAS_TEMSILCISI → hiçbir kayıt
 ```
+
+**Dış roller (MEZUN, PAYDAS_TEMSILCISI) üç filtrede de AÇIKÇA elenir.** Rol
+kontrolüne dayanan koşullar onları zaten dışarıda bırakıyordu; tehlikeli olan
+**il alanına bakan** koşullardı. Paydaş envanteri filtresi "ili var ve öğrenci
+değil" dediği için paydaş temsilcisi, temsil ettiği ilin bütün paydaş kayıtlarını
+yetkili kişi adı ve iletişim bilgisiyle görecekti. Bu, "filtresi yazılmamış bir
+ekran hata vermez, sessizce veri gösterir" cümlesinin somut hâlidir.
 
 Bunu her sorguya elle yazma — merkezi bir yetki servisi ya da ORM'in query-scoping mekanizması (ör. Prisma middleware) kullan. Elle yazılan filtreler er geç bir endpoint'te unutulur ve veri sızar.
 
@@ -118,6 +166,8 @@ Dosya/görsel **yükleme** yetkisi yalnızca faaliyeti açan kullanıcıdadır; 
 
 `AuthProvider` mock olsa da yetki katmanı gerçek kurallarla çalışmalı — mock kullanıcıya da kurum kodu/il ata ve tüm kapsam filtrelerini bu veriyle test et. Aksi halde EBA entegrasyonu geldiğinde yetki hataları ilk kez üretimde ortaya çıkar.
 
+**Dış kullanıcılar bu aşamadan bağımsızdır.** Mezun ve paydaş temsilcisinin kimliği AuthProvider'dan hiç gelmez; e-posta ve şifreyle girerler ve hesapları onayla açılır (bkz. `domain-rules.md` Bölüm 15). EBA SSO bağlandığında bu akış **olduğu gibi kalır** — sağlayıcı değişimi yalnızca öğrenci ve öğretmen tarafını ilgilendirir. Oturum katmanı ikisini ayırt etmez: çerez yalnızca `authProviderId` taşır, rol ve kapsam her istekte veritabanından okunur.
+
 ## 7. Endpoint kontrolleri
 
 | Endpoint | Kontrol |
@@ -129,6 +179,9 @@ Dosya/görsel **yükleme** yetkisi yalnızca faaliyeti açan kullanıcıdadır; 
 | `DELETE /ogrenciler/:id/calisma-gruplari/:grupId` | Aynı yetki; pasif gruptan da çıkarılabilir |
 | `POST /profil/kazanimlar` | Öğrenci ve öğretmen (kendi kaydı); `kullanici_id` daima oturumdan alınır, form girdisinden **okunmaz**; bağlantıda yalnızca http/https |
 | `DELETE /profil/kazanimlar/:id` | Silme koşuluna `kullanici_id = @kullaniciId` **eklenir** (yalnızca id'ye göre silme, başkasının kaydını silmeye açık kapı bırakır) |
+| `POST /profil/kazanimlar/:id/ekler` | Aynı sahiplik kontrolü: kazanım önce `kullanici_id = @kullaniciId` koşuluyla çekilir, yoksa 404. Tip/boyut kontrolü etkinlik ekleriyle **ortak** ayarlardan |
+| `DELETE /profil/kazanimlar/ekler/:ekId` | Sahiplik sorgunun içinde (`kazanim.kullanici_id = @kullaniciId`); kayıt silinir, sonra dosya silinir |
+| `GET /kazanim-ekleri/:ekId` | Görünürlük kaydın kendisiyle **aynı**: sahibi ya da sahibi kapsamında gören yetkili. Öğrenci ve öğretmen kapsam filtreleri birlikte denenir (kayıt ikisinde de var). Public dizinden servis edilmez, kapsam dışında 404 |
 | `PUT /profil/cv` | Yalnızca OGRENCI, yalnızca kendi profili; tip/boyut kontrolü `IZINLI_CV_TIPLERI` ve `CV_MAKS_BAYT` ayarlarından |
 | `DELETE /profil/cv` | Aynı yetki; kayıt temizlenir, sonra dosya silinir |
 | `POST /faaliyetler` | Kapsam yetkisi: danışman yalnızca OKUL, il koordinatörü ve öğrenci OKUL/IL/ULUSAL. Öğrencinin açtığı faaliyet her kapsamda `onay_durumu=BEKLIYOR` yazılır |

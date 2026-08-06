@@ -1,3 +1,5 @@
+import type { Prisma } from "@/generated/prisma/client";
+import type { OnayBelgesi } from "@/generated/prisma/enums";
 import { prisma } from "../db";
 
 /**
@@ -149,13 +151,19 @@ export interface MerkezBoslugu {
   bekleyenIlDisiBasvuru: number;
   /** Karara bağlanmamış bağlantı istekleri. */
   bekleyenBaglantiIstegi: number;
-  /** Gizlilik taahhüdünü onaylamamış ya da onayı eskimiş koordinatörler. */
-  taahhutsuzKoordinator: number;
+  /**
+   * Göreve bağlı belgelerinden (taahhütname, gizlilik sözleşmesi) en az birini
+   * onaylamamış ya da onayı eskimiş koordinatörler.
+   */
+  belgesiEksikKoordinator: number;
 }
 
 export async function merkezBosluklariniGetir(
-  /** Taahhüt metninin son güncelleme tarihi; null ise metin hiç değişmemiştir. */
-  taahhutMetniGuncellemeTarihi: Date | null,
+  /**
+   * Belgelerin son güncelleme tarihleri; bir belgede null ise metin hiç
+   * değişmemiştir (bkz. lib/kvkk/onay.ts · belgeGuncellemeTarihleri).
+   */
+  belgeGuncellemeleri: Map<OnayBelgesi, Date | null>,
 ): Promise<MerkezBoslugu> {
   const simdi = new Date();
 
@@ -172,25 +180,30 @@ export async function merkezBosluklariniGetir(
   };
 
   /*
-   * Taahhüt eksiği: hiç onaylamamış YA DA metin onaydan sonra güncellenmiş
+   * Belge eksiği: hiç onaylamamış YA DA metin onaydan sonra güncellenmiş
    * olanlar. İkincisi olmasaydı metin değiştiğinde herkes "onaylı" görünmeye
-   * devam ederdi (bkz. taahhutOnayiGerekiyorMu).
+   * devam ederdi (bkz. lib/kvkk/kurallar.ts · onayiGerekiyorMu).
+   *
+   * Koordinatörün göreve bağlı İKİ belgesi var; birini onaylayıp diğerini
+   * atlayan da bu sayıya girer, çünkü ikisi ayrı yükümlülüktür.
    */
-  const taahhutEksigi =
-    taahhutMetniGuncellemeTarihi === null
-      ? [
-          { ogretmenProfil: { is: null } },
-          { ogretmenProfil: { taahhutOnayTarihi: null } },
-        ]
-      : [
-          { ogretmenProfil: { is: null } },
-          { ogretmenProfil: { taahhutOnayTarihi: null } },
-          {
-            ogretmenProfil: {
-              taahhutOnayTarihi: { lt: taahhutMetniGuncellemeTarihi },
-            },
-          },
-        ];
+  const koordinatorBelgeleri: OnayBelgesi[] = [
+    "TAAHHUTNAME",
+    "GIZLILIK_SOZLESMESI",
+  ];
+
+  const belgeEksigi = koordinatorBelgeleri.flatMap((belge) => {
+    const guncelleme = belgeGuncellemeleri.get(belge) ?? null;
+    const kosullar: Prisma.KullaniciWhereInput[] = [
+      { onaylar: { none: { belge } } },
+    ];
+    if (guncelleme !== null) {
+      kosullar.push({
+        onaylar: { some: { belge, onayTarihi: { lt: guncelleme } } },
+      });
+    }
+    return kosullar;
+  });
 
   const [
     danismansizOgrenci,
@@ -198,7 +211,7 @@ export async function merkezBosluklariniGetir(
     bekleyenFaaliyetOnayi,
     bekleyenIlDisiBasvuru,
     bekleyenBaglantiIstegi,
-    taahhutsuzKoordinator,
+    belgesiEksikKoordinator,
   ] = await Promise.all([
     prisma.kullanici.count({
       where: {
@@ -217,7 +230,7 @@ export async function merkezBosluklariniGetir(
       where: {
         aktif: true,
         roller: { some: { rolKodu: "IL_KOORDINATOR", bitisTarihi: null } },
-        OR: taahhutEksigi,
+        OR: belgeEksigi,
       },
     }),
   ]);
@@ -228,6 +241,6 @@ export async function merkezBosluklariniGetir(
     bekleyenFaaliyetOnayi,
     bekleyenIlDisiBasvuru,
     bekleyenBaglantiIstegi,
-    taahhutsuzKoordinator,
+    belgesiEksikKoordinator,
   };
 }

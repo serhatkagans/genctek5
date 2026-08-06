@@ -17,14 +17,21 @@ import Link from "next/link";
 import {
   BilgiKutusu,
   Kart,
+  KatlanabilirKart,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
+  SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
-import { DuyuruSeridi } from "@/components/DuyuruSeridi";
+import { CalismaGrubuSecimi } from "@/components/CalismaGrubuSecimi";
+import { DanismanSecimi } from "@/components/DanismanSecimi";
+import { MesajSeridi } from "@/components/MesajSeridi";
 import { KapsamRozeti, KategoriRozeti } from "@/components/FaaliyetRozetleri";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
-import { aktifAtamaGetir } from "@/lib/danisman/atama";
-import { taahhutMetniGetir } from "@/lib/kvkk/taahhut";
+import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
+import { calismaGruplariniGetir } from "@/lib/ogrenci/calisma-grubu";
+import { calismaGrubuKaydetEylemi } from "./calisma-gruplari/eylemler";
+import { danismanSecEylemi } from "./danisman-secim/eylemler";
+import { belgeGuncellemeTarihleri } from "@/lib/kvkk/onay";
 import {
   faaliyetKatilimSayisi,
   merkezBosluklariniGetir,
@@ -46,6 +53,8 @@ import { katilimGecmisiGetir } from "@/lib/kazanim/getir";
 import { tarihYaz } from "@/lib/tarih";
 import {
   basvuruYapabilirMi,
+  disKullaniciMi,
+  mezunMu,
   danismanMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
@@ -98,7 +107,24 @@ function OlcumKarti({
   );
 }
 
-export default async function PanelSayfasi() {
+/**
+ * Panelim'den yapılan seçimlerin geri bildirimi.
+ *
+ * Seçim eylemleri iki yerden çağrılıyor (buradaki bölümler ve eski sekme
+ * sayfaları); dönüş adresine göre mesaj burada da basılmalı, yoksa öğrenci
+ * kaydettikten sonra hiçbir onay görmez ve işlemin geçtiğinden emin olamaz.
+ */
+const DURUM_MESAJLARI: Record<string, string> = {
+  secildi: "Danışman öğretmeniniz kaydedildi.",
+  kaydedildi: "Çalışma grubu seçiminiz kaydedildi.",
+};
+
+export default async function PanelSayfasi({
+  searchParams,
+}: {
+  searchParams: Promise<{ hata?: string; durum?: string }>;
+}) {
+  const { hata: seciimHatasi, durum: secimDurumu } = await searchParams;
   const kullanici = await oturumKullanicisiZorunlu();
 
   const bildirimler = await prisma.bildirim.findMany({
@@ -107,19 +133,39 @@ export default async function PanelSayfasi() {
     take: 5,
   });
 
+  /*
+   * Okunmamışın TAMAMI. Liste `take: 5` olduğu için tek başına sayı vermiyor;
+   * sarı şerit "10 okunmamış" diyebilsin diye ayrıca sayılıyor. Sorgu
+   * `bildirim(kullanici_id, okundu_mu)` dizinine oturuyor.
+   */
+  const okunmamisMesajSayisi =
+    bildirimler.length < 5
+      ? bildirimler.length
+      : await prisma.bildirim.count({
+          where: { kullaniciId: kullanici.id, okunduMu: false },
+        });
+
   const kapsamdakiOgrenciSayisi = await prisma.kullanici.count({
     where: ogrenciKapsamFiltresi(kullanici),
   });
 
-  const atama = ogrenciMi(kullanici)
-    ? await aktifAtamaGetir(kullanici.id)
+  /*
+   * ÖĞRENCİNİN SEÇİM BÖLÜMLERİ (C1 · 5 Ağustos 2026).
+   *
+   * "Çalışma Gruplarım" ve "Danışmanım" sekmeleri menüden kalktı; ikisi de
+   * artık bu sayfanın içinde bölüm. Sorgular ve formlar sekmelerdekiyle AYNI
+   * kaynaktan geliyor (lib/danisman/atama.ts, lib/ogrenci/calisma-grubu.ts) —
+   * ayrı yazılsalardı iki yüzey zamanla ayrışırdı.
+   */
+  const danismanVerisi = ogrenciMi(kullanici)
+    ? await danismanSecimVerisiGetir(kullanici)
     : null;
+  const atama = danismanVerisi?.atama ?? null;
 
-  const grupSayisi = ogrenciMi(kullanici)
-    ? await prisma.ogrenciCalismaGrubu.count({
-        where: { ogrenciId: kullanici.id },
-      })
-    : 0;
+  const calismaGruplari = ogrenciMi(kullanici)
+    ? await calismaGruplariniGetir(kullanici.id)
+    : null;
+  const grupSayisi = calismaGruplari?.seciliIdler.size ?? 0;
 
   /*
    * Öğretmenin bağlı olduğu il koordinatörü.
@@ -144,13 +190,21 @@ export default async function PanelSayfasi() {
    * olsalardı acil olanlar sayım kalabalığında kaybolurdu.
    */
   const bosluklar = projeYoneticisiMi(kullanici)
-    ? await merkezBosluklariniGetir((await taahhutMetniGetir()).guncellemeTarihi)
+    ? await merkezBosluklariniGetir(await belgeGuncellemeTarihleri())
     : null;
 
+  /*
+   * "İl koordinatörüm" kartı, ilinde kime bağlı olduğunu bilmesi gereken okul
+   * personeline gösterilir. Dış kullanıcılar (mezun, paydaş temsilcisi)
+   * DIŞARIDA: koşul yalnızca "ili var ve öğrenci/koordinatör değil" deseydi,
+   * kart onlara da koordinatörün adını ve e-postasını basardı — dar başlangıç
+   * kararına aykırı.
+   */
   const koordinatorGosterilir =
     !ogrenciMi(kullanici) &&
     !ilKoordinatoruMu(kullanici) &&
     !projeYoneticisiMi(kullanici) &&
+    !disKullaniciMi(kullanici) &&
     kullanici.ilKodu !== null;
 
   const ilKoordinatorum = koordinatorGosterilir
@@ -203,14 +257,21 @@ export default async function PanelSayfasi() {
    * Şeride yalnızca YAYINDAKİ faaliyetler girer: onay bekleyen bir faaliyet
    * düzenleyenine görünüyor olabilir ama "başvuru açık" demek yanıltıcı olurdu.
    */
-  const seritKayitlari = seritteGosterilecekler(
-    takvimFaaliyetleri.filter(
-      (faaliyet) =>
-        faaliyet.onayDurumu === "ONAY_GEREKMEZ" ||
-        faaliyet.onayDurumu === "ONAYLANDI",
-    ),
-    simdi,
-  );
+  const seritKayitlari = basvuruYapabilirMi(kullanici)
+    ? seritteGosterilecekler(
+        takvimFaaliyetleri.filter(
+          (faaliyet) =>
+            faaliyet.onayDurumu === "ONAY_GEREKMEZ" ||
+            faaliyet.onayDurumu === "ONAYLANDI",
+        ),
+        simdi,
+      )
+    : /*
+       * Şerit "başvuru açık" der; başvuramayana göstermek yanıltıcı olurdu.
+       * Merkez personeli ve dış kullanıcılar etkinlikleri takvimde görmeye
+       * devam eder, sadece bu çağrı şeridini görmez.
+       */
+      [];
   const acikFaaliyetSayisi = seritKayitlari.length;
 
   const onayBekleyenSayisi = projeYoneticisiMi(kullanici)
@@ -297,7 +358,43 @@ export default async function PanelSayfasi() {
 
       {/* Başvurusu açık faaliyetler, takvimden ÖNCE ve akan şerit hâlinde:
           kaçırılırsa geri dönüşü olmayan tek bilgi budur. */}
-      <DuyuruSeridi kayitlar={seritKayitlari} simdi={simdi} />
+      {secimDurumu && DURUM_MESAJLARI[secimDurumu] && (
+        <BilgiKutusu cesit="olumlu">
+          {DURUM_MESAJLARI[secimDurumu]}
+        </BilgiKutusu>
+      )}
+      {seciimHatasi && <BilgiKutusu cesit="hata">{seciimHatasi}</BilgiKutusu>}
+
+      {/*
+        Sarı şerit artık BAŞVURU değil MESAJ duyuruyor (6 Ağustos 2026).
+        Başvuru bilgisi aşağıdaki "Başvurusu açık etkinlik" sayacında ve
+        kartında duruyor; `seritKayitlari` o sayacı beslemeye devam ediyor.
+      */}
+      <MesajSeridi mesajlar={bildirimler} toplam={okunmamisMesajSayisi} />
+
+      {/*
+        Dış kullanıcının panelinde ölçüm kartlarının çoğu boş kalır (başvurusu,
+        danışmanı, çalışma grubu yok). Boş bir ekran bırakmak yerine ne
+        yapabileceği açıkça yazılıyor — ve ne YAPAMAYACAĞI da: yetki kapsamı
+        dar başladı, kullanıcı bunu ekranda görmeli, denemelerinden çıkarmaya
+        çalışmamalı.
+      */}
+      {disKullaniciMi(kullanici) && (
+        <div className="rounded-kart border border-cizgi bg-kart p-6">
+          <h2 className="font-semibold text-baslik">
+            {mezunMu(kullanici) ? "Mezun hesabınız" : "Paydaş temsilcisi hesabınız"}
+          </h2>
+          <p className="mt-2 text-metin-yumusak">
+            Etkinlik takvimini ve panoyu görebilir, panoda ilan açabilir
+            ve onaylanan bağlantılar üzerinden yazışabilirsiniz. Öğrenci ve
+            öğretmen kayıtlarına erişiminiz yoktur; etkinliklere katılımcı
+            olarak başvuru şu an açık değildir.
+          </p>
+          <Link href="/panel/talepler" className={`${SINIF_BIRINCIL_BUTON} mt-4`}>
+            Panoya git
+          </Link>
+        </div>
+      )}
 
       {rolsuzMu && (
         <div className="rounded-kart border border-uyari-cizgi bg-uyari-zemin p-6">
@@ -331,14 +428,14 @@ export default async function PanelSayfasi() {
               baslik="Çalışma grubu seçimim"
               Ikon={Layers}
               deger={String(grupSayisi)}
-              aciklama="Çalışma Gruplarım ekranından güncelleyebilirsiniz"
+              aciklama="Aşağıdaki bölümden güncelleyebilirsiniz"
             />
             <OlcumKarti
-              baslik="Faaliyet başvurularım"
+              baslik="Etkinlik başvurularım"
               Ikon={Send}
               deger={String(basvuruSayisi)}
               aciklama="Geri çekilenler hariç"
-              yol="/panel/faaliyetler"
+              yol="/panel/etkinlikler"
             />
           </>
         )}
@@ -355,7 +452,7 @@ export default async function PanelSayfasi() {
               baslik="Katkı kartım"
               Ikon={Sparkles}
               deger="Görüntüle"
-              aciklama="Görevleriniz, danışmanlığınız ve düzenlediğiniz faaliyetler"
+              aciklama="Görevleriniz, danışmanlığınız ve düzenlediğiniz etkinlikler"
               yol="/panel/kazanimlarim"
             />
           </>
@@ -365,7 +462,7 @@ export default async function PanelSayfasi() {
           !projeYoneticisiMi(kullanici) &&
           katilimGecmisi && (
             <OlcumKarti
-              baslik="Katıldığım faaliyetler"
+              baslik="Katıldığım etkinlikler"
               Ikon={CalendarCheck}
               deger={String(katilimGecmisi.ozet.toplamKatilim)}
               aciklama="Tamamlanmış etkinlikler"
@@ -408,7 +505,7 @@ export default async function PanelSayfasi() {
               baslik="Katkı kartım"
               Ikon={Sparkles}
               deger="Görüntüle"
-              aciklama="Görevleriniz ve düzenlediğiniz faaliyetler"
+              aciklama="Görevleriniz ve düzenlediğiniz etkinlikler"
               yol="/panel/kazanimlarim"
             />
           </>
@@ -423,14 +520,14 @@ export default async function PanelSayfasi() {
               aciklama="Tüm iller"
             />
             <OlcumKarti
-              baslik="Onay bekleyen ulusal faaliyet"
+              baslik="Onay bekleyen ulusal etkinlik"
               Ikon={ClipboardCheck}
               deger={String(onayBekleyenSayisi)}
-              yol="/panel/faaliyetler?kapsam=ULUSAL"
+              yol="/panel/etkinlikler?kapsam=ULUSAL"
             />
             {katilim && (
               <OlcumKarti
-                baslik="Faaliyet katılımı"
+                baslik="Etkinlik katılımı"
                 Ikon={Send}
                 deger={String(katilim.toplamKatilim)}
                 /*
@@ -446,13 +543,115 @@ export default async function PanelSayfasi() {
         )}
 
         <OlcumKarti
-          baslik="Başvurusu açık faaliyet"
+          baslik="Başvurusu açık etkinlik"
           Ikon={CalendarDays}
           deger={String(acikFaaliyetSayisi)}
           aciklama="Kapsamınızda şu an başvuru alanlar"
-          yol="/panel/faaliyetler?acik=1"
+          yol="/panel/etkinlikler?acik=1"
         />
       </div>
+
+      {/*
+        ÖĞRENCİNİN SEÇİMLERİ — eskiden iki ayrı sekmeydi, artık burada
+        (C1 · 5 Ağustos 2026).
+
+        Bölümler KATLI geliyor: Panelim öğrencinin ilk gördüğü ekran ve asıl
+        işi (başvurusu açık etkinlikler, takvim) iki formun altında kalmamalı.
+        İstisna, kullanıcının GERÇEKTEN bir şey yapması gereken hâl: danışmanı
+        yoksa ya da hiç grup seçmemişse ilgili bölüm açık açılır.
+      */}
+      {danismanVerisi && (
+        <KatlanabilirKart
+          baslik="Danışman öğretmenim"
+          aciklama={
+            atama
+              ? `${atama.danisman.ad} ${atama.danisman.soyad}`
+              : "Henüz danışman atanmadı."
+          }
+          Ikon={UserCheck}
+          capa="danismanim"
+          baslangictaAcik={atama === null}
+        >
+          <DanismanSecimi
+            veri={danismanVerisi}
+            secEylemi={danismanSecEylemi}
+            donusYolu="/panel"
+            kartlaSar={false}
+          />
+        </KatlanabilirKart>
+      )}
+
+      {/*
+        Katkı GİRİŞİ buradan başlar, gösterimi profilde. İstekteki "Katkılarım
+        (Panel sekmesinden giriş olacak, profilde gözükecek)" ifadesi böyle
+        okundu: Panelim giriş noktası, kayıtların kendisi profilde yaşıyor.
+        Formu buraya İKİNCİ KEZ basmak, aynı kaydın iki ayrı yerden girildiği
+        ve birinde görünüp öbüründe görünmediği bir düzen üretirdi.
+      */}
+      {ogrenciMi(kullanici) && (
+        <Kart>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
+            <Sparkles size={18} className="text-vurgu-metin" aria-hidden />
+            Katkı girişi
+          </h2>
+          <p className="mt-1 text-sm text-metin-yumusak">
+            Katıldığın etkinlikleri, yaptığın ürünleri, verdiğin akran
+            eğitimlerini ve derecelerini profilinden ekleyebilirsin. Kayıtlar
+            GençTek Yolculuğum ve Bilişim Yolculuğum bölümlerinde görünür.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link
+              href="/panel/profil#kayit-ekle"
+              className={SINIF_BIRINCIL_BUTON}
+            >
+              Yeni kayıt ekle
+            </Link>
+            {/*
+              "Sertifika ve Topluluk ekle başlıkları da oluşturulacak (bu bölüm
+              panelde olacak)" — istenen giriş noktası burası. Bağlantılar formu
+              İKİNCİ KEZ basmıyor, profildeki tek forma doğru sekme seçili
+              inerler: aynı kaydın iki ayrı formdan girilmesi, birinde eklenen
+              alanın öbüründe eksik kalması demek olurdu.
+            */}
+            <Link
+              href="/panel/profil?tur=SERTIFIKA#kayit-ekle"
+              className={SINIF_IKINCIL_BUTON}
+            >
+              Sertifika ekle
+            </Link>
+            <Link
+              href="/panel/profil?tur=TOPLULUK#kayit-ekle"
+              className={SINIF_IKINCIL_BUTON}
+            >
+              Topluluk ekle
+            </Link>
+            <Link href="/panel/kazanimlarim" className={SINIF_IKINCIL_BUTON}>
+              Katkılarım
+            </Link>
+          </div>
+        </Kart>
+      )}
+
+      {calismaGruplari && (
+        <KatlanabilirKart
+          baslik="Çalışma gruplarım"
+          aciklama={
+            grupSayisi > 0
+              ? `${grupSayisi} grup seçtiniz. İstediğiniz kadar grup seçebilirsiniz; sayı sınırı yoktur.`
+              : "Henüz grup seçmediniz. İlgi alanınıza göre istediğiniz kadar seçebilirsiniz."
+          }
+          Ikon={Layers}
+          capa="calisma-gruplarim"
+          baslangictaAcik={grupSayisi === 0}
+        >
+          <CalismaGrubuSecimi
+            gruplar={calismaGruplari.gruplar}
+            seciliIdler={calismaGruplari.seciliIdler}
+            kaydetEylemi={calismaGrubuKaydetEylemi}
+            donusYolu="/panel"
+          />
+        </KatlanabilirKart>
+      )}
 
       {merkezIstatistik && (
         <section>
@@ -535,16 +734,16 @@ export default async function PanelSayfasi() {
                 yol: "/panel/ogrenciler",
               },
               {
-                etiket: "Raporsuz biten faaliyet",
+                etiket: "Raporsuz biten etkinlik",
                 deger: bosluklar.raporsuzFaaliyet,
                 alt: "Bitti ama raporu yazılmadı",
                 yol: "/panel/raporlar",
               },
               {
-                etiket: "Onay bekleyen faaliyet",
+                etiket: "Onay bekleyen etkinlik",
                 deger: bosluklar.bekleyenFaaliyetOnayi,
                 alt: "Öğrenci ve öğretmen önerileri dâhil",
-                yol: "/panel/faaliyetler",
+                yol: "/panel/etkinlikler",
               },
               {
                 etiket: "Bekleyen il dışı başvuru",
@@ -559,9 +758,9 @@ export default async function PanelSayfasi() {
                 yol: "/panel/baglantilar",
               },
               {
-                etiket: "Taahhütsüz koordinatör",
-                deger: bosluklar.taahhutsuzKoordinator,
-                alt: "Gizlilik taahhüdü onaylanmamış",
+                etiket: "Belgesi eksik koordinatör",
+                deger: bosluklar.belgesiEksikKoordinator,
+                alt: "Taahhütname ya da gizlilik sözleşmesi onaylanmamış",
                 yol: "/panel/rol-envanteri",
               },
             ].map((satir) => (
@@ -599,19 +798,19 @@ export default async function PanelSayfasi() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
               <Send size={18} className="text-vurgu-metin" aria-hidden />
-              Başvuruya açık faaliyetler
+              Başvuruya açık etkinlikler
             </h2>
             <Link
-              href="/panel/faaliyetler?acik=1"
+              href="/panel/etkinlikler?acik=1"
               className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
             >
-              Tüm faaliyetler
+              Tüm etkinlikler
             </Link>
           </div>
 
           {acikFaaliyetKartlari.length === 0 ? (
             <Kart className="text-metin-yumusak">
-              Kapsamınızda şu an başvuru alan faaliyet yok. Yenileri açıldığında
+              Kapsamınızda şu an başvuru alan etkinlik yok. Yenileri açıldığında
               burada ve bildirimlerinizde görürsünüz.
             </Kart>
           ) : (
@@ -623,7 +822,7 @@ export default async function PanelSayfasi() {
                 >
                   <div className="min-w-0">
                     <Link
-                      href={`/panel/faaliyetler/${faaliyet.id}`}
+                      href={`/panel/etkinlikler/${faaliyet.id}`}
                       className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
                     >
                       {faaliyet.ad}
@@ -664,7 +863,7 @@ export default async function PanelSayfasi() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
               <CalendarCheck size={18} className="text-vurgu-metin" aria-hidden />
-              Katıldığım faaliyetler
+              Katıldığım etkinlikler
             </h2>
             <Link
               href="/panel/kazanimlarim"
@@ -676,8 +875,8 @@ export default async function PanelSayfasi() {
 
           {katilimGecmisi.katilimlar.length === 0 ? (
             <Kart className="text-metin-yumusak">
-              Henüz tamamlanmış bir faaliyetiniz yok. Başvurusu açık etkinliklere
-              yukarıdaki listeden ya da Faaliyetler ekranından başvurabilirsiniz.
+              Henüz tamamlanmış bir etkinliğiniz yok. Başvurusu açık etkinliklere
+              yukarıdaki listeden ya da Etkinlikler ekranından başvurabilirsiniz.
             </Kart>
           ) : (
             <ul className="space-y-2">
@@ -687,7 +886,7 @@ export default async function PanelSayfasi() {
                   className="rounded-kart border border-cizgi bg-kart px-4 py-3"
                 >
                   <Link
-                    href={`/panel/faaliyetler/${katilim.faaliyetId}`}
+                    href={`/panel/etkinlikler/${katilim.faaliyetId}`}
                     className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
                   >
                     {katilim.ad}
@@ -714,7 +913,7 @@ export default async function PanelSayfasi() {
 
         {takvimFaaliyetleri.length === 0 ? (
           <Kart className="text-metin-yumusak">
-            Kapsamınızda son 90 günün ve önümüzdeki dönemin faaliyet kaydı yok.
+            Kapsamınızda son 90 günün ve önümüzdeki dönemin etkinlik kaydı yok.
           </Kart>
         ) : (
           <div className="grid gap-4 lg:grid-cols-3">
@@ -722,19 +921,19 @@ export default async function PanelSayfasi() {
               {
                 baslik: "Bugün",
                 liste: takvim.bugun,
-                bos: "Bugün planlanmış faaliyet yok.",
+                bos: "Bugün planlanmış etkinlik yok.",
                 vurgulu: true,
               },
               {
                 baslik: "Yaklaşan",
                 liste: takvim.yaklasan,
-                bos: "Yaklaşan faaliyet yok.",
+                bos: "Yaklaşan etkinlik yok.",
                 vurgulu: false,
               },
               {
                 baslik: "Geçmiş (son 90 gün)",
                 liste: takvim.gecmis,
-                bos: "Son 90 günde faaliyet yok.",
+                bos: "Son 90 günde etkinlik yok.",
                 vurgulu: false,
               },
             ].map((bolum) => (
@@ -758,11 +957,11 @@ export default async function PanelSayfasi() {
                 ) : (
                   <ul className="mt-3 space-y-3">
                     {/* Her bölümde en fazla beş kayıt: takvim özet, arşiv
-                        değil. Tamamı Faaliyetler ekranında. */}
+                        değil. Tamamı Etkinlikler ekranında. */}
                     {bolum.liste.slice(0, 5).map((faaliyet) => (
                       <li key={faaliyet.id}>
                         <Link
-                          href={`/panel/faaliyetler/${faaliyet.id}`}
+                          href={`/panel/etkinlikler/${faaliyet.id}`}
                           className="text-sm font-medium text-metin transition hover:text-vurgu-metin hover:underline"
                         >
                           {faaliyet.ad}
@@ -817,9 +1016,15 @@ export default async function PanelSayfasi() {
         ) : (
           <ul className="space-y-2">
             {bildirimler.map((bildirim) => (
+              /*
+                `id`: üstteki "Mesajın var" şeridi doğrudan bu satıra iner.
+                `scroll-mt-6`, çıpaya inildiğinde satırın ekranın en tepesine
+                yapışmasını önler.
+              */
               <li
                 key={bildirim.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-kart border border-cizgi bg-kart px-4 py-3"
+                id={`bildirim-${bildirim.id}`}
+                className="flex scroll-mt-6 flex-wrap items-start justify-between gap-3 rounded-kart border border-cizgi bg-kart px-4 py-3"
               >
                 <div>
                   <p className="font-medium text-metin">{bildirim.baslik}</p>
@@ -844,7 +1049,7 @@ export default async function PanelSayfasi() {
       </section>
 
       <BilgiKutusu>
-        Faaliyete dosya/görsel ekleme, yorumlar ve raporlama ekranları
+        Etkinliğe dosya/görsel ekleme, yorumlar ve raporlama ekranları
         geliştirme sırasının sonraki adımlarında açılacak.
       </BilgiKutusu>
     </div>

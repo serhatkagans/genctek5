@@ -80,7 +80,7 @@ describe("faaliyetRaporuHtml", () => {
 
   it("görsel yoksa bunu söyler", () => {
     const html = faaliyetRaporuHtml({ ...VERI, gorselAdlari: [] });
-    expect(html).toContain("Faaliyete görsel eklenmemiş.");
+    expect(html).toContain("Etkinliğe görsel eklenmemiş.");
   });
 
   it("açıklamadaki satır sonlarını korur", () => {

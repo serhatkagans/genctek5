@@ -10,7 +10,7 @@ import {
   istekKarariniCoz,
   istekMesajiniCoz,
 } from "@/lib/iletisim/kurallar";
-import { basvuruYapabilirMi } from "@/lib/yetki/izinler";
+import { talepPanosuGorebilirMi } from "@/lib/yetki/izinler";
 import { baglantiKarariFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
@@ -35,7 +35,7 @@ export async function baglantiIstegiGonderEylemi(
   veri: FormData,
 ): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
-  if (!basvuruYapabilirMi(kullanici)) {
+  if (!talepPanosuGorebilirMi(kullanici)) {
     throw new YetkiHatasi("Bağlantı isteği gönderme yetkiniz yok.");
   }
 

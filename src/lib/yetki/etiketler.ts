@@ -11,6 +11,10 @@ export const ROL_ETIKETLERI: Record<RolKodu, string> = {
   DANISMAN: "Danışman öğretmen",
   IL_KOORDINATOR: "İl koordinatörü",
   PROJE_YONETICISI: "Proje yöneticisi",
+  // EBA dışı roller: kimlikleri AuthProvider'dan gelmez, başvuru onayıyla
+  // doğar (bkz. lib/dis-kimlik/).
+  MEZUN: "Mezun",
+  PAYDAS_TEMSILCISI: "Paydaş temsilcisi",
 };
 
 /**
@@ -63,7 +67,7 @@ export const LOG_ISLEM_ETIKETLERI: Record<LogIslemi, string> = {
 export const LOG_HEDEF_ETIKETLERI: Record<LogHedefTip, string> = {
   OGRENCI: "Öğrenci kaydı",
   OGRETMEN: "Öğretmen kaydı",
-  FAALIYET: "Faaliyet",
+  FAALIYET: "Etkinlik",
   YORUM: "Yorum",
   FAALIYET_EK: "Dosya/görsel",
   BASVURU: "Başvuru",
@@ -76,6 +80,7 @@ export const LOG_HEDEF_ETIKETLERI: Record<LogHedefTip, string> = {
   ETKINLIK_PROGRAMI: "Etkinlik programı",
   PAYDAS: "Paydaş kaydı",
   BILDIRIM_SABLONU: "Bildirim şablonu",
+  DIS_BASVURU: "Dış giriş başvurusu",
 };
 
 /**

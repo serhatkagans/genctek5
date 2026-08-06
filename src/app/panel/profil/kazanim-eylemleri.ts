@@ -6,6 +6,11 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { cvKaydet, cvSil, cvSinirlariniGetir } from "@/lib/ogrenci/cv";
 import {
+  kazanimEkiSil,
+  kazanimEkleriniKaydet,
+  kazanimEkSinirlariniGetir,
+} from "@/lib/kazanim/ek";
+import {
   kazanimKabulEdilirMi,
   kazanimTipiTanimi,
 } from "@/lib/kazanim/kurallar";
@@ -97,13 +102,49 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
     duzenleyen: String(veri.get("duzenleyen") ?? ""),
     katilimBicimi: String(veri.get("katilimBicimi") ?? ""),
     hedefKitle: String(veri.get("hedefKitle") ?? ""),
+    gelistirenEkip: String(veri.get("gelistirenEkip") ?? ""),
+    markettePaylasilsin: veri.get("markettePaylasilsin") === "evet",
+    /*
+     * Bağlantı satırları paralel iki dizi olarak gelir (adres[i] ↔ etiket[i]).
+     * Formda sabit sayıda satır basıldığı için boşlar da geliyor; kural
+     * katmanı onları eliyor.
+     */
+    baglantilar: veri.getAll("baglantiAdres").map((adres, sira) => ({
+      adres: String(adres),
+      etiket: String(veri.getAll("baglantiEtiket")[sira] ?? ""),
+    })),
     program,
   });
   if (!karar.olurMu) hataylaDon(karar.neden);
 
-  await prisma.kullaniciKazanim.create({
-    data: { kullaniciId: kullanici.id, ...karar.kayit },
+  const kazanim = await prisma.kullaniciKazanim.create({
+    data: {
+      kullaniciId: kullanici.id,
+      ...karar.kayit,
+      baglantilar: { create: karar.baglantilar },
+    },
+    select: { id: true },
   });
+
+  /*
+   * Destekleyici belgeler kayıttan SONRA yazılır: eke bağlanacak kazanım
+   * kimliği önce doğmalı. Dosya reddedilirse kazanım kaydı geri alınmaz —
+   * kullanıcı yazdığı metni kaybetmesin; uyarı ekranda gösterilir ve dosya
+   * sonradan eklenebilir.
+   */
+  const belgeler = veri
+    .getAll("belgeler")
+    .filter((deger): deger is File => deger instanceof File && deger.size > 0);
+
+  let ekUyarisi: string | undefined;
+  if (belgeler.length > 0) {
+    const sonuc = await kazanimEkleriniKaydet({
+      kazanimId: kazanim.id,
+      dosyalar: belgeler,
+      sinirlar: await kazanimEkSinirlariniGetir(),
+    });
+    ekUyarisi = sonuc.uyari;
+  }
 
   const sahip = ogrenciMi(kullanici) ? "OGRENCI" : "OGRETMEN";
   await erisimLogla({
@@ -117,7 +158,75 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
   kazanimYollariniTazele(kullanici);
   // Tür adreste taşınır: art arda üç ürün girecek kişi her seferinde sekmeyi
   // yeniden seçmek zorunda kalmasın.
+  if (ekUyarisi) {
+    redirect(
+      `${YOL}?tur=${karar.kayit.tip}&hata=${encodeURIComponent(
+        `Kayıt eklendi ancak belge yüklenemedi — ${ekUyarisi}`,
+      )}`,
+    );
+  }
   redirect(`${YOL}?tur=${karar.kayit.tip}&durum=kazanim-eklendi`);
+}
+
+/** Var olan bir kazanım kaydına destekleyici belge ekler. */
+export async function kazanimBelgeEkleEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const kazanimId = Number.parseInt(String(veri.get("kazanimId") ?? ""), 10);
+  if (!Number.isFinite(kazanimId)) throw new BulunamadiHatasi();
+
+  // Sahiplik kontrolü: kullaniciId koşulu olmadan başkasının kaydına dosya
+  // eklenebilirdi.
+  const kazanim = await prisma.kullaniciKazanim.findFirst({
+    where: { id: kazanimId, kullaniciId: kullanici.id },
+    select: { id: true, baslik: true },
+  });
+  if (!kazanim) throw new BulunamadiHatasi();
+
+  const belgeler = veri
+    .getAll("belgeler")
+    .filter((deger): deger is File => deger instanceof File && deger.size > 0);
+  if (belgeler.length === 0) hataylaDon("Belge seçilmedi.");
+
+  const sonuc = await kazanimEkleriniKaydet({
+    kazanimId: kazanim.id,
+    dosyalar: belgeler,
+    sinirlar: await kazanimEkSinirlariniGetir(),
+  });
+  if (sonuc.uyari) hataylaDon(sonuc.uyari);
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: kullanici.id,
+    detay: `Kazanıma ${sonuc.eklenen} destekleyici belge eklendi: ${kazanim.baslik}`,
+  });
+
+  kazanimYollariniTazele(kullanici);
+  redirect(`${YOL}?durum=belge-eklendi`);
+}
+
+/** Destekleyici belgeyi kaldırır. */
+export async function kazanimBelgeSilEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const ekId = Number.parseInt(String(veri.get("ekId") ?? ""), 10);
+  if (!Number.isFinite(ekId)) throw new BulunamadiHatasi();
+
+  const sonuc = await kazanimEkiSil({ ekId, kullaniciId: kullanici.id });
+  if (!sonuc.silindiMi) throw new BulunamadiHatasi();
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "SILME",
+    hedefTip: "PROFIL",
+    hedefId: kullanici.id,
+    detay: `Kazanım belgesi silindi: ${sonuc.dosyaAdi}`,
+  });
+
+  kazanimYollariniTazele(kullanici);
+  redirect(`${YOL}?durum=belge-silindi`);
 }
 
 export async function kazanimSilEylemi(veri: FormData): Promise<void> {

@@ -103,3 +103,39 @@ describe("şablon metni doğrulama", () => {
     expect(yerTutuculariCikar("{{a}} {{b}} {{a}}")).toEqual(["a", "b"]);
   });
 });
+
+/**
+ * Yer açıldı bildirimi — düzenleyenin yedekten çağırma kararı bu metne dayanır,
+ * o yüzden hem değişkenleri hem gönderim koşulu burada sabitlenir.
+ */
+describe("kontenjanda yer açıldı bildirimi", () => {
+  const tanim = sablonTanimiGetir(BILDIRIM_KODLARI.KONTENJANDA_YER_ACILDI);
+
+  it("düzenleyenin karar verebilmesi için gereken değişkenleri taşır", () => {
+    expect(tanim?.degiskenler).toEqual(
+      expect.arrayContaining([
+        "faaliyetAdi",
+        "katilimciAdSoyad",
+        "yedekSayisi",
+        "kalanYer",
+      ]),
+    );
+  });
+
+  /*
+   * Seed'deki gövde metni bu doğrulamadan geçmezse bildirim kullanıcıya ham
+   * süslü parantezle ulaşır; metin buraya kopyalanarak sabitlendi.
+   */
+  it("varsayılan metin yalnızca tanımlı yer tutucuları kullanır", () => {
+    const govde =
+      "Merhaba,\n\n{{katilimciAdSoyad}}, {{faaliyetAdi}} etkinliğine seçilmiş başvurusunu geri çekti. Kontenjanda {{kalanYer}} yer boş; yedek listesinde {{yedekSayisi}} başvuru bekliyor.\n\nYedekten katılımcı çağırmak için etkinliğin başvuru listesini açabilirsiniz.\n\nGençTek";
+    const degiskenler = [...(tanim?.degiskenler ?? [])];
+    expect(sablonMetniGecerliMi(govde, degiskenler).olurMu).toBe(true);
+    expect(
+      sablonMetniGecerliMi(
+        "{{faaliyetAdi}} etkinliğinde yer açıldı",
+        degiskenler,
+      ).olurMu,
+    ).toBe(true);
+  });
+});

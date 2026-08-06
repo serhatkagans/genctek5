@@ -162,7 +162,7 @@ export default async function IlDisiBasvurularSayfasi({
 
                 <p className="mt-3 text-metin">
                   <Link
-                    href={`/panel/faaliyetler/${basvuru.faaliyet.id}`}
+                    href={`/panel/etkinlikler/${basvuru.faaliyet.id}`}
                     className="font-medium text-vurgu-metin underline underline-offset-2"
                   >
                     {basvuru.faaliyet.ad}
@@ -237,7 +237,7 @@ export default async function IlDisiBasvurularSayfasi({
               <thead className="border-b border-cizgi text-metin-yumusak">
                 <tr>
                   <th className="px-3 py-2 font-medium">Öğrenci</th>
-                  <th className="px-3 py-2 font-medium">Faaliyet</th>
+                  <th className="px-3 py-2 font-medium">Etkinlik</th>
                   <th className="px-3 py-2 font-medium">Kararınız</th>
                   <th className="px-3 py-2 font-medium">Tarih</th>
                 </tr>
@@ -250,7 +250,7 @@ export default async function IlDisiBasvurularSayfasi({
                     </td>
                     <td className="px-3 py-2">
                       <Link
-                        href={`/panel/faaliyetler/${basvuru.faaliyet.id}`}
+                        href={`/panel/etkinlikler/${basvuru.faaliyet.id}`}
                         className="text-vurgu-metin underline underline-offset-2"
                       >
                         {basvuru.faaliyet.ad}

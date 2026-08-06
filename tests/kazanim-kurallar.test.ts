@@ -1,5 +1,8 @@
 import {
+  BILISIM_YOLCULUGU_TIPLERI,
+  GENCTEK_YOLCULUGU_TIPLERI,
   KAZANIM_TIPLERI,
+  kazanimBolumuBulunmayan,
   kazanimKabulEdilirMi,
   kazanimTipiGecerliMi,
   kazanimTipiTanimi,
@@ -33,9 +36,12 @@ function kabulEdilenKayit(
 }
 
 describe("kazanım türleri", () => {
-  it("altı türü kapsar", () => {
+  it("sekiz türü kapsar", () => {
     /*
-     * GENCTEK_ETKINLIGI ve DIGER sonradan eklendi. GençTek katılımı normalde
+     * GENCTEK_ETKINLIGI ve DIGER sonradan eklendi; SERTIFIKA ve TOPLULUK
+     * 6 Ağustos 2026'da (D3, D4). İkisi de AYRI TABLO açılmadan tip olarak
+     * eklendi: aynı form, aynı doğrulama, aynı silme yolu ikinci kez
+     * yazılmasın diye. GençTek katılımı normalde
      * otomatik gelir (basvuru + faaliyet); elle giriş, sisteme girilmemiş eski
      * etkinlikler için BEYAN olarak açıldı. Rozetler bu kayıtlardan
      * hesaplanmadığı için beyanla nişan kazanılamaz.
@@ -45,6 +51,8 @@ describe("kazanım türleri", () => {
       "DIGER",
       "DIS_ETKINLIK",
       "GENCTEK_ETKINLIGI",
+      "SERTIFIKA",
+      "TOPLULUK",
       "URUN",
       "YARISMA_DERECESI",
     ]);
@@ -62,6 +70,32 @@ describe("kazanım türleri", () => {
   it("tanımsız tipi geçersiz sayar", () => {
     expect(kazanimTipiGecerliMi("ROZET")).toBe(false);
     expect(kazanimTipiGecerliMi("URUN")).toBe(true);
+  });
+});
+
+/*
+ * Profil iki bölüme ayrıldı: GençTek Yolculuğum (GençTek İÇİNDE yapılanlar) ve
+ * Bilişim Yolculuğum (dışında yapılanlar). Bir tip ikisine de girmezse kullanıcı
+ * o kaydı girer ve profilinde HİÇBİR YERDE göremez — hata da almaz. Bu yüzden
+ * bölümleme burada sınanıyor, ekranda değil.
+ */
+describe("profil yolculuk bölümleri", () => {
+  it("her kazanım tipini bir bölüme yerleştirir", () => {
+    expect(kazanimBolumuBulunmayan()).toEqual([]);
+  });
+
+  it("aynı tipi iki bölüme birden koymaz", () => {
+    const kesisim = GENCTEK_YOLCULUGU_TIPLERI.filter((tip) =>
+      BILISIM_YOLCULUGU_TIPLERI.includes(tip),
+    );
+    expect(kesisim).toEqual([]);
+  });
+
+  it("GençTek tarafında katılım ve akran eğitimi durur", () => {
+    expect([...GENCTEK_YOLCULUGU_TIPLERI].sort()).toEqual([
+      "AKRAN_EGITIMI",
+      "GENCTEK_ETKINLIGI",
+    ]);
   });
 });
 
@@ -190,6 +224,7 @@ describe("türe uymayan alanlar", () => {
       baslik: "Ulusal Bilgisayar Olimpiyatları",
       derece: "Türkiye 3.sü",
       duzenleyen: "TÜBİTAK",
+      katilimBicimi: "YUZ_YUZE",
     });
     expect(kayit.derece).toBe("Türkiye 3.sü");
     expect(kayit.duzenleyen).toBe("TÜBİTAK");
@@ -201,6 +236,7 @@ describe("türe uymayan alanlar", () => {
       baslik: "TEKNOFEST",
       duzenleyen: "T3 Vakfı",
       derece: "Birincilik",
+      katilimBicimi: "YUZ_YUZE",
     });
     expect(kayit.duzenleyen).toBe("T3 Vakfı");
     expect(kayit.derece).toBeNull();
@@ -217,6 +253,7 @@ describe("GençTek programı seçimi", () => {
       tip: "YARISMA_DERECESI",
       baslik: "kullanıcının yazdığı ad",
       program: { id: 7, ad: "EğitiJAM" },
+      katilimBicimi: "KARMA",
     });
     expect(kayit.baslik).toBe("EğitiJAM");
     expect(kayit.temelEtkinlikProgramiId).toBe(7);
@@ -226,6 +263,7 @@ describe("GençTek programı seçimi", () => {
     const kayit = kabulEdilenKayit({
       tip: "AKRAN_EGITIMI",
       baslik: "Python atölyesi",
+      katilimBicimi: "ONLINE",
     });
     expect(kayit.baslik).toBe("Python atölyesi");
     expect(kayit.temelEtkinlikProgramiId).toBeNull();
@@ -283,9 +321,25 @@ describe("katılım biçimi ve hedef kitle", () => {
     expect(karar.olurMu).toBe(false);
   });
 
-  it("boş katılım biçimini null sayar", () => {
-    const kayit = kabulEdilenKayit({ tip: "DIS_ETKINLIK", katilimBicimi: "" });
-    expect(kayit.katilimBicimi).toBeNull();
+  /*
+   * 5 Ağustos 2026: alan YENİ kayıtlarda ZORUNLU oldu ("Belirtmek istemiyorum"
+   * seçeneği kaldırıldı). Eski kayıtlar geriye dönük DOLDURULMADI ve sütun NULL
+   * kabul etmeye devam ediyor — kural yalnızca bu kapıdan geçen yeni kayda
+   * uygulanır.
+   */
+  it("katılım biçimi sorulan türde boş değeri reddeder", () => {
+    const karar = kazanimKabulEdilirMi(
+      girdi({ tip: "DIS_ETKINLIK", baslik: "TEKNOFEST", katilimBicimi: "" }),
+    );
+    expect(karar.olurMu).toBe(false);
+    if (!karar.olurMu) {
+      expect(karar.neden).toBe("Katılım biçimi seçilmelidir.");
+    }
+  });
+
+  it("katılım biçimi sorulmayan türde boş değeri sorun etmez", () => {
+    // Üründe alan hiç gösterilmiyor; zorunluluk oraya sızmamalı.
+    expect(kabulEdilenKayit({ tip: "URUN" }).katilimBicimi).toBeNull();
   });
 
   it("hedef kitle 200 karakteri aşarsa reddeder", () => {
@@ -316,5 +370,123 @@ describe("beyan edilen GençTek etkinliği", () => {
   it("GençTek türü, otomatik listeyle çakışabileceğini açıklamasında söyler", () => {
     const tanim = KAZANIM_TIPLERI.find((t) => t.tip === "GENCTEK_ETKINLIGI");
     expect(tanim?.aciklama).toContain("otomatik");
+  });
+});
+
+/*
+ * ÜRÜNE ÖZGÜ ALANLAR (D5 · 6 Ağustos 2026).
+ *
+ * İstekteki form: Ürün Adı · Geliştiren Ekip · Açıklamalar · Destekleyici
+ * Görseller · Linkler, artı "Bu ürünü markette paylaş" kutusu. Görseller
+ * kazanim_ek altyapısıyla, gerisi burada.
+ *
+ * Alanlar YALNIZCA üründe açılır: bir sertifikanın "geliştiren ekibi" ya da
+ * market bayrağı olmaz ve istek elle kurcalansa bile yazılmamalı.
+ */
+describe("ürün alanları", () => {
+  const urun = (ozellikler: Record<string, unknown> = {}) =>
+    kazanimKabulEdilirMi({
+      tip: "URUN",
+      baslik: "Kütüphane uygulaması",
+      ...ozellikler,
+    });
+
+  it("geliştiren ekibi saklar", () => {
+    const karar = urun({ gelistirenEkip: "  Robotik Kulübü  " });
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) expect(karar.kayit.gelistirenEkip).toBe("Robotik Kulübü");
+  });
+
+  it("markette paylaş bayrağını saklar", () => {
+    const karar = urun({ markettePaylasilsin: true });
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) expect(karar.kayit.markettePaylasilsin).toBe(true);
+  });
+
+  it("markette paylaş varsayılan olarak KAPALIDIR", () => {
+    // Paylaşım bir tercihtir; açık gelmesi kullanıcının istemeden vitrine
+    // çıkması demek olurdu.
+    const karar = urun();
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) expect(karar.kayit.markettePaylasilsin).toBe(false);
+  });
+
+  it("üründe olmayan tipte ürün alanlarını sessizce düşürür", () => {
+    const karar = kazanimKabulEdilirMi({
+      tip: "SERTIFIKA",
+      baslik: "Siber Güvenliğe Giriş",
+      gelistirenEkip: "Bir ekip",
+      markettePaylasilsin: true,
+      baglantilar: [{ adres: "https://ornek.gov.tr" }],
+    });
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) {
+      expect(karar.kayit.gelistirenEkip).toBeNull();
+      expect(karar.kayit.markettePaylasilsin).toBe(false);
+      expect(karar.baglantilar).toEqual([]);
+    }
+  });
+
+  it("boş bağlantı satırlarını eler ve sırayı korur", () => {
+    const karar = urun({
+      baglantilar: [
+        { adres: "https://depo.example", etiket: "kaynak kod" },
+        { adres: "   " },
+        { adres: "https://canli.example", etiket: "" },
+      ],
+    });
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) {
+      expect(karar.baglantilar).toEqual([
+        { adres: "https://depo.example", etiket: "kaynak kod", siraNo: 0 },
+        { adres: "https://canli.example", etiket: null, siraNo: 1 },
+      ]);
+    }
+  });
+
+  it("http/https dışındaki bağlantıyı reddeder", () => {
+    // `javascript:` ile başlayan bir adres, profile bakan danışmanın
+    // tarayıcısında kod çalıştırırdı.
+    const karar = urun({
+      baglantilar: [{ adres: "javascript:alert(1)" }],
+    });
+    expect(karar.olurMu).toBe(false);
+  });
+
+  it("çok fazla bağlantıyı reddeder", () => {
+    const karar = urun({
+      baglantilar: Array.from({ length: 11 }, (_, i) => ({
+        adres: `https://ornek.example/${i}`,
+      })),
+    });
+    expect(karar.olurMu).toBe(false);
+  });
+});
+
+/*
+ * SERTİFİKA ve TOPLULUK (D3, D4 · 6 Ağustos 2026) — ayrı tablo açılmadan tip
+ * olarak eklendi: aynı form, aynı doğrulama, aynı silme yolu ikinci kez
+ * yazılmasın diye. İkisi de "Bilişim Yolculuğum" bölümüne düşer.
+ */
+describe("sertifika ve topluluk", () => {
+  it("ikisi de Bilişim Yolculuğu bölümündedir", () => {
+    expect(BILISIM_YOLCULUGU_TIPLERI).toContain("SERTIFIKA");
+    expect(BILISIM_YOLCULUGU_TIPLERI).toContain("TOPLULUK");
+  });
+
+  it("topluluk kaydı beyandır; ek alan istemez", () => {
+    const tanim = kazanimTipiTanimi("TOPLULUK");
+    expect(tanim.dereceVarMi).toBe(false);
+    expect(tanim.katilimBicimiVarMi).toBe(false);
+    expect(tanim.programSecimiVarMi).toBe(false);
+  });
+
+  it("sertifika kaydı kabul edilir", () => {
+    const karar = kazanimKabulEdilirMi({
+      tip: "SERTIFIKA",
+      baslik: "Siber Güvenliğe Giriş",
+      duzenleyen: "BTK Akademi",
+    });
+    expect(karar.olurMu).toBe(true);
   });
 });

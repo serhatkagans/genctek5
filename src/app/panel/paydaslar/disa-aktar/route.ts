@@ -35,7 +35,7 @@ const BASLIKLAR = [
   "İş birliği alanı",
   "Notlar",
   "Durum",
-  "Bağlı faaliyet sayısı",
+  "Bağlı etkinlik sayısı",
 ] as const;
 
 export async function GET(istek: Request) {

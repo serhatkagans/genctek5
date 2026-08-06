@@ -74,8 +74,14 @@ export async function ayarKaydetEylemi(veri: FormData): Promise<void> {
   });
 
   revalidatePath(YOL);
-  // KVKK metni değişmiş olabilir; şerit ve onay durumu her sayfada okunuyor.
-  revalidatePath("/panel/kvkk");
+  /*
+   * KVKK metni değişmiş olabilir. Şerit panel DÜZENİNDE basıldığı için düzenin
+   * kendisi tazeleniyor; belgelerin okunduğu bölüm de profilde olduğundan o
+   * sayfa ayrıca tazeleniyor. Metin güncellendiği anda herkesten yeniden onay
+   * isteniyor (onayiGerekiyorMu), bu yüzden ikisi de eskimemeli.
+   */
+  revalidatePath("/panel", "layout");
+  revalidatePath("/panel/profil");
   redirect(`${YOL}?durum=kaydedildi&anahtar=${anahtar}`);
 }
 
@@ -219,7 +225,7 @@ export async function programEkleEylemi(veri: FormData): Promise<void> {
   });
 
   revalidatePath(YOL);
-  revalidatePath("/panel/faaliyetler/yeni");
+  revalidatePath("/panel/etkinlikler/yeni");
   redirect(`${YOL}?durum=program-eklendi`);
 }
 
@@ -245,7 +251,7 @@ export async function programDurumEylemi(veri: FormData): Promise<void> {
   });
 
   revalidatePath(YOL);
-  revalidatePath("/panel/faaliyetler/yeni");
+  revalidatePath("/panel/etkinlikler/yeni");
   redirect(`${YOL}?durum=${aktif ? "program-aktif" : "program-pasif"}`);
 }
 

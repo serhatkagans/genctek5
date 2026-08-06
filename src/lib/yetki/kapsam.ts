@@ -3,6 +3,7 @@ import type { PaydasTuru } from "@/generated/prisma/enums";
 import {
   danismanKurumKodu,
   danismanMi,
+  disKullaniciMi,
   koordinatorIlKodu,
   ogrenciMi,
   projeYoneticisiMi,
@@ -18,6 +19,13 @@ import type { OturumKullanicisi } from "./tipler";
  *
  * Yetki belirlenemezse filtre "hiçbir kaydı döndürmeyen" hâle döner (fail
  * closed). Yanlış tarafa düşmek, veri sızdırmaktan iyidir.
+ *
+ * DIŞ KULLANICILAR (mezun, paydaş temsilcisi) HER FİLTREDE AÇIKÇA ELENİR.
+ * Rol kontrolüne dayanan filtreler onları zaten dışarıda bırakıyor ama İL
+ * ALANINA bakan filtreler bırakmıyordu: mezunun da paydaş temsilcisinin de
+ * ilKodu vardır ve "ili olan, öğrenci olmayan kullanıcı" koşulu onları içeri
+ * alırdı (bkz. paydasKapsamFiltresi). Bu, filtresi yazılmamış bir ekranın
+ * sessizce veri göstermesinin tam olarak nasıl olduğunu gösteren bir örnek.
  */
 
 /** Hiçbir kaydı döndürmeyen filtre. */
@@ -152,19 +160,26 @@ export function ogrenciListeFiltresi(
 // ---------------------------------------------------------------------------
 
 /**
- * "Öğretmen" = aktif ÖĞRENCİ rolü olmayan kullanıcı.
+ * "Öğretmen" = aktif öğrenci, merkez ve dış kullanıcı rolü olmayan kullanıcı.
  *
  * Ayrı bir kullanıcı tipi sütunu yok ve olmamalı: kimlik sağlayıcıdan gelen
  * kişi rolüyle tanımlanır. Görev almamış öğretmen de bu kümededir — envanterin
  * en çok işe yarayan satırı, henüz danışmanlık işaretlememiş öğretmendir.
  *
- * Proje yöneticisi (YEĞİTEK personeli) DIŞARIDA bırakılır: okulda görevli bir
- * öğretmen değildir, listede okulsuz satır olarak görünmesi envanteri kirletir.
+ * DIŞARIDA BIRAKILANLAR ve gerekçeleri:
+ *   - Proje yöneticisi (YEĞİTEK personeli): okulda görevli bir öğretmen
+ *     değildir, listede okulsuz satır olarak görünmesi envanteri kirletir.
+ *   - Mezun ve paydaş temsilcisi: aynı gerekçenin daha keskin hâli. Küme
+ *     "öğrenci OLMAYAN" diye tanımlı kaldığı sürece bu iki rol kendiliğinden
+ *     içeri girer ve il koordinatörü, ilinin öğretmen envanterinde mezunları
+ *     görürdü — üstelik ekran onları öğretmen sanarak branş sütunu basardı.
  */
 const OGRETMEN: Prisma.KullaniciWhereInput = {
   roller: {
     none: {
-      rolKodu: { in: ["OGRENCI", "PROJE_YONETICISI"] },
+      rolKodu: {
+        in: ["OGRENCI", "PROJE_YONETICISI", "MEZUN", "PAYDAS_TEMSILCISI"],
+      },
       bitisTarihi: null,
     },
   },
@@ -307,7 +322,17 @@ export function paydasKapsamFiltresi(
     };
   }
 
-  if (kullanici.ilKodu !== null && !ogrenciMi(kullanici)) {
+  /*
+   * Dış kullanıcı burada AÇIKÇA eleniyor. Koşul "ili olan, öğrenci olmayan"
+   * dediği için paydaş temsilcisi kendi ilinin TÜM paydaş envanterini —
+   * yetkili kişi adları ve doğrudan iletişim bilgileriyle birlikte —
+   * görecekti. Mezun için de aynısı geçerliydi.
+   */
+  if (
+    kullanici.ilKodu !== null &&
+    !ogrenciMi(kullanici) &&
+    !disKullaniciMi(kullanici)
+  ) {
     return { ilKodu: kullanici.ilKodu };
   }
 
@@ -408,13 +433,22 @@ export function faaliyetKapsamFiltresi(
   }
 
   /*
-   * İl koordinatörü, kendi ilindeki bir ÖĞRENCİNİN açtığı onay bekleyen
-   * faaliyeti görür — onaylayacak olan kişi onaylayacağı şeyi göremezse öneri
-   * hiç ulaşmamış olurdu (bkz. ilKoordinatoruOnaylayabilirMi).
+   * İl koordinatörü, kendi ilinde açılmış ONAY BEKLEYEN faaliyeti görür —
+   * onaylayacak kişi onaylayacağı şeyi göremezse öneri hiç ulaşmamış olurdu
+   * (bkz. ilKoordinatoruOnaylayabilirMi).
    *
-   * Koşul düzenleyenin İLİNE bakar, faaliyetin kapsam alanlarına değil: ulusal
-   * öneride kapsam alanlarının ikisi de boştur ve öneriyi değerlendirecek
-   * koordinatör, öğrencinin kendi ilinin koordinatörüdür.
+   * ROL LİSTESİ İKİLİ: öğrenci VE danışman öğretmen. Bir dönem yalnızca öğrenci
+   * yazılıydı; sonra `faaliyetOnayGerekiyorMu` genişletilip danışman
+   * öğretmenin açtığı faaliyet de onaya tabi kılındı ama bu filtre güncellenmedi.
+   * Sonuç sessiz bir kilitlenmeydi: öğretmenin faaliyeti BEKLIYOR'da kalıyor,
+   * koordinatör onu ne listede ne adresinde görebiliyor (404), "Öğretmen
+   * faaliyeti onayınızı bekliyor" bildirimi de bulunamayan bir sayfaya
+   * götürüyordu. Hiçbir yerde hata çıkmıyordu — faaliyet öğrenciye hiç
+   * görünmüyordu, o kadar.
+   *
+   * BURASI `ilKoordinatoruOnaylayabilirMi` İLE AYNI KALMALI. İki taraf
+   * ayrışırsa ya onaylayamayacağı kayıt listelenir ya da onaylayacağı kayıt
+   * kaybolur; ikisi de sessizce olur.
    */
   const koordinatorIli = koordinatorIlKodu(kullanici);
   const onaylayabilecekleri: Prisma.FaaliyetWhereInput[] =
@@ -423,9 +457,28 @@ export function faaliyetKapsamFiltresi(
           {
             onayDurumu: "BEKLIYOR",
             duzenleyen: {
-              ilKodu: koordinatorIli,
-              roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } },
+              roller: {
+                some: {
+                  rolKodu: { in: ["OGRENCI", "DANISMAN"] },
+                  bitisTarihi: null,
+                },
+              },
             },
+            /*
+             * Faaliyetin ili, `faaliyetKapsamiCikar`'daki sırayla çözülür:
+             * kapsam alanı → okulun ili → düzenleyenin ili. Okul içi faaliyette
+             * il kodu boştur (okulunki geçerlidir), ulusal öneride ikisi de
+             * boştur ve karar düzenleyenin ilindeki koordinatöre düşer.
+             */
+            OR: [
+              { ilKodu: koordinatorIli },
+              { ilKodu: null, kurum: { ilKodu: koordinatorIli } },
+              {
+                ilKodu: null,
+                kurumKodu: null,
+                duzenleyen: { ilKodu: koordinatorIli },
+              },
+            ],
           },
         ]
       : [];

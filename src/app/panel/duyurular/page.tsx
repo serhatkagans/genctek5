@@ -59,7 +59,14 @@ export default async function DuyurularSayfasi({
     prisma.kullanici.count({
       where: {
         aktif: true,
-        roller: { none: { rolKodu: "OGRENCI", bitisTarihi: null } },
+        // Sayı, eylemdeki alıcı koşuluyla AYNI kümeyi saymalı; ayrışırsa ekran
+        // gönderilenden farklı bir rakam gösterir (bkz. duyurular/eylemler.ts).
+        roller: {
+          none: {
+            rolKodu: { in: ["OGRENCI", "MEZUN", "PAYDAS_TEMSILCISI"] },
+            bitisTarihi: null,
+          },
+        },
       },
     }),
     // Aynı duyuru herkese aynı başlıkla gittiği için gruplanarak listeleniyor.

@@ -1,0 +1,31 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { disGirisYap } from "@/lib/dis-kimlik/giris";
+
+/**
+ * EBA dışı giriş eylemi.
+ *
+ * Şifre HİÇBİR KOŞULDA adres çubuğuna yazılmaz: hata durumunda yalnızca mesaj
+ * ve e-posta geri taşınır. Adres çubuğuna düşen bir şifre tarayıcı geçmişinde,
+ * ters vekil günlüğünde ve gönderilen bağlantıda kalıcı olur.
+ */
+export async function disGirisEylemi(veri: FormData): Promise<void> {
+  const eposta = String(veri.get("eposta") ?? "");
+  const sifre = String(veri.get("sifre") ?? "");
+
+  const sonuc = await disGirisYap(eposta, sifre);
+
+  if (sonuc.durum === "BASARISIZ") {
+    redirect(
+      `/dis-giris?hata=${encodeURIComponent(sonuc.mesaj)}&eposta=${encodeURIComponent(eposta)}`,
+    );
+  }
+
+  /*
+   * Dış kullanıcı panele girer; belge kapısı (app/onay) ilk girişte oraya
+   * yönlendirir. "İlk girişte profil" kuralı ÖĞRENCİYE aittir ve buraya
+   * uygulanmaz: mezunun/paydaşın profilinde doldurulacak alan yok.
+   */
+  redirect("/panel");
+}

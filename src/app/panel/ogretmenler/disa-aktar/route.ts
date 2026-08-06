@@ -34,7 +34,7 @@ const BASLIKLAR = [
   "Güncel görev",
   "Görev aldığı yıllar",
   "Aktif danışmanlık",
-  "Düzenlediği faaliyet",
+  "Düzenlediği etkinlik",
 ] as const;
 
 const ROL_ETIKETLERI: Record<string, string> = {

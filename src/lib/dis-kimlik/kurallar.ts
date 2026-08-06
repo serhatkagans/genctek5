@@ -1,0 +1,429 @@
+import type { DisKullaniciTuru, RolKodu } from "@/generated/prisma/enums";
+
+/**
+ * EBA dışı giriş kuralları — mezun ve paydaş temsilcisi.
+ *
+ * Bu dosya veritabanına BAKMAZ ve "şimdi"yi parametre olarak alır; kararlar saf
+ * tutulur ki birim testle eksiksiz kapsanabilsinler (aynı yaklaşım
+ * lib/paydas/kurallar.ts ve lib/kvkk/kurallar.ts'de).
+ *
+ * BURADAKİ KURALLAR EBA'YA UYGULANMAZ. EBA/mock kimlikli kullanıcıların şifresi
+ * yoktur; şifre, kilit ve sıfırlama yalnızca bu iki grubun sorunudur.
+ */
+
+export const TUR_ETIKETLERI: Record<DisKullaniciTuru, string> = {
+  MEZUN: "Mezun",
+  PAYDAS: "Paydaş temsilcisi",
+};
+
+/**
+ * Başvuru türünün karşılığı olan rol.
+ *
+ * Eşleme TEK YERDE durur: onay akışı, yetki kontrolleri ve ekranlar bu
+ * fonksiyondan geçer. İki ayrı yerde yazılsaydı biri güncellenmeyi kaçırır ve
+ * onaylanan paydaş yanlış rolle sisteme girerdi.
+ */
+export function turunRolu(tur: DisKullaniciTuru): RolKodu {
+  return tur === "MEZUN" ? "MEZUN" : "PAYDAS_TEMSILCISI";
+}
+
+export function disTuruMu(deger: string): deger is DisKullaniciTuru {
+  return deger === "MEZUN" || deger === "PAYDAS";
+}
+
+// ---------------------------------------------------------------------------
+// E-posta ve şifre
+// ---------------------------------------------------------------------------
+
+/** RFC'ye tam uyum aranmaz; amaç yazım hatasını yakalamak (bkz. paydas/kurallar.ts). */
+const EPOSTA_BICIMI = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EPOSTA_UST_SINIRI = 150;
+
+/**
+ * E-postayı giriş adı olarak kullanılabilir hâle getirir.
+ *
+ * Küçük harfe indirgeme TÜRKÇE KURALLA YAPILMAZ: `toLocaleLowerCase("tr")`
+ * "I" harfini "ı"ya çevirir ve "ALI@x.com" ile "ali@x.com" iki ayrı hesap
+ * olurdu. E-posta adresi bir dil metni değil, teknik bir tanımlayıcıdır.
+ */
+export function epostaNormalle(deger: string): string {
+  return deger.trim().toLowerCase();
+}
+
+export function epostaGecerliMi(deger: string): boolean {
+  return deger.length <= EPOSTA_UST_SINIRI && EPOSTA_BICIMI.test(deger);
+}
+
+/**
+ * Şifre alt sınırı.
+ *
+ * 10 karakter, "8 karakter + büyük harf + rakam + simge" gibi bir maskeye
+ * yeğlendi: karmaşıklık maskeleri kullanıcıyı `Sifre123!` gibi tahmin
+ * edilebilir kalıplara iter, uzunluk ise doğrudan arama uzayını büyütür.
+ * Yine de tek karakterden ibaret ("aaaaaaaaaa") ya da kişinin adından türeyen
+ * şifreler ayrıca eleniyor.
+ */
+export const SIFRE_ALT_SINIRI = 10;
+export const SIFRE_UST_SINIRI = 200;
+
+/** Şifrede aranmaması gereken, kişiden türeyen parçalar. */
+export interface SifreBaglami {
+  ad: string;
+  soyad: string;
+  eposta: string;
+}
+
+export type SifreKarari = { olurMu: true } | { olurMu: false; neden: string };
+
+export function sifreKarariniVer(
+  sifre: string,
+  baglam: SifreBaglami,
+): SifreKarari {
+  if (sifre.length < SIFRE_ALT_SINIRI) {
+    return {
+      olurMu: false,
+      neden: `Şifre en az ${SIFRE_ALT_SINIRI} karakter olmalı.`,
+    };
+  }
+  if (sifre.length > SIFRE_UST_SINIRI) {
+    return {
+      olurMu: false,
+      neden: `Şifre en fazla ${SIFRE_UST_SINIRI} karakter olabilir.`,
+    };
+  }
+
+  const benzersizKarakter = new Set(sifre).size;
+  if (benzersizKarakter < 4) {
+    return {
+      olurMu: false,
+      neden: "Şifre en az dört farklı karakter içermeli.",
+    };
+  }
+
+  /*
+   * Kişisel parçalar aranırken küçük harfe indirgeme yine Türkçe kuralsız:
+   * karşılaştırılan şey ad değil, şifrenin içindeki dizgidir.
+   */
+  const kucuk = sifre.toLowerCase();
+  const parcalar = [
+    baglam.ad.trim().toLowerCase(),
+    baglam.soyad.trim().toLowerCase(),
+    epostaNormalle(baglam.eposta).split("@")[0] ?? "",
+  ].filter((parca) => parca.length >= 4);
+
+  if (parcalar.some((parca) => kucuk.includes(parca))) {
+    return {
+      olurMu: false,
+      neden: "Şifre adınızı, soyadınızı ya da e-posta adınızı içeremez.",
+    };
+  }
+
+  return { olurMu: true };
+}
+
+// ---------------------------------------------------------------------------
+// Kaba kuvvet koruması
+// ---------------------------------------------------------------------------
+
+/**
+ * Kaç başarısız denemeden sonra hesap geçici olarak kilitlenir.
+ *
+ * KİLİT KALICI DEĞİL: kalıcı kilit, saldırganın başkasının hesabını kasten
+ * kilitlemesine (hizmet dışı bırakma) izin verirdi. Süreli kilit denemeyi
+ * pahalılaştırır, kurbanı dışarıda bırakmaz.
+ */
+export const BASARISIZ_DENEME_SINIRI = 5;
+export const KILIT_SURESI_DAKIKA = 15;
+
+export interface KilitDurumu {
+  basarisizDeneme: number;
+  kilitBitisTarihi: Date | null;
+}
+
+export function kilitliMi(durum: KilitDurumu, simdi: Date): boolean {
+  return durum.kilitBitisTarihi !== null && durum.kilitBitisTarihi > simdi;
+}
+
+/** Kilidin bitmesine kalan dakika (yukarı yuvarlanır); kilitli değilse 0. */
+export function kilitKalanDakika(durum: KilitDurumu, simdi: Date): number {
+  if (!kilitliMi(durum, simdi)) return 0;
+  const kalanMs = (durum.kilitBitisTarihi as Date).getTime() - simdi.getTime();
+  return Math.max(1, Math.ceil(kalanMs / 60000));
+}
+
+/**
+ * Başarısız denemeden sonraki yeni durum.
+ *
+ * Sayaç kilitlenince SIFIRLANIR: kilidi biten kişi tek bir hatalı denemeyle
+ * yeniden kilitlenmemeli, ona da tam bir hak seti verilir.
+ */
+export function basarisizDenemeSonucu(
+  durum: KilitDurumu,
+  simdi: Date,
+): KilitDurumu {
+  const yeniDeneme = durum.basarisizDeneme + 1;
+  if (yeniDeneme < BASARISIZ_DENEME_SINIRI) {
+    return { basarisizDeneme: yeniDeneme, kilitBitisTarihi: null };
+  }
+  return {
+    basarisizDeneme: 0,
+    kilitBitisTarihi: new Date(simdi.getTime() + KILIT_SURESI_DAKIKA * 60000),
+  };
+}
+
+/** Parola sıfırlama bağlantısının ömrü. */
+export const SIFIRLAMA_GECERLILIK_DAKIKA = 60;
+
+export function sifirlamaGecerliMi(
+  sonGecerlilik: Date | null,
+  simdi: Date,
+): boolean {
+  return sonGecerlilik !== null && sonGecerlilik > simdi;
+}
+
+// ---------------------------------------------------------------------------
+// Başvuru girdisi
+// ---------------------------------------------------------------------------
+
+/** Ekrandan gelen ham başvuru girdisi. */
+export interface DisBasvuruGirdisi {
+  tur: string;
+  ad: string;
+  soyad: string;
+  eposta: string;
+  telefon: string;
+  ilKodu: string;
+  sifre: string;
+  sifreTekrar: string;
+  /** MEZUN: okul kodu (isteğe bağlı) ve mezuniyet yılı. */
+  mezunKurumKodu: string;
+  mezuniyetYili: string;
+  /** PAYDAS: envanterdeki kurum kaydı ve kişinin oradaki görevi. */
+  paydasId: string;
+  gorevUnvani: string;
+  beyan: string;
+  /** Aydınlatma metni onay kutusu işaretlendi mi? */
+  aydinlatmaOnayi: boolean;
+}
+
+/** Veritabanına yazılabilir hâle gelmiş başvuru (şifre henüz özetlenmemiş). */
+export interface DisBasvuruKaydi {
+  tur: DisKullaniciTuru;
+  ad: string;
+  soyad: string;
+  eposta: string;
+  telefon: string | null;
+  ilKodu: string;
+  sifre: string;
+  mezunKurumKodu: number | null;
+  mezuniyetYili: number | null;
+  paydasId: number | null;
+  gorevUnvani: string | null;
+  beyan: string;
+}
+
+export type DisBasvuruKarari =
+  | { olurMu: true; kayit: DisBasvuruKaydi }
+  | { olurMu: false; neden: string };
+
+const AD_UST_SINIRI = 100;
+const UNVAN_UST_SINIRI = 150;
+const BEYAN_ALT_SINIRI = 20;
+const BEYAN_UST_SINIRI = 2000;
+
+/** Telefon biçimi paydaş envanteriyle aynı gevşeklikte tutuldu. */
+const TELEFON_BICIMI = /^[0-9+()\s./-]{7,20}$/;
+
+/**
+ * En eski kabul edilen mezuniyet yılı.
+ *
+ * GençTek ekosistemi yeni olduğu için "mezun" kavramı son yıllarla sınırlı;
+ * yine de sınır geniş tutuldu, çünkü daraltmak gerçek başvuruyu reddetmenin
+ * bedeliyle gelir. Alan yalnızca yazım hatasını (1099, 20255) yakalar.
+ */
+const EN_ESKI_MEZUNIYET_YILI = 1970;
+
+function bosVeyaMetin(deger: string): string | null {
+  const kirpilmis = deger.trim();
+  return kirpilmis ? kirpilmis : null;
+}
+
+/**
+ * Başvuru girdisini doğrular.
+ *
+ * TÜRE GÖRE AYRIŞAN ALANLAR: mezunda mezuniyet yılı, paydaşta kurum kaydı ve
+ * görev unvanı zorunludur. Paydaş temsilcisi kurum adını SERBEST METİN
+ * YAZAMAZ — envanterdeki kayıttan seçer; aksi hâlde aynı üniversite onlarca
+ * yazımla sisteme girer ve il koordinatörlerinin yönettiği envanter
+ * kullanılamaz hâle gelirdi (aynı gerekçe: paydasEkleyebilirMi).
+ */
+export function disBasvuruGirdisiniCoz(
+  girdi: DisBasvuruGirdisi,
+  simdi: Date,
+): DisBasvuruKarari {
+  if (!disTuruMu(girdi.tur)) {
+    return { olurMu: false, neden: "Başvuru türü seçilmelidir." };
+  }
+  const tur = girdi.tur;
+
+  const ad = girdi.ad.trim();
+  const soyad = girdi.soyad.trim();
+  if (!ad || !soyad) {
+    return { olurMu: false, neden: "Ad ve soyad zorunludur." };
+  }
+  if (ad.length > AD_UST_SINIRI || soyad.length > AD_UST_SINIRI) {
+    return {
+      olurMu: false,
+      neden: `Ad ve soyad en fazla ${AD_UST_SINIRI} karakter olabilir.`,
+    };
+  }
+
+  const eposta = epostaNormalle(girdi.eposta);
+  if (!epostaGecerliMi(eposta)) {
+    return { olurMu: false, neden: "Geçerli bir e-posta adresi girin." };
+  }
+
+  const telefon = bosVeyaMetin(girdi.telefon);
+  if (telefon && !TELEFON_BICIMI.test(telefon)) {
+    return { olurMu: false, neden: "Telefon numarası geçerli değil." };
+  }
+
+  const ilKodu = girdi.ilKodu.trim();
+  if (!/^\d{2}$/.test(ilKodu)) {
+    return { olurMu: false, neden: "İl seçilmelidir." };
+  }
+
+  if (girdi.sifre !== girdi.sifreTekrar) {
+    return { olurMu: false, neden: "Şifre ile tekrarı aynı değil." };
+  }
+  const sifreKarari = sifreKarariniVer(girdi.sifre, { ad, soyad, eposta });
+  if (!sifreKarari.olurMu) {
+    return { olurMu: false, neden: sifreKarari.neden };
+  }
+
+  const beyan = girdi.beyan.trim();
+  if (beyan.length < BEYAN_ALT_SINIRI) {
+    return {
+      olurMu: false,
+      neden:
+        "Ekosisteme nasıl katkı vermek istediğinizi birkaç cümleyle yazın; başvurunuz buna göre değerlendirilecek.",
+    };
+  }
+  if (beyan.length > BEYAN_UST_SINIRI) {
+    return {
+      olurMu: false,
+      neden: `Açıklama en fazla ${BEYAN_UST_SINIRI} karakter olabilir.`,
+    };
+  }
+
+  if (!girdi.aydinlatmaOnayi) {
+    return {
+      olurMu: false,
+      neden: "Aydınlatma metnini okuyup onaylamadan başvuru alınamaz.",
+    };
+  }
+
+  let mezunKurumKodu: number | null = null;
+  let mezuniyetYili: number | null = null;
+  let paydasId: number | null = null;
+  let gorevUnvani: string | null = null;
+
+  if (tur === "MEZUN") {
+    const yilMetni = girdi.mezuniyetYili.trim();
+    const yil = Number(yilMetni);
+    if (
+      !/^\d{4}$/.test(yilMetni) ||
+      yil < EN_ESKI_MEZUNIYET_YILI ||
+      yil > simdi.getFullYear()
+    ) {
+      return { olurMu: false, neden: "Geçerli bir mezuniyet yılı girin." };
+    }
+    mezuniyetYili = yil;
+
+    // Okul İSTEĞE BAĞLI: kapanmış ya da referans tablosunda bulunmayan bir
+    // okuldan mezun olan kişi başvuramaz hâle gelmemeli.
+    const kurumMetni = girdi.mezunKurumKodu.trim();
+    if (kurumMetni) {
+      const kurumKodu = Number(kurumMetni);
+      if (!Number.isInteger(kurumKodu) || kurumKodu <= 0) {
+        return { olurMu: false, neden: "Mezun olunan okul geçerli değil." };
+      }
+      mezunKurumKodu = kurumKodu;
+    }
+  } else {
+    const paydasMetni = girdi.paydasId.trim();
+    const secilen = Number(paydasMetni);
+    if (!paydasMetni || !Number.isInteger(secilen) || secilen <= 0) {
+      return {
+        olurMu: false,
+        neden: "Temsil ettiğiniz paydaş kurumu listeden seçin.",
+      };
+    }
+    paydasId = secilen;
+
+    gorevUnvani = bosVeyaMetin(girdi.gorevUnvani);
+    if (!gorevUnvani) {
+      return {
+        olurMu: false,
+        neden: "Kurumdaki görev/unvanınızı yazın.",
+      };
+    }
+    if (gorevUnvani.length > UNVAN_UST_SINIRI) {
+      return {
+        olurMu: false,
+        neden: `Görev/unvan en fazla ${UNVAN_UST_SINIRI} karakter olabilir.`,
+      };
+    }
+  }
+
+  return {
+    olurMu: true,
+    kayit: {
+      tur,
+      ad,
+      soyad,
+      eposta,
+      telefon,
+      ilKodu,
+      sifre: girdi.sifre,
+      mezunKurumKodu,
+      mezuniyetYili,
+      paydasId,
+      gorevUnvani,
+      beyan,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Karar
+// ---------------------------------------------------------------------------
+
+const RET_GEREKCESI_ALT_SINIRI = 10;
+const RET_GEREKCESI_UST_SINIRI = 1000;
+
+/**
+ * Ret gerekçesi ZORUNLUDUR.
+ *
+ * Tekrar başvuru serbest olduğu için gerekçesiz ret, kişiyi aynı başvuruyu
+ * aynı eksikle tekrar göndermeye iter — ne başvuran ne onaylayan kazanır.
+ */
+export function retGerekcesiniCoz(
+  gerekce: string,
+): { olurMu: true; gerekce: string } | { olurMu: false; neden: string } {
+  const kirpilmis = gerekce.trim();
+  if (kirpilmis.length < RET_GEREKCESI_ALT_SINIRI) {
+    return {
+      olurMu: false,
+      neden:
+        "Ret gerekçesi yazın: kişi tekrar başvurabiliyor, neyi düzelteceğini bilmeli.",
+    };
+  }
+  if (kirpilmis.length > RET_GEREKCESI_UST_SINIRI) {
+    return {
+      olurMu: false,
+      neden: `Ret gerekçesi en fazla ${RET_GEREKCESI_UST_SINIRI} karakter olabilir.`,
+    };
+  }
+  return { olurMu: true, gerekce: kirpilmis };
+}

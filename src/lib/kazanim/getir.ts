@@ -7,6 +7,9 @@ import {
   ogretmenRozetDurumlari,
   type RozetDurumu,
   rozetDurumlari,
+  type SeferDurumu,
+  type SeferGirdisi,
+  seferDurumlari,
 } from "./rozetler";
 
 /**
@@ -23,6 +26,12 @@ export interface KatilimGecmisi {
 
 export interface KazanimSonucu extends KatilimGecmisi {
   rozetler: RozetDurumu[];
+  /**
+   * Seferler (seviyeler) yalnızca ÖĞRENCİDE hesaplanır; öğretmenin ölçütleri
+   * (ürün, akran eğitimi, temsilcilik) ya yok ya bambaşka anlamda. Öğretmende
+   * boş dizi döner ve kart hiç basılmaz.
+   */
+  seferler: SeferDurumu[];
 }
 
 /**
@@ -74,10 +83,32 @@ export async function kazanimlariGetir(
   ogrenciId: number,
   simdi: Date = new Date(),
 ): Promise<KazanimSonucu> {
-  const [gecmis, calismaGrubuSayisi, gorevRolSayisi] = await Promise.all([
+  const [
+    gecmis,
+    calismaGrubuSayisi,
+    gorevRolSayisi,
+    urunSayisi,
+    verdigiEgitimSayisi,
+    duzenledigiEtkinlikSayisi,
+  ] = await Promise.all([
     katilimGecmisiGetir(ogrenciId, simdi),
     prisma.ogrenciCalismaGrubu.count({ where: { ogrenciId } }),
     prisma.ogrenciGorevRolu.count({ where: { ogrenciId } }),
+    // Seferler için: ürün ve akran eğitimi kişinin KENDİ beyanıdır.
+    prisma.kullaniciKazanim.count({
+      where: { kullaniciId: ogrenciId, tip: "URUN" },
+    }),
+    prisma.kullaniciKazanim.count({
+      where: { kullaniciId: ogrenciId, tip: "AKRAN_EGITIMI" },
+    }),
+    // Onay bekleyen ya da iptal edilmiş öneri sayılmaz.
+    prisma.faaliyet.count({
+      where: {
+        duzenleyenKullaniciId: ogrenciId,
+        durum: "AKTIF",
+        onayDurumu: "ONAYLANDI",
+      },
+    }),
   ]);
 
   const girdi: KazanimGirdisi = {
@@ -86,7 +117,19 @@ export async function kazanimlariGetir(
     gorevRolSayisi,
   };
 
-  return { ...gecmis, rozetler: rozetDurumlari(girdi) };
+  const seferGirdisi: SeferGirdisi = {
+    katilimlar: gecmis.katilimlar,
+    urunSayisi,
+    verdigiEgitimSayisi,
+    gorevRolSayisi,
+    duzenledigiEtkinlikSayisi,
+  };
+
+  return {
+    ...gecmis,
+    rozetler: rozetDurumlari(girdi),
+    seferler: seferDurumlari(seferGirdisi),
+  };
 }
 
 /**
@@ -127,5 +170,6 @@ export async function ogretmenKazanimlariGetir(
     paydasliFaaliyetSayisi: paydasliFaaliyet,
   };
 
-  return { ...gecmis, rozetler: ogretmenRozetDurumlari(girdi) };
+  // Seferler öğretmende hesaplanmaz (bkz. KazanimSonucu · seferler).
+  return { ...gecmis, rozetler: ogretmenRozetDurumlari(girdi), seferler: [] };
 }

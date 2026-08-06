@@ -43,7 +43,7 @@ const SENARYO_TANIMLARI = [
     kod: "yegitek",
     baslik: "YEĞİTEK — proje yöneticisi",
     aciklama:
-      "Tüm illeri görür, ulusal faaliyetleri onaylar, il koordinatörü rolü atar.",
+      "Tüm illeri görür, ulusal etkinlikleri onaylar, il koordinatörü rolü atar.",
     Ikon: UserCog as Ikon,
     seritSinifi: "border-l-rol-yonetici-metin",
   },
@@ -59,7 +59,7 @@ const SENARYO_TANIMLARI = [
     kod: "okul",
     baslik: "Okul koordinatörü — GençTek danışman öğretmeni",
     aciklama:
-      "Yalnızca danışmanlığındaki öğrencileri görür, okulunda faaliyet açar.",
+      "Yalnızca danışmanlığındaki öğrencileri görür, okulunda etkinlik açar.",
     Ikon: ShieldCheck as Ikon,
     seritSinifi: "border-l-rol-danisman-metin",
   },
@@ -234,7 +234,7 @@ export default async function GirisSayfasi({
             GençTek Bilgi Sistemi
           </h1>
           <p className="mt-2 text-metin-yumusak">
-            Öğrenci ve danışman öğretmen envanteri, çalışma grupları ve faaliyet
+            Öğrenci ve danışman öğretmen envanteri, çalışma grupları ve etkinlik
             başvuru sistemi.
           </p>
         </header>
@@ -348,6 +348,24 @@ export default async function GirisSayfasi({
               </section>
             );
           })}
+        </div>
+
+        {/*
+          EBA dışı giriş buradan DEĞİL ayrı bir ekrandan yapılır: bu sayfa
+          kimlik seçtirir, orası e-posta ve şifre sorar. İki akışı tek ekranda
+          birleştirmek, EBA entegrasyonu geldiğinde sökülmesi gereken bir
+          karmaşa bırakırdı (bkz. app/dis-giris/page.tsx).
+        */}
+        <div className="mt-10 border-t border-cizgi pt-6 text-sm text-metin-yumusak">
+          EBA hesabı olmayan mezun ve paydaş temsilcileri{" "}
+          <Link href="/dis-giris" className="font-medium text-vurgu-metin">
+            mezun ve paydaş girişini
+          </Link>{" "}
+          kullanır; hesabı olmayanlar{" "}
+          <Link href="/basvuru" className="font-medium text-vurgu-metin">
+            başvuru yapar
+          </Link>
+          .
         </div>
       </main>
     </div>

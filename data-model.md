@@ -34,7 +34,7 @@ Bu üç tablo MEB kaynaklarından beslenir, uygulama içinden düzenlenmez.
 | Alan | Tip | Not |
 |---|---|---|
 | id | serial, PK | |
-| auth_provider_id | varchar(64), unique | Mock aşamada test kullanıcı kimliği, sonra EBA kimliği |
+| auth_provider_id | varchar(64), unique | Mock aşamada test kullanıcı kimliği, sonra EBA kimliği. Dış kullanıcılarda `dis-<başvuruId>` — bu kimlik AuthProvider'a hiç sorulmaz |
 | ad, soyad | varchar(100) | Salt okunur |
 | cinsiyet | char(1) | Salt okunur |
 | kurum_kodu | int, FK | Salt okunur |
@@ -50,7 +50,7 @@ Bu üç tablo MEB kaynaklarından beslenir, uygulama içinden düzenlenmez.
 |---|---|---|
 | id | serial, PK | |
 | kullanici_id | int, FK | |
-| rol_kodu | varchar(20) | OGRENCI / DANISMAN / IL_KOORDINATOR / PROJE_YONETICISI |
+| rol_kodu | varchar(20) | OGRENCI / DANISMAN / IL_KOORDINATOR / PROJE_YONETICISI / MEZUN / PAYDAS_TEMSILCISI |
 | il_kodu | char(2), null | IL_KOORDINATOR için kapsam |
 | kurum_kodu | int, null | DANISMAN için kapsam |
 | baslangic_tarihi | timestamptz | |
@@ -59,10 +59,90 @@ Bu üç tablo MEB kaynaklarından beslenir, uygulama içinden düzenlenmez.
 
 Roller geçmişli tutulur; silme yapma, `bitis_tarihi` yaz.
 
+`MEZUN` ve `PAYDAS_TEMSILCISI` rolleri elle atanmaz; yalnızca onaylanan bir dış
+başvurudan doğar (aşağıdaki 2a). İkisinde de `kurum_kodu` ve `ilce_kodu`
+boştur, `cinsiyet` "B" (belirtilmedi) olarak açılır — dış başvuruda sorulmuyor,
+çünkü toplanmayan veri en güvenli veridir.
+
+## 2a. EBA dışı giriş (mezun, paydaş temsilcisi)
+
+**dis_kullanici_basvurusu** — başvurunun kendisi. Onaylanana kadar `kullanici`
+satırı **açılmaz**; açılsaydı onaysız kişi kapsam filtrelerine ve envanter
+sayılarına sızardı.
+
+| Alan | Tip | Not |
+|---|---|---|
+| id | serial, PK | |
+| tur | enum | MEZUN / PAYDAS — rol değil, rol yalnızca onayla doğar |
+| ad, soyad | varchar(100) | |
+| eposta | varchar(150) | Küçük harfe indirgenmiş; giriş adı olacak |
+| telefon | varchar(20), null | |
+| il_kodu | char(2), FK | |
+| sifre_ozeti | varchar(200), null | Onayda `dis_kimlik`e **taşınır**, rette de NULL'lanır |
+| mezun_kurum_kodu | int, null, FK | MEZUN: isteğe bağlı |
+| mezuniyet_yili | int, null | MEZUN: zorunlu |
+| paydas_id | int, null, FK | PAYDAS: zorunlu, envanterden seçilir |
+| gorev_unvani | varchar(150), null | PAYDAS: zorunlu |
+| beyan | text | Kararın verildiği alan |
+| aydinlatma_onay_tarihi | timestamptz | Başvuru anındaki KVKK onayı |
+| durum | enum | BEKLIYOR / ONAYLANDI / REDDEDILDI |
+| karar_veren_kullanici_id | int, null, FK | |
+| karar_tarihi | timestamptz, null | |
+| ret_gerekcesi | text, null | Rette **zorunlu** (CHECK) |
+| olusan_kullanici_id | int, null, unique, FK | Onayla açılan kullanıcı |
+| olusturma_tarihi | timestamptz | |
+
+Aydınlatma onayı `kullanici_onayi`nda **tutulamaz**: başvuru anında kullanıcı
+kaydı yoktur, oysa veri işleme o anda başlar. Silme yoktur — "bu kişi neden
+alınmadı" sorusunun cevabı, aynı kişi tekrar başvurduğunda gerekiyor.
+
+**dis_kimlik** — onaylanmış dış kullanıcının giriş kimliği. Sistemin **şifre
+tutan tek tablosudur** ve `kullanici`dan bilinçli olarak ayrıdır: sütun olarak
+eklenseydi EBA kimlikli her satırda boş bir şifre sütunu dururdu ve "şifresi
+olmayan giriş yapamaz" garantisi şemadan değil uygulamadan gelirdi.
+
+| Alan | Tip | Not |
+|---|---|---|
+| kullanici_id | int, PK, FK | |
+| eposta | varchar(150), unique | Giriş adı |
+| sifre_ozeti | varchar(200) | `scrypt$N$r$p$tuz$ozet` — parametreler özetin içinde |
+| basarisiz_deneme | int | Başarılı girişte sıfırlanır |
+| kilit_bitis_tarihi | timestamptz, null | 5 hatalı denemede 15 dk |
+| sifirlama_jetonu_ozeti | varchar(200), null | Jetonun kendisi DEĞİL, özeti |
+| sifirlama_son_gecerlilik | timestamptz, null | 60 dk |
+| son_giris_tarihi | timestamptz, null | |
+
 **ogretmen_profil**
-`kullanici_id` (PK, FK), `danisman_olmak_istiyor` (boolean), `isaretleme_tarihi`
+`kullanici_id` (PK, FK), `danisman_olmak_istiyor` (boolean), `isaretleme_tarihi`, `eposta`, `telefon`
 
 Bu bayrak `true` olmadan öğretmen danışman seçim listesinde görünmez.
+
+**kullanici_onayi** — onay belgeleri
+`kullanici_id` + `belge` (PK), `onay_tarihi`
+
+| Alan | Not |
+|---|---|
+| belge | AYDINLATMA / ACIK_RIZA / TAAHHUTNAME / GIZLILIK_SOZLESMESI |
+| onay_tarihi | Yeniden onay bu tarihi günceller; yeni satır açılmaz |
+
+Belge başına **en fazla bir satır**. Onay bir DURUMDUR, geçmiş tablosu değil:
+"şu an geçerli metni kabul etmiş mi" sorusuna cevap verir. Onayın kendisi ayrıca
+`erisim_logu`'na yazıldığı için "kim ne zaman onayladı" izi denetlenebilir bir
+yerde zaten duruyor.
+
+**Metnin sürümü saklanmaz.** Tazelik, `onay_tarihi` ile `sistem_ayari`'ndaki
+metnin `guncelleme_tarihi`'si karşılaştırılarak bulunur; metin güncellenince
+onay kendiliğinden eskir.
+
+**Hangi belgenin kimden isteneceği kodda durur** (`src/lib/kvkk/kurallar.ts` ·
+`BELGE_TANIMLARI`), veritabanında değil — rol eşlemesi bir iş kuralıdır ve rol
+tanımı değiştikçe migration yazmak gerekmemeli. Yürürlükteki eşleme:
+aydınlatma → öğrenci, açık rıza → **herkes**, taahhütname ve gizlilik sözleşmesi
+→ il koordinatörü.
+
+Bu tablo profil tablolarında DEĞİL ayrı durur: YEĞİTEK personeline sağlama
+akışında ne `ogrenci_profil` ne `ogretmen_profil` satırı açılıyor, oysa açık rıza
+ondan da isteniyor.
 
 ---
 
@@ -111,7 +191,9 @@ Silme yok. Kapanan grup `aktif=false`.
 
 ## 5. Öğrenci envanteri
 
-**ogrenci_profil** — `kullanici_id` (PK, FK), `eposta`, `telefon`, `github_url`, `kisisel_site_url`, `linkedin_url`, `aydinlatma_metni_onay_tarihi`, `cv_dosya_adi`, `cv_depolama_yolu`, `cv_mime_tipi`, `cv_boyut_bayt`, `cv_yuklenme_tarihi`
+**ogrenci_profil** — `kullanici_id` (PK, FK), `eposta`, `telefon`, `github_url`, `kisisel_site_url`, `linkedin_url`, `cv_dosya_adi`, `cv_depolama_yolu`, `cv_mime_tipi`, `cv_boyut_bayt`, `cv_yuklenme_tarihi`
+
+Aydınlatma onayı burada DEĞİL, `kullanici_onayi`'nda (bkz. Bölüm 2).
 
 Mesleki bağlantılar (`github_url`, `kisisel_site_url`, `linkedin_url`) varchar(200), null. **Öğrenci beyanıdır**: sistem sayfanın gerçekten ona ait olduğunu doğrulamaz, yalnızca biçimi kontrol eder — yalnızca `http`/`https`, protokolsüz girilen adres reddedilmez **tamamlanır** (`github.com/ali` → `https://github.com/ali`). Doğru bilgi vermiş birini biçim yüzünden geri çevirmenin karşılığı yok. Üçü ayrı sütundur, tek bir "bağlantılar" JSON'u değil: her biri ekranda kendi ikonuyla çıkar ve LinkedIn kutusuna GitHub adresi yazıldığında uyarılabilir.
 
@@ -123,23 +205,58 @@ CV alanları `faaliyet_ek` ile **aynı depolama soyutlamasını** kullanır: `cv
 Kapsam sütunu **role göre** dolar ve `ck_ogrenci_gorev_kapsam` ile zorlanır. Kapsam öğrencinin güncel kaydından okunmaz, atama anında göreve **yazılır**: öğrenci dönem içinde okul (dolayısıyla ilçe) değiştirdiğinde görev verildiği yerde kalmalıdır. `ilce_kodu` → `ilce(kod)` FK'sidir; ilçesi olmayan öğrenciye İlçe Temsilciliği verilemez, kısıt zaten reddeder.
 
 **kullanici_kazanim** — kullanıcının kendi girdiği başarı/üretim kayıtları
-`id`, `kullanici_id`, `tip` (DIS_ETKINLIK / URUN / AKRAN_EGITIMI / YARISMA_DERECESI), `baslik`, `aciklama`, `tarih`, `baglanti_url`, `derece`, `duzenleyen`, `temel_etkinlik_programi_id`, `katilim_bicimi`, `hedef_kitle`, `olusturma_tarihi`
+`id`, `kullanici_id`, `tip` (GENCTEK_ETKINLIGI / DIS_ETKINLIK / URUN / AKRAN_EGITIMI / YARISMA_DERECESI / SERTIFIKA / TOPLULUK / DIGER), `baslik`, `aciklama`, `tarih`, `baglanti_url`, `derece`, `duzenleyen`, `temel_etkinlik_programi_id`, `katilim_bicimi`, `hedef_kitle`, `gelistiren_ekip`, `markette_paylasilsin`, `olusturma_tarihi`
 
 Tablo öğrenci için açıldı, **öğretmen de aynı tabloya yazar** (bu yüzden `ogrenci_id` → `kullanici_id` olarak yeniden adlandırıldı; öğrenci envanterinde duruyor olması tarihsel). Öğretmenin geliştirdiği ürün ile öğrencinin geliştirdiği ürün aynı kayıttır; ikinci bir tablo aynı doğrulama kurallarını, aynı formu ve aynı silme yolunu ikinci kez yazdırırdı. Ayrışan tek şey **etiketlerdir**: öğretmende "verdiğim akran eğitimleri" yerine "verdiğim eğitimler" yazar (`src/lib/kazanim/kurallar.ts`), alan kuralları rolden bağımsızdır — aksi hâlde aynı kayıt, girenin rolüne göre farklı doğrulanır, öğretmenlikten ayrılan birinin kaydı geçersizleşirdi.
 
 | Alan | Not |
 |---|---|
-| tip | DIS_ETKINLIK: GençTek dışı ulusal/uluslararası etkinlikler · URUN: web sitesi, uygulama, oyun, film · AKRAN_EGITIMI: kullanıcının **verdiği** eğitimler · YARISMA_DERECESI: bilişim alanında derece aldığı yarışmalar (GençTek içi ve dışı) |
+| tip | DIS_ETKINLIK: GençTek dışı ulusal/uluslararası etkinlikler · URUN: web sitesi, uygulama, oyun, film · AKRAN_EGITIMI: kullanıcının **verdiği** eğitimler · YARISMA_DERECESI: bilişim alanında derece aldığı yarışmalar (GençTek içi ve dışı) · **SERTIFIKA**: aldığı belge/sertifika (6 Ağustos 2026) · **TOPLULUK**: içinde yer aldığı kulüp, proje ekibi, takım (6 Ağustos 2026) |
+| gelistiren_ekip | varchar(250), null. Ürünü geliştiren ekip. Yalnızca tip=URUN'de anlamlı, diğer tiplerde sessizce düşürülür |
+| markette_paylasilsin | boolean, default **false**. "Bu ürünü markette paylaş" onay kutusu. Varsayılan kapalı: paylaşım bir TERCİHTİR, açık gelmesi kullanıcının istemeden vitrine çıkması demek olurdu. GençTek Market (I maddesi) bu bayrağı okuyacak |
 | derece | varchar(120), null. Serbest metin ("Türkiye 1.si", "Mansiyon") — adlandırma yarışmadan yarışmaya değiştiği için sabit liste yok. Yalnızca YARISMA_DERECESI'nde anlamlı |
 | duzenleyen | varchar(200), null. Düzenleyen kurum. URUN'de anlamsızdır, o türde yazılmaz |
 | temel_etkinlik_programi_id | FK, null. Kayıt bir GençTek programına aitse (EğitiJAM, Capture The Flag…) buraya bağlanır. Formdaki **"Diğer"** seçeneği bu alanı boş bırakıp `duzenleyen`e serbest metin yazar: liste tek başına bırakılsaydı listede olmayan etkinlik hiç girilemez, serbest metin tek başına bırakılsaydı aynı program onlarca yazımla girilip sayılamaz olurdu |
-| katilim_bicimi | KatilimBicimi enum, null: YUZ_YUZE / ONLINE / KARMA. URUN'de sorulmaz |
+| katilim_bicimi | KatilimBicimi enum, null: YUZ_YUZE / ONLINE / KARMA. URUN'de sorulmaz. **YENİ kayıtlarda zorunlu** (5 Ağustos 2026), sütun yine de NULL kabul eder: eski kayıtlar geriye dönük DOLDURULMADI — boş bırakılmış bir beyanı sonradan "yüz yüze" saymak veriyi uydurmak olurdu. Zorunluluk uygulama katmanında (`kazanimKabulEdilirMi`), veritabanı kısıtında değil |
 | hedef_kitle | varchar(200), null. Akran eğitiminde kime anlatıldığı, yarışmada hangi kategoride yarışıldığı. Serbest metin — kitleyi listeye sığdırmaya çalışmak beyanı çarpıtırdı |
 | olusturma_tarihi | Sıralama için zorunlu: kullanıcının girdiği `tarih` boş olabildiği için tek başına ölçüt olamıyor |
+
+**Sertifika ve topluluk için de ayrı tablo yoktur** (6 Ağustos 2026). Sertifika, belgesi `kazanim_ek`'e yüklenen bir kazanım kaydıdır — ayrı tablo, aynı dosya yükleme yolunu ikinci kez yazdırırdı. Topluluk ise bir **beyandır**: aynı kulübü yazan iki öğrenci sistemde eşleştirilmez. Eşleştirme, topluluk için ayrı bir referans tablosu ve üyelik yönetimi demekti; istenen ise kişinin "içinde yer aldığı toplulukları gösterebileceği" bir bölümdü.
 
 **"Yaptığım ürünler" için ayrı tablo yoktur**: bu tablodaki `tip=URUN` kayıtlarıdır, yalnızca ayrı bir kartta gösterilir. İkinci bir tablo aynı kaydın iki yerde yaşamasına ve birinden silinip diğerinde kalmasına yol açardı.
 
 **Katıldığı GençTek etkinlikleri bu tabloda TUTULMAZ.** O liste `basvuru` (durum=SECILDI) + `faaliyet` (tarihi geçmiş, durum=AKTIF) üzerinden türetilir. Türetilebilen veriyi kullanıcının eliyle ikinci kez girmesi hem yanlış hem doğrulanamaz olurdu; aynı gerekçeyle İl/İlçe/Okul Temsilcisi görevleri (kaynağı `ogrenci_gorev_rolu`), öğretmenin danışmanlıkları (`danisman_atama`) ve düzenlediği faaliyetler (`faaliyet.duzenleyen_kullanici_id`) de buraya yazılmaz.
+
+**kazanim_baglanti** — kazanım kaydının bağlantıları (6 Ağustos 2026)
+`id`, `kazanim_id` (FK → `kullanici_kazanim`, ON DELETE CASCADE), `adres`, `etiket`, `sira_no`
+
+Ürün formundaki **"Linkler"** (çoğul) için: bir ürünün deposu, canlı adresi ve tanıtım videosu ayrı ayrı olabilir. Tek alana virgülle sığdırmak, adresleri doğrulanamaz ve tıklanamaz bir metne çevirirdi. `etiket` bağlantının ne olduğunu söyler ("kaynak kod", "canlı sürüm").
+
+Tablodaki **`baglanti_url` kaldırılmadı**: dolu kayıtlar var ve diğer tipler onu kullanmaya devam ediyor. Taşıma da yapılmadı — geçmiş kayıtları yeni tabloya kopyalamak aynı adresin iki yerde yaşamasına ve birinden silinip öbüründe kalmasına yol açardı.
+
+**kazanim_ek** — kazanım kaydının destekleyici belgeleri (5 Ağustos 2026)
+`id`, `kazanim_id` (FK → `kullanici_kazanim`, ON DELETE CASCADE), `dosya_adi`, `depolama_yolu`, `mime_tipi`, `boyut_bayt`, `yuklenme_tarihi`
+
+"Etkinliğe dair fotoğraf, belge" için. Depolama deseni `faaliyet_ek` ile **aynı**: `depolama_yolu` bir anahtardır, dosya yolu değil. Ayrı tablo çünkü bir kayda birden çok dosya eklenir; sütun olsaydı ya tek dosyayla sınırlı kalırdık ya da `dosya_1, dosya_2` gibi sürdürülemez bir şema çıkardı.
+
+**Soft-delete YOKTUR** — `faaliyet_ek`'ten ayrıldığı tek nokta. Faaliyet eki başkalarının göreceği ortak bir içeriktir ve moderasyon gereği "kim sildi" kaydı kalır; kazanım eki ise kişinin **kendi** beyanının parçasıdır ve kazanım kaydının kendisi de kalıcı siliniyor. Yarısı hard, yarısı soft silinen bir kayıt çifti tutarsız olurdu. Silme `erisim_logu`na yazılır.
+
+Tip ve boyut sınırları faaliyet ekleriyle **ortaktır** (`IZINLI_GORSEL_TIPLERI`, `IZINLI_BELGE_TIPLERI`, `GORSEL_MAKS_BAYT`, `BELGE_MAKS_BAYT`): ikisi de aynı türde içerik taşıyor. CV'nin ayrı sınırları olmasının sebebi tür farkıydı (orada doc/docx kabul ediliyor); burada öyle bir fark yok. Ayrışırlarsa değişecek tek yer `src/lib/kazanim/ek.ts`.
+
+**kullanici_hedefi** — "Rotam": kişinin hedefleri (6 Ağustos 2026)
+`id`, `kullanici_id` (FK → `kullanici`, ON DELETE CASCADE), `baslik`, `aciklama`, `durum` (HedefDurumu: PLANLANDI / SURUYOR / TAMAMLANDI), `hedef_tarihi` (DATE), `tamamlanma_tarihi`, `olusturma_tarihi`, `guncelleme_tarihi`
+
+**Kazanımdan ayrı tablodur** ve bu bilinçlidir: ikisi de kullanıcının girdiği metin olsa da kazanım "yaptım" beyanıdır, geçmişe bakar ve danışman/koordinatör **görür**; hedef "yapmak istiyorum" beyanıdır, geleceğe bakar ve **kişiye özeldir**. Tek tabloda birleştirmek, birinin görünürlük kuralını öbürüne bulaştırırdı.
+
+**Serbest metin yerine liste** seçildi. Seçim tek yönlüdür: listeden serbest metne geçiş kayıpsızdır (satırlar alt alta yazılır), tersi değildir (paragraf hedeflere bölünemez, "durum" bilgisi sonradan üretilemez).
+
+| Alan | Not |
+|---|---|
+| hedef_tarihi | **DATE**, saat yok: "bu yıl içinde" ölçeğinde bir niyet, randevu değil. Timestamptz olsaydı saat dilimi kayması hedefi bir gün oynatırdı. Geçmiş tarih **kabul edilir** — hedef tarihi geçmiş ama hâlâ süren bir hedefi reddetmek, kişiyi kendi kaydını düzenleyemez hâle getirirdi |
+| tamamlanma_tarihi | `durum`dan **türetilemez**: durum TAMAMLANDI'ya çevrildiğinde bunun ne zaman olduğunu başka hiçbir alan tutmuyor. `ck_kullanici_hedefi_tamamlanma`, tamamlanmamış hedefte dolu kalmasını engeller |
+| durum | VAZGECILDI değeri **yoktur** — vazgeçilen hedef silinir. Ayrı bir durum, profilde vazgeçilenlerin kalıcı listesini tutmak olurdu |
+
+Kişi başına **30 hedef** sınırı uygulama katmanındadır (kota değil, taşma koruması: profil sayfası hepsini tek seferde basıyor).
 
 > **Faz 2 (rozet sistemi) notu.** Rozet/katkı kategorileri netleşti: İl Temsilcisi, Okul Temsilcisi, verdiği akran eğitimleri, çalışma grubu yöneticiliği / organizasyon ekibi üyeliği (bu madde hâlâ belirsiz), moderatörlük yaptığı etkinlikler, derece aldığı yarışmalar (GençTek içi ve dışı). Liste mevcut `tip` değerleriyle büyük ölçüde örtüştüğü için Faz 2 açıldığında **yeni tablo açma**: bu tablonun `tip` alanını genişlet. Bazı kategorilerin (İl/Okul Temsilcisi) kaynağı zaten `ogrenci_gorev_rolu`, bazılarının (moderatörlük) kaynağı faaliyet ilişkisidir — türetilebilenler için ayrıca kayıt tutma.
 
@@ -307,6 +424,13 @@ WHERE bitis_tarihi IS NULL;
 CREATE UNIQUE INDEX ux_basvuru_tek_aktif
 ON basvuru(faaliyet_id, ogrenci_id)
 WHERE durum <> 'GERI_CEKILDI';
+
+-- Aynı e-postayla aynı anda tek BEKLEYEN dış başvuru olur.
+-- Tam unique kısıt olamaz: reddedilen kişi tekrar başvurabilmeli, onaylananın
+-- eski başvurusu da tarihte kalmalı.
+CREATE UNIQUE INDEX ux_dis_basvuru_bekleyen_eposta
+ON dis_kullanici_basvurusu(eposta)
+WHERE durum = 'BEKLIYOR';
 
 -- Dönem başına il/okul tekilliği
 CREATE UNIQUE INDEX ux_il_temsilcisi

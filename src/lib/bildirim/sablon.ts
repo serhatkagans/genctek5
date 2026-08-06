@@ -14,6 +14,12 @@ export const BILDIRIM_KODLARI = {
   BASVURU_SONUCU: "BASVURU_SONUCU",
   DANISMAN_DEGISTI: "DANISMAN_DEGISTI",
   DANISMAN_YENIDEN_SECIM: "DANISMAN_YENIDEN_SECIM",
+  /**
+   * Danışman öğretmen TEK bir öğrencinin danışmanlığını bıraktı; ilin
+   * koordinatörüne gider. Gerekçe metne dahildir — bırakma kararı görünür
+   * olmadan hesap verilebilir olmaz.
+   */
+  DANISMANLIK_TEKIL_BIRAKILDI: "DANISMANLIK_TEKIL_BIRAKILDI",
   KOORDINATOR_DEVREDILEBILIR_OGRENCI: "KOORDINATOR_DEVREDILEBILIR_OGRENCI",
   ONAY_BEKLEYEN_ULUSAL_FAALIYET: "ONAY_BEKLEYEN_ULUSAL_FAALIYET",
   /** Öğrenci faaliyet açtı; il koordinatörüne ve YEĞİTEK'e birlikte gider. */
@@ -39,8 +45,28 @@ export const BILDIRIM_KODLARI = {
   ADINA_BASVURU_YAPILDI: "ADINA_BASVURU_YAPILDI",
   /** Adına yapılan başvuru, başvuran öğretmen tarafından geri çekildi. */
   ADINA_BASVURU_GERI_CEKILDI: "ADINA_BASVURU_GERI_CEKILDI",
+  /**
+   * Seçilmiş bir katılımcı başvurusunu geri çekti; kontenjanda yer açıldı.
+   * Etkinliği DÜZENLEYENE gider.
+   *
+   * Yalnızca SEÇİLEN çekildiğinde gönderilir. Bekleyen ya da yedek başvurunun
+   * çekilmesi de yer açar ama düzenleyenin yapacağı bir şey yoktur; her geri
+   * çekmede haber gitseydi, gerçekten karar gerektiren tek durum kalabalığın
+   * içinde kaybolurdu.
+   */
+  KONTENJANDA_YER_ACILDI: "KONTENJANDA_YER_ACILDI",
   /** Öğrenci adına başvuran öğretmene giden sonuç kopyası. */
   ADINA_BASVURU_SONUCU: "ADINA_BASVURU_SONUCU",
+  /**
+   * EBA dışı giriş başvurusu (mezun/paydaş) onay bekliyor; proje
+   * yöneticilerine gider.
+   *
+   * Başvuranın KENDİSİNE giden karar bildirimi burada YOKTUR ve olamaz:
+   * reddedilen kişinin sistemde kullanıcı kaydı hiç açılmaz, oysa panel
+   * bildirimi bir kullanıcıya yazılır. Karar, doğrudan e-postayla iletilir
+   * (bkz. lib/dis-kimlik/eposta.ts).
+   */
+  ONAY_BEKLEYEN_DIS_BASVURU: "ONAY_BEKLEYEN_DIS_BASVURU",
 } as const;
 
 export type BildirimKodu =
@@ -86,6 +112,19 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     degiskenler: [],
   },
   {
+    kod: BILDIRIM_KODLARI.DANISMANLIK_TEKIL_BIRAKILDI,
+    baslik: "Öğrencinin danışmanlığı bırakıldı",
+    aciklama:
+      "Danışman öğretmen tek bir öğrencinin danışmanlığını bıraktığında ilin koordinatörüne gider. Gerekçe metinde yer alır; öğrencinin yeni durumu da yazılır.",
+    degiskenler: [
+      "ogrenciAdSoyad",
+      "danismanAdSoyad",
+      "okulAdi",
+      "gerekce",
+      "yeniDurum",
+    ],
+  },
+  {
     kod: BILDIRIM_KODLARI.KOORDINATOR_DEVREDILEBILIR_OGRENCI,
     baslik: "Devredilebilir öğrenci uyarısı",
     aciklama:
@@ -94,23 +133,23 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
   },
   {
     kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_ULUSAL_FAALIYET,
-    baslik: "Onay bekleyen ulusal faaliyet",
+    baslik: "Onay bekleyen ulusal etkinlik",
     aciklama:
-      "İl koordinatörü ulusal faaliyet açtığında proje yöneticilerine gider.",
+      "İl koordinatörü ulusal etkinlik açtığında proje yöneticilerine gider.",
     degiskenler: ["faaliyetAdi", "duzenleyenAdSoyad"],
   },
   {
     kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
-    baslik: "Onay bekleyen öğrenci faaliyeti",
+    baslik: "Onay bekleyen öğrenci etkinliği",
     aciklama:
-      "Öğrenci faaliyet açtığında hem öğrencinin ilinin koordinatörüne hem proje yöneticilerine gider. İkisi de onaylayabilir.",
+      "Öğrenci etkinlik açtığında hem öğrencinin ilinin koordinatörüne hem proje yöneticilerine gider. İkisi de onaylayabilir.",
     degiskenler: ["faaliyetAdi", "duzenleyenAdSoyad", "kapsam", "okulAdi"],
   },
   {
     kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRETMEN_FAALIYETI,
-    baslik: "Onay bekleyen öğretmen faaliyeti",
+    baslik: "Onay bekleyen öğretmen etkinliği",
     aciklama:
-      "Danışman öğretmen faaliyet açtığında okulun ilindeki koordinatöre gider. İlde koordinatör yoksa proje yöneticilerine düşer, faaliyet askıda kalmaz.",
+      "Danışman öğretmen etkinlik açtığında okulun ilindeki koordinatöre gider. İlde koordinatör yoksa proje yöneticilerine düşer, etkinlik askıda kalmaz.",
     degiskenler: ["faaliyetAdi", "duzenleyenAdSoyad", "kapsam", "okulAdi"],
   },
   {
@@ -150,16 +189,16 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
   },
   {
     kod: BILDIRIM_KODLARI.FAALIYET_ONAY_SONUCU,
-    baslik: "Faaliyet onay sonucu",
+    baslik: "Etkinlik onay sonucu",
     aciklama:
-      "Onaya sunulan faaliyet sonuçlandığında faaliyeti açan kullanıcıya gider.",
+      "Onaya sunulan etkinlik sonuçlandığında etkinliği açan kullanıcıya gider.",
     degiskenler: ["faaliyetAdi", "sonuc", "kararVerenAdSoyad"],
   },
   {
     kod: BILDIRIM_KODLARI.DANISMANA_KOPYA_ULUSAL_BASVURU,
     baslik: "Danışmana ulusal başvuru kopyası",
     aciklama:
-      "Öğrenci kendi ili dışındaki ulusal faaliyete başvurduğunda danışmanına gider. Onay değildir, salt haberdir.",
+      "Öğrenci kendi ili dışındaki ulusal etkinliğe başvurduğunda danışmanına gider. Onay değildir, salt haberdir.",
     degiskenler: ["ogrenciAdSoyad", "faaliyetAdi"],
   },
   {
@@ -171,8 +210,8 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
   },
   {
     kod: BILDIRIM_KODLARI.FAALIYET_IPTAL_EDILDI,
-    baslik: "Faaliyet iptal edildi",
-    aciklama: "Faaliyet iptal edildiğinde aktif başvuru sahiplerine gider.",
+    baslik: "Etkinlik iptal edildi",
+    aciklama: "Etkinlik iptal edildiğinde aktif başvuru sahiplerine gider.",
     degiskenler: ["faaliyetAdi", "gerekce"],
   },
   {
@@ -190,11 +229,30 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     degiskenler: ["ogrenciAdSoyad", "basvuranAdSoyad"],
   },
   {
+    kod: BILDIRIM_KODLARI.KONTENJANDA_YER_ACILDI,
+    baslik: "Kontenjanda yer açıldı",
+    aciklama:
+      "Seçilmiş bir katılımcı başvurusunu geri çektiğinde etkinliği düzenleyene gider. Yedek sayısı metne yazılır; düzenleyen yedekten çağırma kararını buna göre verir.",
+    degiskenler: [
+      "faaliyetAdi",
+      "katilimciAdSoyad",
+      "yedekSayisi",
+      "kalanYer",
+    ],
+  },
+  {
     kod: BILDIRIM_KODLARI.ADINA_BASVURU_SONUCU,
     baslik: "Adına başvurulan öğrencinin sonucu",
     aciklama:
       "Öğrenci adına başvuran öğretmene, başvuru değerlendirildiğinde gider.",
     degiskenler: ["ogrenciAdSoyad", "faaliyetAdi", "sonuc"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_BASVURU,
+    baslik: "Onay bekleyen dış giriş başvurusu",
+    aciklama:
+      "EBA hesabı olmayan biri (mezun / paydaş temsilcisi) giriş başvurusu yaptığında proje yöneticilerine gider.",
+    degiskenler: ["basvuranAdSoyad", "tur", "ilAdi"],
   },
 ];
 

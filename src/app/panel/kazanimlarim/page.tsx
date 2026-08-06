@@ -3,7 +3,7 @@ import Link from "next/link";
 import { KapsamRozeti, KategoriRozeti } from "@/components/FaaliyetRozetleri";
 import { KatkiKarti } from "@/components/KatkiKarti";
 import { OgretmenKatkiKarti } from "@/components/OgretmenKatkiKarti";
-import { UrunlerKarti } from "@/components/OgrenciProfilBolumleri";
+import { SeferlerimKarti, UrunlerKarti } from "@/components/OgrenciProfilBolumleri";
 import { BilgiKutusu, Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
@@ -49,21 +49,22 @@ async function OgrenciKatkilari({
   kullaniciId: number;
   egitimOgretimYili: string;
 }) {
-  const [{ rozetler, ozet, katilimlar }, katki, urunler] = await Promise.all([
-    kazanimlariGetir(kullaniciId),
-    katkiVerisiGetir(kullaniciId),
-    prisma.kullaniciKazanim.findMany({
-      where: { kullaniciId, tip: "URUN" },
-      orderBy: [{ tarih: "desc" }, { olusturmaTarihi: "desc" }],
-    }),
-  ]);
+  const [{ rozetler, seferler, ozet, katilimlar }, katki, urunler] =
+    await Promise.all([
+      kazanimlariGetir(kullaniciId),
+      katkiVerisiGetir(kullaniciId),
+      prisma.kullaniciKazanim.findMany({
+        where: { kullaniciId, tip: "URUN" },
+        orderBy: [{ tarih: "desc" }, { olusturmaTarihi: "desc" }],
+      }),
+    ]);
   const kazanilan = rozetler.filter((rozet) => rozet.kazanildiMi);
 
   return (
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Katkılarım"
-        aciklama={`${ozet.toplamKatilim} faaliyete katıldın · ${kazanilan.length}/${rozetler.length} katkı nişanı · ${urunler.length} ürün`}
+        aciklama={`${ozet.toplamKatilim} etkinliğe katıldın · ${kazanilan.length}/${rozetler.length} katkı nişanı · ${urunler.length} ürün`}
       />
 
       <KatkiKarti
@@ -76,22 +77,23 @@ async function OgrenciKatkilari({
 
       <UrunlerKarti kendiMi urunler={urunler} />
 
-      <NisanlarKarti
+      <SeferlerimKarti
         rozetler={rozetler}
-        bosMesaji="Henüz katkı nişanın yok. İlk faaliyetine katıldığında burası dolmaya başlayacak."
+        seferler={seferler}
+        bosMesaji="Henüz seferin yok. İlk etkinliğine katıldığında burası dolmaya başlayacak."
       />
 
       <KatilimGecmisiKarti
         katilimlar={katilimlar}
-        aciklama="Seçildiğin ve tarihi geçmiş faaliyetler burada listelenir."
+        aciklama="Seçildiğin ve tarihi geçmiş etkinlikler burada listelenir."
         bosIcerik={
           <>
             Henüz tamamlanmış bir faaliyetin yok.{" "}
             <Link
-              href="/panel/faaliyetler"
+              href="/panel/etkinlikler"
               className="font-medium text-vurgu-metin underline underline-offset-2"
             >
-              Açık faaliyetlere göz at
+              Açık etkinliklere göz at
             </Link>
             .
           </>
@@ -99,8 +101,8 @@ async function OgrenciKatkilari({
       />
 
       <BilgiKutusu>
-        Bir faaliyete seçildiysen rozet, etkinliğin tarihi geçtikten sonra
-        eklenir. İptal edilen faaliyetler sayılmaz.
+        Bir etkinliğe seçildiysen rozet, etkinliğin tarihi geçtikten sonra
+        eklenir. İptal edilen etkinlikler sayılmaz.
       </BilgiKutusu>
     </div>
   );
@@ -121,7 +123,7 @@ async function OgretmenKatkilari({ kullaniciId }: { kullaniciId: number }) {
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Katkılarım"
-        aciklama={`${katki.faaliyetler.length} faaliyet düzenlediniz · ${katki.aktifDanismanlik} aktif danışmanlık · ${kazanilan.length}/${rozetler.length} katkı nişanı`}
+        aciklama={`${katki.faaliyetler.length} etkinlik düzenlediniz · ${katki.aktifDanismanlik} aktif danışmanlık · ${kazanilan.length}/${rozetler.length} katkı nişanı`}
       />
 
       <OgretmenKatkiKarti
@@ -133,9 +135,9 @@ async function OgretmenKatkilari({ kullaniciId }: { kullaniciId: number }) {
 
       <UrunlerKarti kendiMi sahip="OGRETMEN" urunler={urunler} />
 
-      <NisanlarKarti
+      <SeferlerimKarti
         rozetler={rozetler}
-        bosMesaji="Henüz katkı nişanınız yok. İlk faaliyetinizi düzenlediğinizde ya da bir öğrencinin danışmanlığını üstlendiğinizde burası dolmaya başlar."
+        bosMesaji="Henüz katkı nişanınız yok. İlk etkinliğinizi düzenlediğinizde ya da bir öğrencinin danışmanlığını üstlendiğinizde burası dolmaya başlar."
       />
 
       {/*
@@ -145,15 +147,15 @@ async function OgretmenKatkilari({ kullaniciId }: { kullaniciId: number }) {
       */}
       <KatilimGecmisiKarti
         katilimlar={katilimlar}
-        aciklama={`${ozet.toplamKatilim} etkinlik · başvurunuzun kabul edildiği ve tarihi geçmiş faaliyetler.`}
+        aciklama={`${ozet.toplamKatilim} etkinlik · başvurunuzun kabul edildiği ve tarihi geçmiş etkinlikler.`}
         bosIcerik={
           <>
             Katılımcı olarak yer aldığınız tamamlanmış bir faaliyet yok.{" "}
             <Link
-              href="/panel/faaliyetler"
+              href="/panel/etkinlikler"
               className="font-medium text-vurgu-metin underline underline-offset-2"
             >
-              Başvuruya açık faaliyetlere göz atın
+              Başvuruya açık etkinliklere göz atın
             </Link>
             .
           </>
@@ -162,95 +164,13 @@ async function OgretmenKatkilari({ kullaniciId }: { kullaniciId: number }) {
 
       <BilgiKutusu>
         Nişanlar katılım ve düzenleme geçmişinden hesaplanır; elle verilmez.
-        İptal edilen faaliyetler ve onay bekleyen öneriler sayılmaz.
+        İptal edilen etkinlikler ve onay bekleyen öneriler sayılmaz.
       </BilgiKutusu>
     </div>
   );
 }
 
 /** Kazanılan ve yolda olan nişanlar — iki rolde de aynı görünür. */
-function NisanlarKarti({
-  rozetler,
-  bosMesaji,
-}: {
-  rozetler: RozetDurumu[];
-  bosMesaji: string;
-}) {
-  const kazanilan = rozetler.filter((rozet) => rozet.kazanildiMi);
-  const bekleyen = rozetler.filter((rozet) => !rozet.kazanildiMi);
-
-  return (
-    <Kart>
-      <KartBasligi
-        baslik="Katkı nişanlarım"
-        aciklama="Geçmişten otomatik hesaplanır; başvuru gerektirmez."
-        Ikon={Award}
-      />
-
-      {kazanilan.length === 0 ? (
-        <p className="text-metin-yumusak">{bosMesaji}</p>
-      ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {kazanilan.map((rozet) => (
-            <li
-              key={rozet.kod}
-              className="rounded-kart border border-olumlu-cizgi bg-olumlu-zemin p-4"
-            >
-              <p className="flex items-center gap-2 font-semibold text-olumlu-metin">
-                <Award size={16} aria-hidden />
-                {rozet.ad}
-              </p>
-              <p className="mt-1 text-sm text-olumlu-metin">{rozet.aciklama}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {bekleyen.length > 0 && (
-        <>
-          <h3 className="mt-6 mb-3 text-sm font-semibold text-baslik">
-            Yolda olanlar
-          </h3>
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {bekleyen.map((rozet) => (
-              <li
-                key={rozet.kod}
-                className="rounded-kart border border-cizgi bg-zemin p-4"
-              >
-                <p className="flex items-center gap-2 font-medium text-metin">
-                  <Lock size={15} aria-hidden />
-                  {rozet.ad}
-                </p>
-                <p className="mt-1 text-sm text-metin-yumusak">
-                  {rozet.aciklama}
-                </p>
-                <div
-                  className="mt-3 h-1.5 overflow-hidden rounded-full bg-cizgi"
-                  role="progressbar"
-                  aria-valuenow={rozet.ilerleme}
-                  aria-valuemin={0}
-                  aria-valuemax={rozet.hedef}
-                  aria-label={`${rozet.ad} ilerlemesi`}
-                >
-                  <div
-                    className="h-full rounded-full bg-[var(--renk-birincil)]"
-                    style={{
-                      width: `${(rozet.ilerleme / rozet.hedef) * 100}%`,
-                    }}
-                  />
-                </div>
-                <p className="mt-1.5 text-xs text-metin-yumusak">
-                  {rozet.ilerleme} / {rozet.hedef}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </Kart>
-  );
-}
-
 type KatilimSatiri = KatilimGecmisi["katilimlar"][number];
 
 /** Katıldığı faaliyetler — başvuru geçmişinden türetilir, elle girilmez. */
@@ -266,7 +186,7 @@ function KatilimGecmisiKarti({
   return (
     <Kart>
       <KartBasligi
-        baslik="Katıldığım faaliyetler"
+        baslik="Katıldığım etkinlikler"
         aciklama={aciklama}
         Ikon={CalendarCheck}
       />
@@ -277,7 +197,7 @@ function KatilimGecmisiKarti({
           {katilimlar.map((katilim) => (
             <li key={katilim.faaliyetId} className="py-3 first:pt-0">
               <Link
-                href={`/panel/faaliyetler/${katilim.faaliyetId}`}
+                href={`/panel/etkinlikler/${katilim.faaliyetId}`}
                 className="font-medium text-metin transition hover:text-vurgu-metin"
               >
                 {katilim.ad}

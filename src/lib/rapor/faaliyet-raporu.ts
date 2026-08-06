@@ -85,9 +85,9 @@ export function faaliyetRaporuHtml(veri: RaporVerisi): string {
 
   const gorseller =
     veri.gorselAdlari.length === 0
-      ? "<p>Faaliyete görsel eklenmemiş.</p>"
+      ? "<p>Etkinliğe görsel eklenmemiş.</p>"
       : `<ul>${veri.gorselAdlari.map((ad) => `<li>${htmlKacir(ad)}</li>`).join("")}</ul>
-         <p class="not">Görseller panelde faaliyet sayfasından indirilebilir; rapora
+         <p class="not">Görseller panelde etkinlik sayfasından indirilebilir; rapora
          gömülmez çünkü dosya boyutu Word belgesini kullanılamaz hâle getirir.</p>`;
 
   /*
@@ -97,7 +97,7 @@ export function faaliyetRaporuHtml(veri: RaporVerisi): string {
   return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
 <head>
 <meta charset="utf-8">
-<title>${htmlKacir(veri.faaliyetAdi)} — Faaliyet Raporu</title>
+<title>${htmlKacir(veri.faaliyetAdi)} — Etkinlik Raporu</title>
 <style>
 body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
 h1 { font-size: 16pt; }
@@ -111,9 +111,9 @@ p.not { font-size: 9pt; color: #555; }
 </head>
 <body>
 <h1>${htmlKacir(veri.faaliyetAdi)}</h1>
-<p><em>GençTek Bilgi Sistemi — Faaliyet Raporu</em></p>
+<p><em>GençTek Bilgi Sistemi — Etkinlik Raporu</em></p>
 
-<h2>Faaliyet bilgileri</h2>
+<h2>Etkinlik bilgileri</h2>
 <table>
 ${satir("Kapsam", veri.kapsam)}
 ${satir("Etkinlik kategorisi", veri.kategori)}
@@ -146,7 +146,7 @@ ${
             veri.raporTarihi ? ` · ${htmlKacir(veri.raporTarihi)}` : ""
           }</p>`
         : "")
-    : "<p><em>Bu faaliyetin raporu henüz yazılmadı.</em></p>"
+    : "<p><em>Bu etkinliğin raporu henüz yazılmadı.</em></p>"
 }
 
 ${

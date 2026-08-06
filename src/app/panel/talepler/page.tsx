@@ -11,16 +11,24 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
-import { GIZLILIK_UYARISI, TALEP_AZAMI_GUN } from "@/lib/iletisim/kurallar";
+import {
+  GIZLILIK_UYARISI,
+  TALEP_AZAMI_GUN,
+  TALEP_TURLERI,
+  TALEP_TURU_BELIRTILMEMIS,
+  TALEP_TURU_ETIKETLERI,
+  talepTuruGecerliMi,
+} from "@/lib/iletisim/kurallar";
+import type { TalepTuru } from "@/generated/prisma/enums";
 import { girdiTarihi, tarihYaz } from "@/lib/tarih";
-import { basvuruYapabilirMi } from "@/lib/yetki/izinler";
+import { talepPanosuGorebilirMi } from "@/lib/yetki/izinler";
 import { baglantiIstegiGonderEylemi } from "../baglantilar/eylemler";
 import { talepKapatEylemi, talepAcEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Talep panosu — analiz isteği Bölüm 6, Aşama 1.
+ * Pano (eski adıyla Talep Panosu) — analiz isteği Bölüm 6, Aşama 1.
  *
  * İLAN PANOSUDUR, mesajlaşma değil: öğrenci "şu alan için takım arkadaşı
  * arıyorum" diye ilan açar, kapsamındakiler görür. Kişiden kişiye temas
@@ -42,16 +50,30 @@ const DURUM_MESAJLARI: Record<string, string> = {
 export default async function TaleplerSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ durum?: string; hata?: string; grup?: string; ara?: string }>;
+  searchParams: Promise<{
+    durum?: string;
+    hata?: string;
+    grup?: string;
+    ara?: string;
+    tur?: string;
+  }>;
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
-  const { durum, hata, grup, ara } = await searchParams;
+  const { durum, hata, grup, ara, tur } = await searchParams;
 
-  const acabilir = basvuruYapabilirMi(kullanici);
+  const acabilir = talepPanosuGorebilirMi(kullanici);
   const simdi = new Date();
 
   const grupId = Number.parseInt(grup ?? "", 10);
   const aramaMetni = (ara ?? "").trim();
+
+  /*
+   * Tür filtresi. "belirtilmemis" ayrı bir seçenek: türü olmayan ESKİ ilanlar
+   * (alan 6 Ağustos 2026'da eklendi) hiçbir tür filtresine düşmezdi ve pano
+   * filtrelenince sessizce kaybolurlardı.
+   */
+  const seciliTur = talepTuruGecerliMi(tur ?? "") ? (tur as TalepTuru) : null;
+  const tursuzIstendi = tur === "belirtilmemis";
 
   const [gruplar, talepler, kendiTalepleri] = await Promise.all([
     prisma.calismaGrubu.findMany({
@@ -64,6 +86,7 @@ export default async function TaleplerSayfasi({
         AND: [
           { kapatildiMi: false, sonGecerlilik: { gte: simdi } },
           Number.isFinite(grupId) ? { calismaGrubuId: grupId } : {},
+          seciliTur ? { tur: seciliTur } : tursuzIstendi ? { tur: null } : {},
           aramaMetni
             ? {
                 OR: [
@@ -78,6 +101,7 @@ export default async function TaleplerSayfasi({
       take: 60,
       select: {
         id: true,
+        tur: true,
         baslik: true,
         icerik: true,
         sonGecerlilik: true,
@@ -103,13 +127,14 @@ export default async function TaleplerSayfasi({
     }),
   ]);
 
-  const filtreVar = Boolean(aramaMetni) || Number.isFinite(grupId);
+  const filtreVar =
+    Boolean(aramaMetni) || Number.isFinite(grupId) || Boolean(tur);
 
   return (
     <div className="space-y-6">
       <SayfaBasligi
-        baslik="Talep panosu"
-        aciklama="Çalışma alanınızda birlikte üretecek arkadaş arayın veya kendi ilanınızı açın."
+        baslik="Pano"
+        aciklama="Ekip arkadaşı, teknik destek, sponsor ve duyuru ilanları. Pano ekosistem dışına açık değildir; ilanları yalnızca sisteme girmiş kullanıcılar görür."
       />
 
       {durum && DURUM_MESAJLARI[durum] && (
@@ -140,7 +165,29 @@ export default async function TaleplerSayfasi({
           )}
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
-          <label className="block sm:col-span-2">
+          <label className="block">
+            <span className="text-sm font-medium text-metin-yumusak">
+              Talep türü
+            </span>
+            <select
+              name="tur"
+              defaultValue={seciliTur ?? (tursuzIstendi ? "belirtilmemis" : "")}
+              className={SINIF_GIRDI}
+            >
+              <option value="">Tümü</option>
+              {TALEP_TURLERI.map((deger) => (
+                <option key={deger} value={deger}>
+                  {TALEP_TURU_ETIKETLERI[deger]}
+                </option>
+              ))}
+              {/*
+                Tür alanı sonradan eklendi; eski ilanların türü boş. Bu seçenek
+                olmasaydı o ilanlara filtreyle hiç ulaşılamazdı.
+              */}
+              <option value="belirtilmemis">{TALEP_TURU_BELIRTILMEMIS}</option>
+            </select>
+          </label>
+          <label className="block">
             <span className="text-sm font-medium text-metin-yumusak">
               İlan metninde ara
             </span>
@@ -184,6 +231,32 @@ export default async function TaleplerSayfasi({
           />
           <form action={talepAcEylemi} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
+              {/*
+                Tür ZORUNLU (yeni ilanlarda). Seçilemez bir yer tutucu
+                kullanılıyor: `required` tek başına, ilk seçenek geçerli bir
+                değer olduğunda hiçbir şey yapmaz. Eski ilanlar etkilenmez,
+                sütun NULL kabul etmeye devam ediyor.
+              */}
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  Talep türü
+                </span>
+                <select
+                  name="tur"
+                  required
+                  defaultValue=""
+                  className={SINIF_GIRDI}
+                >
+                  <option value="" disabled>
+                    Seçiniz
+                  </option>
+                  {TALEP_TURLERI.map((deger) => (
+                    <option key={deger} value={deger}>
+                      {TALEP_TURU_ETIKETLERI[deger]}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="block">
                 <span className="text-sm font-medium text-metin">Başlık</span>
                 <input
@@ -291,11 +364,24 @@ export default async function TaleplerSayfasi({
               <li key={talep.id} className="rounded-kart border border-cizgi p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="font-semibold text-baslik">{talep.baslik}</h3>
-                  {talep.calismaGrubu && (
-                    <span className="rounded-full bg-vurgu-zemin px-2.5 py-0.5 text-xs font-medium text-vurgu-metin">
-                      {talep.calismaGrubu.ad}
+                  <span className="flex flex-wrap items-center gap-2">
+                    {/*
+                      Tür rozeti önce basılıyor: ilanın NE ARADIĞI, hangi
+                      çalışma alanına ait olduğundan önce okunmalı. Türü
+                      olmayan eski ilanlar da açıkça etiketleniyor — rozetsiz
+                      bırakmak onları "duyuru" sanılabilir hâle getirirdi.
+                    */}
+                    <span className="rounded-full bg-rol-ogrenci-zemin px-2.5 py-0.5 text-xs font-medium text-rol-ogrenci-metin">
+                      {talep.tur
+                        ? TALEP_TURU_ETIKETLERI[talep.tur]
+                        : TALEP_TURU_BELIRTILMEMIS}
                     </span>
-                  )}
+                    {talep.calismaGrubu && (
+                      <span className="rounded-full bg-vurgu-zemin px-2.5 py-0.5 text-xs font-medium text-vurgu-metin">
+                        {talep.calismaGrubu.ad}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <p className="mt-2 whitespace-pre-line text-metin">
                   {talep.icerik}

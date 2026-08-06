@@ -2,10 +2,9 @@ import {
   raporMetniniCoz,
   raporYazilabilirMi,
 } from "@/lib/faaliyet/rapor-kurallar";
-import { taahhutOnayiGerekiyorMu } from "@/lib/kvkk/kurallar";
 
 /**
- * Faaliyet raporu ve koordinatör taahhüdü kuralları.
+ * Faaliyet raporu kuralları.
  */
 
 const SIMDI = new Date("2026-07-31T12:00:00+03:00");
@@ -105,35 +104,5 @@ describe("raporMetniniCoz", () => {
       raporMetniniCoz({ degerlendirme: "ok", kazanimlar: "a".repeat(3001) })
         .olurMu,
     ).toBe(false);
-  });
-});
-
-describe("taahhutOnayiGerekiyorMu", () => {
-  it("hiç onaylanmadıysa gerekir", () => {
-    expect(
-      taahhutOnayiGerekiyorMu({
-        onayTarihi: null,
-        metinGuncellemeTarihi: null,
-      }),
-    ).toBe(true);
-  });
-
-  it("onaylandıysa ve metin değişmediyse gerekmez", () => {
-    expect(
-      taahhutOnayiGerekiyorMu({
-        onayTarihi: new Date("2026-07-20"),
-        metinGuncellemeTarihi: new Date("2026-07-01"),
-      }),
-    ).toBe(false);
-  });
-
-  it("metin onaydan SONRA güncellendiyse yeniden gerekir", () => {
-    // Kişi artık başka bir metni onaylamış olur.
-    expect(
-      taahhutOnayiGerekiyorMu({
-        onayTarihi: new Date("2026-07-01"),
-        metinGuncellemeTarihi: new Date("2026-07-20"),
-      }),
-    ).toBe(true);
   });
 });

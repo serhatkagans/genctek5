@@ -30,7 +30,7 @@ export function raporYazilabilirMi(girdi: {
   if (girdi.durum !== "AKTIF") {
     return {
       olurMu: false,
-      neden: "İptal edilmiş faaliyetin raporu yazılmaz.",
+      neden: "İptal edilmiş etkinliğin raporu yazılmaz.",
     };
   }
 
@@ -38,7 +38,7 @@ export function raporYazilabilirMi(girdi: {
   if (girdi.simdi < bitis) {
     return {
       olurMu: false,
-      neden: "Faaliyet henüz bitmedi; rapor bitiş tarihinden sonra yazılır.",
+      neden: "Etkinlik henüz bitmedi; rapor bitiş tarihinden sonra yazılır.",
     };
   }
 

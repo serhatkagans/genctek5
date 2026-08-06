@@ -1,22 +1,71 @@
 import {
-  aydinlatmaOnayiGerekiyorMu,
+  BELGE_TANIMLARI,
+  belgeTanimi,
+  kullanicininBelgeleri,
+  onayiGerekiyorMu,
   saklamaSonTarihi,
+  VARSAYILAN_ACIK_RIZA_METNI,
   VARSAYILAN_AYDINLATMA_METNI,
+  VARSAYILAN_GIZLILIK_SOZLESMESI_METNI,
+  VARSAYILAN_TAAHHUTNAME_METNI,
 } from "@/lib/kvkk/kurallar";
+import type { AktifRol, OturumKullanicisi } from "@/lib/yetki/tipler";
 
 /**
  * KVKK kararları — domain-rules.md Bölüm 10.
  *
  * Kullanıcıların büyük bölümü 18 yaş altı; aydınlatma ve saklama kuralları
  * gevşetilemez, bu yüzden kararlar burada sınanır.
+ *
+ * Belge–rol eşlemesi de burada sınanıyor: hangi belgenin kimden isteneceği bir
+ * ÜRÜN KARARIDIR (kullanıcı kararı, bkz. lib/kvkk/kurallar.ts). Kapsamın
+ * yanlışlıkla genişlemesi ekranda hata vermez, yalnızca insanlara okumadıkları
+ * bir yükümlülük imzalatır — o yüzden testle çitleniyor.
  */
 
-describe("aydınlatma metni onayı", () => {
+function kullanici(...roller: AktifRol[]): OturumKullanicisi {
+  return {
+    id: 1,
+    authProviderId: "T1",
+    ad: "Ada",
+    soyad: "Yılmaz",
+    kurumKodu: 100,
+    ilKodu: "06",
+    ilceKodu: "0601",
+    sinif: null,
+    brans: null,
+    egitimOgretimYili: "2026-2027",
+    roller,
+  };
+}
+
+const OGRENCI: AktifRol = {
+  rolKodu: "OGRENCI",
+  ilKodu: null,
+  kurumKodu: null,
+};
+const DANISMAN: AktifRol = {
+  rolKodu: "DANISMAN",
+  ilKodu: null,
+  kurumKodu: 100,
+};
+const KOORDINATOR: AktifRol = {
+  rolKodu: "IL_KOORDINATOR",
+  ilKodu: "06",
+  kurumKodu: null,
+};
+const YONETICI: AktifRol = {
+  rolKodu: "PROJE_YONETICISI",
+  ilKodu: null,
+  kurumKodu: null,
+};
+
+describe("belge onayının tazeliği", () => {
   const metinTarihi = new Date("2026-03-01T10:00:00Z");
 
-  it("hiç onaylamamış öğrenciden onay istenir", () => {
+  it("hiç onaylamamış kişiden onay istenir", () => {
     expect(
-      aydinlatmaOnayiGerekiyorMu({
+      onayiGerekiyorMu({
         onayTarihi: null,
         metinGuncellemeTarihi: metinTarihi,
       }),
@@ -25,7 +74,7 @@ describe("aydınlatma metni onayı", () => {
 
   it("metinden sonra verilen onay geçerlidir", () => {
     expect(
-      aydinlatmaOnayiGerekiyorMu({
+      onayiGerekiyorMu({
         onayTarihi: new Date("2026-03-02T10:00:00Z"),
         metinGuncellemeTarihi: metinTarihi,
       }),
@@ -35,7 +84,7 @@ describe("aydınlatma metni onayı", () => {
   it("metin güncellenince eski onay geçersizleşir", () => {
     // Kişi artık başka bir metni onaylamış olur; yeniden onay istenir.
     expect(
-      aydinlatmaOnayiGerekiyorMu({
+      onayiGerekiyorMu({
         onayTarihi: new Date("2026-02-01T10:00:00Z"),
         metinGuncellemeTarihi: metinTarihi,
       }),
@@ -44,11 +93,80 @@ describe("aydınlatma metni onayı", () => {
 
   it("metin hiç düzenlenmemişse varsayılan metne verilen onay yeter", () => {
     expect(
-      aydinlatmaOnayiGerekiyorMu({
+      onayiGerekiyorMu({
         onayTarihi: new Date("2026-02-01T10:00:00Z"),
         metinGuncellemeTarihi: null,
       }),
     ).toBe(false);
+  });
+});
+
+describe("belge–rol eşlemesi", () => {
+  it("açık rıza HERKESTEN istenir", () => {
+    for (const kisi of [
+      kullanici(OGRENCI),
+      kullanici(DANISMAN),
+      kullanici(KOORDINATOR),
+      kullanici(YONETICI),
+      kullanici(), // henüz görev almamış öğretmen
+    ]) {
+      expect(kullanicininBelgeleri(kisi).map((t) => t.belge)).toContain(
+        "ACIK_RIZA",
+      );
+    }
+  });
+
+  it("öğrenciden aydınlatma ve açık rıza istenir, koordinatör belgeleri istenmez", () => {
+    expect(kullanicininBelgeleri(kullanici(OGRENCI)).map((t) => t.belge)).toEqual(
+      ["AYDINLATMA", "ACIK_RIZA"],
+    );
+  });
+
+  it("danışman öğretmenden yalnızca açık rıza istenir", () => {
+    // Danışman kendi okulundaki öğrencilerle yüz yüze çalışır; taahhütname ve
+    // gizlilik sözleşmesi bilinçli olarak yalnızca koordinatörden isteniyor.
+    expect(
+      kullanicininBelgeleri(kullanici(DANISMAN)).map((t) => t.belge),
+    ).toEqual(["ACIK_RIZA"]);
+  });
+
+  it("il koordinatöründen açık rıza, taahhütname ve gizlilik sözleşmesi istenir", () => {
+    expect(
+      kullanicininBelgeleri(kullanici(KOORDINATOR)).map((t) => t.belge),
+    ).toEqual(["ACIK_RIZA", "TAAHHUTNAME", "GIZLILIK_SOZLESMESI"]);
+  });
+
+  it("proje yöneticisinden yalnızca açık rıza istenir", () => {
+    // Merkez personeli kurumsal görev tanımıyla bağlıdır; sistem içi bir metin
+    // onun yükümlülüğünü doğurmaz.
+    expect(
+      kullanicininBelgeleri(kullanici(YONETICI)).map((t) => t.belge),
+    ).toEqual(["ACIK_RIZA"]);
+  });
+
+  it("koordinatörlüğü de olan öğrenci her iki kümenin belgelerini görür", () => {
+    expect(
+      kullanicininBelgeleri(kullanici(OGRENCI, KOORDINATOR)).map((t) => t.belge),
+    ).toEqual([
+      "AYDINLATMA",
+      "ACIK_RIZA",
+      "TAAHHUTNAME",
+      "GIZLILIK_SOZLESMESI",
+    ]);
+  });
+});
+
+describe("belge tanımları", () => {
+  it("her belgenin ayar anahtarı tekildir", () => {
+    // İki belge aynı anahtarı paylaşsaydı birinin metni düzenlendiğinde
+    // diğerinin onayı da sessizce eskirdi.
+    const anahtarlar = BELGE_TANIMLARI.map((tanim) => tanim.ayarAnahtari);
+    expect(new Set(anahtarlar).size).toBe(anahtarlar.length);
+  });
+
+  it("tanımsız belge kodu gürültülü başarısız olur", () => {
+    // @ts-expect-error — enum dışı değerle çağrı bilinçli
+    expect(() => belgeTanimi("YOK_BOYLE_BIR_BELGE")).toThrow();
   });
 });
 
@@ -66,8 +184,8 @@ describe("saklama süresi", () => {
   });
 });
 
-describe("varsayılan aydınlatma metni", () => {
-  it("zorunlu başlıkları içerir", () => {
+describe("varsayılan belge metinleri", () => {
+  it("aydınlatma metni zorunlu başlıkları içerir", () => {
     // Metin sistem ayarından değiştirilebilir ama varsayılanı eksik olamaz:
     // veri sorumlusu, işlenen veri, saklama süresi ve haklar geçmek zorunda.
     for (const parca of [
@@ -80,8 +198,25 @@ describe("varsayılan aydınlatma metni", () => {
     }
   });
 
-  it("e-Okul kaynaklı alanların değiştirilemeyeceğini söyler", () => {
+  it("aydınlatma metni e-Okul kaynaklı alanların değiştirilemeyeceğini söyler", () => {
     expect(VARSAYILAN_AYDINLATMA_METNI).toContain("e-Okul");
     expect(VARSAYILAN_AYDINLATMA_METNI).toContain("değiştirilemez");
+  });
+
+  it("açık rıza metni rızanın geri alınabileceğini söyler", () => {
+    // Geri alma hakkı kanunîdir; metinden çıkarılamaz.
+    expect(VARSAYILAN_ACIK_RIZA_METNI).toContain("geri alabilirim");
+  });
+
+  it("açık rıza metni aydınlatmadan ayrı olduğunu söyler", () => {
+    // İkisi tek metinmiş gibi sunulursa rıza geçerliliğini yitirir.
+    expect(VARSAYILAN_ACIK_RIZA_METNI).toContain("aydınlatma metninden ayrıdır");
+  });
+
+  it("taahhütname görevle, gizlilik sözleşmesi veriyle ilgilidir", () => {
+    // İkisinin karışması, birinin ihlalini diğerinin onayıyla tartışmalı
+    // hâle getirirdi.
+    expect(VARSAYILAN_TAAHHUTNAME_METNI).toContain("Taahhütnamesi");
+    expect(VARSAYILAN_GIZLILIK_SOZLESMESI_METNI).toContain("6698");
   });
 });

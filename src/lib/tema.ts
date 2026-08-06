@@ -5,7 +5,14 @@ import { cookies } from "next/headers";
  * gelir ve sayfa yüklenirken renk atlaması olmaz.
  */
 
-export type Tema = "a" | "b" | "c" | "d";
+/*
+ * İki tema kaldı: D (varsayılan) ve B. Daha önce A ("GençTek kurumsal",
+ * lacivert) ve C ("MEB kırmızı", bordo) da vardı; kullanıcı kararıyla
+ * kaldırıldılar. Kaldırılan kodları GERİ EKLEMEYİN — çerezinde "a" ya da "c"
+ * kalmış kullanıcı temaGecerliMi'den geçemez ve varsayılana düşer, yani eski
+ * seçim sessizce ölür, hata vermez.
+ */
+export type Tema = "b" | "d";
 
 export const TEMA_CEREZI = "genctek_tema";
 export const VARSAYILAN_TEMA: Tema = "d";
@@ -18,27 +25,14 @@ export const TEMALAR: { kod: Tema; ad: string; aciklama: string }[] = [
       "Kurumsal palet: beyaz zemin, nötr siyah metin, kırmızı vurgu (varsayılan)",
   },
   {
-    kod: "a",
-    ad: "A · GençTek kurumsal",
-    aciklama: "Lacivert üst bar, kağıt zemin, amber vurgu, rol renk kodları",
-  },
-  {
     kod: "b",
     ad: "B · Sade kurumsal",
     aciklama: "Açık üst bar, mavi vurgu, düşük kontrastlı sade görünüm",
   },
-  {
-    kod: "c",
-    ad: "C · MEB kırmızı",
-    aciklama:
-      "MEB kurumsal kimliği: bordo üst bar, kırmızı düğmeler, altın seçim vurgusu",
-  },
 ];
 
 export function temaGecerliMi(deger: unknown): deger is Tema {
-  return (
-    deger === "a" || deger === "b" || deger === "c" || deger === "d"
-  );
+  return deger === "b" || deger === "d";
 }
 
 export async function aktifTema(): Promise<Tema> {

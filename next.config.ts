@@ -49,6 +49,29 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:yol*", headers: guvenlikBasliklari }];
   },
+  /*
+   * "Faaliyet" ekran dilinden kalktı, adres de "etkinlikler" oldu. Eski yol
+   * KALICI OLARAK YAŞAMAYA DEVAM EDER: gönderilmiş bildirim e-postalarında ve
+   * kullanıcıların yer imlerinde /panel/faaliyetler/... adresleri var, bunlar
+   * geri alınamaz. Yönlendirme silinirse o bağlantılar 404 verir.
+   *
+   * Veritabanı tarafında ad değişmedi (faaliyet tablosu, lib/faaliyet/...):
+   * ekran dili ile şema dili bilinçli olarak ayrı yaşıyor.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/panel/faaliyetler",
+        destination: "/panel/etkinlikler",
+        permanent: true,
+      },
+      {
+        source: "/panel/faaliyetler/:yol*",
+        destination: "/panel/etkinlikler/:yol*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -26,6 +26,42 @@ export function ogrenciMi(kullanici: OturumKullanicisi): boolean {
   return kullanici.roller.some((rol) => rol.rolKodu === "OGRENCI");
 }
 
+export function mezunMu(kullanici: OturumKullanicisi): boolean {
+  return kullanici.roller.some((rol) => rol.rolKodu === "MEZUN");
+}
+
+export function paydasTemsilcisiMi(kullanici: OturumKullanicisi): boolean {
+  return kullanici.roller.some((rol) => rol.rolKodu === "PAYDAS_TEMSILCISI");
+}
+
+/**
+ * Kimliği EBA'dan (mock aşamada AuthProvider'dan) GELMEYEN kullanıcı: mezun ve
+ * paydaş temsilcisi.
+ *
+ * NİYE TEK KAVRAM: ikisinin yetki tablosu bugün aynı — "yalnızca kendi
+ * profilini, etkinlik takvimini ve talep panosunu görür". Her kapıda iki rolü
+ * ayrı ayrı saymak, birinin unutulduğu bir kapı bırakırdı ve unutulan kapı
+ * hata vermez, sessizce veri gösterirdi. İkisinin yetkisi gerçekten ayrışırsa
+ * o kapıda ayrı ayrı sorulur, bu fonksiyon kaldırılmaz.
+ *
+ * DİKKAT: Bu, "kullanıcının kurum kodu yok" demek DEĞİLDİR. YEĞİTEK personeli
+ * de kurumsuzdur ama kimliği AuthProvider'dan gelir ve yetkisi en geniştir.
+ */
+export function disKullaniciMi(kullanici: OturumKullanicisi): boolean {
+  return mezunMu(kullanici) || paydasTemsilcisiMi(kullanici);
+}
+
+/**
+ * EBA dışı giriş başvurularını görme ve karara bağlama yetkisi.
+ *
+ * Yalnızca proje yöneticisi: talebin kendisi böyle ("onayı proje yöneticisine
+ * düşecek"). İl koordinatörüne açılması bir ürün kararıdır — başvuran kişinin
+ * ili belli olsa da mezun/paydaş kabulü ekosistem düzeyinde bir karardır.
+ */
+export function disBasvuruYonetebilirMi(kullanici: OturumKullanicisi): boolean {
+  return projeYoneticisiMi(kullanici);
+}
+
 /** İl koordinatörünün sorumlu olduğu il. Rol yoksa null. */
 export function koordinatorIlKodu(
   kullanici: OturumKullanicisi,
@@ -249,11 +285,25 @@ export function faaliyetIptalEdebilirMi(
 // Yorum
 // ---------------------------------------------------------------------------
 
-/** Faaliyeti görebilen herkes yorum yazabilir. */
+/**
+ * Faaliyeti görebilen herkes yorum yazabilir — dış kullanıcılar HARİÇ.
+ *
+ * İstisnanın sebebi: mezun ve paydaş temsilcisi ulusal ve kendi ilindeki
+ * etkinlikleri takvimde görüyor, dolayısıyla "görebiliyorsa yazabilir" kuralı
+ * onlara faaliyet altında söz hakkı verirdi. Faaliyet yorumları ağırlıklı
+ * olarak 18 yaş altı katılımcıların bulunduğu bir alan ve moderasyonu
+ * faaliyeti açan kişide; oraya, etkinliğe katılamayan bir dış kullanıcıyı
+ * sokmak dar başlangıç kararıyla bağdaşmıyor.
+ *
+ * Bu bir yasak değil SIRALAMA: mezunun etkinlik altında konuşması istenirse
+ * açılacak yer burasıdır, ama önce o yorumun kime görüneceği ve kimin
+ * moderasyonunda olduğu kararlaştırılmalı.
+ */
 export function yorumYazabilirMi(
   kullanici: OturumKullanicisi,
   faaliyet: FaaliyetKapsami,
 ): boolean {
+  if (disKullaniciMi(kullanici)) return false;
   return faaliyetGorunurMu(kullanici, faaliyet);
 }
 
@@ -288,8 +338,30 @@ export function yorumSilebilirMi(
  *
  * Proje yöneticisi (YEĞİTEK) dışarıdadır: ulusal faaliyetleri düzenleyen ve
  * onaylayan taraf kendi açtığı etkinliğe katılımcı olarak başvurmaz.
+ *
+ * MEZUN VE PAYDAŞ TEMSİLCİSİ DE DIŞARIDADIR. Bu, kalıcı bir karar değil DAR
+ * BAŞLANGIÇTIR: iki rol yeni ve ne yapabilecekleri satır satır kararlaştırılmış
+ * değil. Eksik yetki sonradan verilebilir; fazla verilmiş yetkiyle görülen veri
+ * geri alınamaz. Mezunun etkinliğe eğitmen/katılımcı olarak girmesi istenirse
+ * burada açılacak — ama başvuru, katılımcı listesi ve belge akışlarının o rolde
+ * ne anlama geldiği önce kararlaştırılmalı.
  */
 export function basvuruYapabilirMi(kullanici: OturumKullanicisi): boolean {
+  return !projeYoneticisiMi(kullanici) && !disKullaniciMi(kullanici);
+}
+
+/**
+ * Talep panosunu görebilir mi?
+ *
+ * `basvuruYapabilirMi`den AYRI tutuldu: pano bir ilan tahtasıdır, faaliyete
+ * başvurmakla ilgisi yok. Mezun ve paydaş temsilcisi panoyu görür (sponsorluk,
+ * teknik destek, mentorluk ilanları ekosistemin en doğal buluşma noktası) ama
+ * faaliyete katılımcı olarak başvuramaz.
+ *
+ * Merkez personeli yine dışarıda: YEĞİTEK'in takım arkadaşı araması diye bir
+ * durum yok, onun duyuru kanalı ayrı.
+ */
+export function talepPanosuGorebilirMi(kullanici: OturumKullanicisi): boolean {
   return !projeYoneticisiMi(kullanici);
 }
 

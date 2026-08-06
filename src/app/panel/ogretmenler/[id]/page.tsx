@@ -323,20 +323,20 @@ export default async function OgretmenDetaySayfasi({
           aciklama={
             ulusalKatilim.length > 0
               ? `${katildigi.length} etkinlik · ${ulusalKatilim.length} tanesi ulusal program.`
-              : "Başvurusu kabul edilmiş (seçildi) faaliyetler."
+              : "Başvurusu kabul edilmiş (seçildi) etkinlikler."
           }
           Ikon={CalendarDays}
         />
         {katildigi.length === 0 ? (
           <p className="text-sm text-metin-yumusak">
-            Kapsamınızda bu öğretmenin katıldığı faaliyet kaydı yok.
+            Kapsamınızda bu öğretmenin katıldığı etkinlik kaydı yok.
           </p>
         ) : (
           <ul className="divide-y divide-cizgi">
             {katildigi.map((kayit) => (
               <li key={kayit.id} className="py-2.5">
                 <Link
-                  href={`/panel/faaliyetler/${kayit.faaliyet.id}`}
+                  href={`/panel/etkinlikler/${kayit.faaliyet.id}`}
                   className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
                 >
                   {kayit.faaliyet.ad}

@@ -1,4 +1,4 @@
-import { Info, LogIn } from "lucide-react";
+import { Info, LogIn, Users } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TemaSecici } from "@/components/TemaSecici";
@@ -9,10 +9,18 @@ import { aktifTema } from "@/lib/tema";
 /**
  * Açılış ekranı — sistemin kapısı.
  *
- * Tek bir iş yapar: kullanıcıyı EBA ile girişe yönlendirir. Dış kayıt, şifre ya
- * da parola sıfırlama akışı YOKTUR ve olmayacaktır; kimlik EBA'dan gelir.
+ * İKİ GİRİŞ YOLU VARDIR ve ikisi eşit değildir:
+ *   1. EBA ile giriş — öğrenci ve öğretmenlerin TEK yolu. Kimlik EBA'dan
+ *      gelir, şifre diye bir kavram yoktur ve olmayacaktır.
+ *   2. Mezun ve paydaş girişi — EBA hesabı olmayanlar için, e-posta ve
+ *      şifreyle. Kendiliğinden kayıt DEĞİLDİR: başvuru proje yöneticisinin
+ *      onayından geçmeden hesap açılmaz.
  *
- * EBA SSO erişimi henüz sağlanmadığı için düğme şimdilik geliştirme
+ * İkincisi ekranda bilinçli olarak ikincil ağırlıkta duruyor: kullanıcıların
+ * ezici çoğunluğu birinci yoldan girer ve iki eşit düğme, öğrenciyi yanlış
+ * kapıya yönlendirirdi.
+ *
+ * EBA SSO erişimi henüz sağlanmadığı için birinci düğme şimdilik geliştirme
  * senaryolarının bulunduğu /giris ekranına götürür. Erişim geldiğinde burada
  * değişecek tek şey düğmenin hedefidir — ekranın kendisi aynı kalır.
  */
@@ -66,7 +74,7 @@ export default async function AcilisSayfasi() {
             GençTek
           </h1>
           <p className="mb-8 text-sm text-ust-bar-metin-yumusak">
-            Ekosistem Kurumsal Bilgi Sistemi
+            Genç Bilişim Ekosistemi
           </p>
 
           <Link
@@ -78,8 +86,25 @@ export default async function AcilisSayfasi() {
           </Link>
 
           <p className="mt-4 text-xs text-ust-bar-metin-yumusak">
-            Dış kayıt yoktur. Kimlik bilgileri EBA üzerinden alınır.
+            Öğrenci ve öğretmen kimlik bilgileri EBA üzerinden alınır.
           </p>
+
+          <div className="mt-6 border-t border-ust-bar-cizgi pt-6">
+            <Link
+              href="/dis-giris"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-ust-bar-cizgi py-2.5 text-sm font-medium text-ust-bar-metin transition hover:bg-ust-bar-cizgi/30"
+            >
+              <Users size={16} aria-hidden />
+              Mezun ve paydaş girişi
+            </Link>
+            <p className="mt-3 text-xs text-ust-bar-metin-yumusak">
+              EBA hesabınız yoksa{" "}
+              <Link href="/basvuru" className="font-medium underline">
+                başvuru yapabilirsiniz
+              </Link>
+              ; hesabınız proje yöneticisi onayından sonra açılır.
+            </p>
+          </div>
 
           {mockMu && (
             <div className="mt-10 rounded-xl border border-ust-bar-cizgi bg-ust-bar-cizgi/25 p-4 text-left">

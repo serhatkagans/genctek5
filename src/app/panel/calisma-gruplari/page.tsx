@@ -1,17 +1,20 @@
-import {
-  BilgiKutusu,
-  Kart,
-  KartBasligi,
-  SayfaBasligi,
-  SINIF_BIRINCIL_BUTON,
-} from "@/components/ui";
+import { CalismaGrubuSecimi } from "@/components/CalismaGrubuSecimi";
+import { BilgiKutusu, Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
-import { prisma } from "@/lib/db";
+import { calismaGruplariniGetir } from "@/lib/ogrenci/calisma-grubu";
 import { ogrenciMi } from "@/lib/yetki/izinler";
 import { calismaGrubuKaydetEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Çalışma grubu seçimi.
+ *
+ * SEKME MENÜDEN KALKTI (5 Ağustos 2026): seçim artık Panelim sayfasının
+ * içinden yapılıyor. Sayfa SİLİNMEDİ — adres bildirim e-postalarında ve yer
+ * imlerinde duruyor, buraya gelen kişiye 404 göstermek yapabileceği bir işi
+ * kaybettirmek olurdu. Form ve kurallar iki yerde de aynı bileşenden geliyor.
+ */
 export default async function CalismaGruplariSayfasi({
   searchParams,
 }: {
@@ -31,18 +34,7 @@ export default async function CalismaGruplariSayfasi({
     );
   }
 
-  const [gruplar, secimler] = await Promise.all([
-    prisma.calismaGrubu.findMany({
-      where: { aktif: true },
-      orderBy: { siraNo: "asc" },
-    }),
-    prisma.ogrenciCalismaGrubu.findMany({
-      where: { ogrenciId: kullanici.id },
-      select: { calismaGrubuId: true },
-    }),
-  ]);
-
-  const seciliIdler = new Set(secimler.map((secim) => secim.calismaGrubuId));
+  const { gruplar, seciliIdler } = await calismaGruplariniGetir(kullanici.id);
 
   return (
     <div className="space-y-6">
@@ -56,30 +48,14 @@ export default async function CalismaGruplariSayfasi({
       )}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
-      <form
-        action={calismaGrubuKaydetEylemi}
-        className="rounded-kart border border-cizgi bg-kart p-6"
-      >
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {gruplar.map((grup) => (
-            <li key={grup.id}>
-              <label className="flex cursor-pointer items-center gap-3 rounded-kart border border-cizgi px-4 py-3 transition hover:border-vurgu hover:bg-vurgu-zemin">
-                <input
-                  type="checkbox"
-                  name="grupId"
-                  value={grup.id}
-                  defaultChecked={seciliIdler.has(grup.id)}
-                  className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
-                />
-                <span className="text-metin">{grup.ad}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
-        <button type="submit" className={`${SINIF_BIRINCIL_BUTON} mt-6`}>
-          Kaydet
-        </button>
-      </form>
+      <div className="rounded-kart border border-cizgi bg-kart p-6">
+        <CalismaGrubuSecimi
+          gruplar={gruplar}
+          seciliIdler={seciliIdler}
+          kaydetEylemi={calismaGrubuKaydetEylemi}
+          donusYolu="/panel/calisma-gruplari"
+        />
+      </div>
     </div>
   );
 }

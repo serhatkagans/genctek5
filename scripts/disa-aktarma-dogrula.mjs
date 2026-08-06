@@ -72,7 +72,7 @@ for (const [kisi, etiket] of [
     }`,
   );
 
-  const faaliyetCsv = await csvIndir(sayfa, "/panel/faaliyetler/disa-aktar");
+  const faaliyetCsv = await csvIndir(sayfa, "/panel/etkinlikler/disa-aktar");
   rapor.push(
     `Öğrenci · faaliyet CSV: HTTP ${faaliyetCsv.durum} · ${
       faaliyetCsv.durum === 200

@@ -57,8 +57,8 @@ export function belgeMetniUret(girdi: BelgeGirdisi): BelgeMetni {
   const govde = ozel
     ? ozel
     : girdi.tur === "KATILIM"
-      ? `${girdi.faaliyetAdi} adlı faaliyete katılmıştır.`
-      : `${girdi.faaliyetAdi} adlı faaliyete verdiği katkılardan dolayı teşekkür ederiz.`;
+      ? `${girdi.faaliyetAdi} adlı etkinliğe katılmıştır.`
+      : `${girdi.faaliyetAdi} adlı etkinliğe verdiği katkılardan dolayı teşekkür ederiz.`;
 
   return {
     baslik: BELGE_TURU_ETIKETLERI[girdi.tur],
@@ -68,11 +68,76 @@ export function belgeMetniUret(girdi: BelgeGirdisi): BelgeMetni {
   };
 }
 
+/**
+ * Belgeyi imzalayacak makamın UNVANI, etkinliğin kapsamından türetilir.
+ *
+ * İstek: "Okul içinde ise okul müdürü, il bazında ise il millî eğitim müdürü
+ * imzalı". Unvan kurallıdır ve kapsamdan okunur; İSİM ise okunmaz — sistemde
+ * okul müdürünün ya da il millî eğitim müdürünün adı TUTULMUYOR ve e-Okul'dan
+ * da gelmiyor. Bu yüzden ad belge üretilirken elle yazılır (→ S25).
+ *
+ * ULUSAL kapsamda bir karşılık YOK: istekte belirtilmedi ve uydurmak, resmî bir
+ * belgeye olmayan bir makam yazmak olurdu. O kapsamda etkinliği düzenleyen
+ * birim kullanılır ve unvan alanı yine elle değiştirilebilir.
+ */
+export function imzaUnvaniOner(kapsam: string): string | null {
+  if (kapsam === "OKUL") return "Okul Müdürü";
+  if (kapsam === "IL") return "İl Millî Eğitim Müdürü";
+  return null;
+}
+
 export type AliciKarari =
   | { olurMu: true; adSoyad: string }
   | { olurMu: false; neden: string };
 
 const AD_MAKS = 120;
+const IMZA_UNVAN_MAKS = 120;
+
+export type ImzaKarari =
+  | { olurMu: true; adSoyad: string; unvan: string }
+  | { olurMu: false; neden: string };
+
+/**
+ * İmza bloğunu doğrular.
+ *
+ * ESKİDEN OTURUM KİŞİSİNDEN GELİYORDU: belgeyi kim ürettiyse imza ona
+ * yazılıyordu. Bu yanlıştı — belgeyi hazırlayan öğretmen ile imzalayan makam
+ * aynı kişi değil; katılım belgesini okul müdürü imzalar, il etkinliğinde il
+ * millî eğitim müdürü. Ad artık her belge üretiminde elle giriliyor.
+ *
+ * Ad ZORUNLU: imzasız bir katılım belgesi resmî olarak işe yaramaz ve boş
+ * bırakılmasına izin vermek, farkına varılmadan imzasız belge dağıtılmasına
+ * yol açardı. Unvan boş bırakılabilir — kapsamdan gelen öneri kullanılır.
+ */
+export function imzaBilgisiniCoz(girdi: {
+  adSoyad: string;
+  unvan: string;
+  varsayilanUnvan: string;
+}): ImzaKarari {
+  const adSoyad = girdi.adSoyad.trim().replace(/\s+/g, " ");
+  if (!adSoyad) {
+    return {
+      olurMu: false,
+      neden: "Belgeyi imzalayacak kişinin adı yazılmalıdır.",
+    };
+  }
+  if (adSoyad.length > AD_MAKS) {
+    return {
+      olurMu: false,
+      neden: `İmza sahibinin adı en fazla ${AD_MAKS} karakter olabilir.`,
+    };
+  }
+
+  const unvan = girdi.unvan.trim().replace(/\s+/g, " ") || girdi.varsayilanUnvan;
+  if (unvan.length > IMZA_UNVAN_MAKS) {
+    return {
+      olurMu: false,
+      neden: `Unvan en fazla ${IMZA_UNVAN_MAKS} karakter olabilir.`,
+    };
+  }
+
+  return { olurMu: true, adSoyad, unvan };
+}
 
 /**
  * Belge alıcısının adını doğrular.

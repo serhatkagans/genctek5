@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "GençTek Bilgi Sistemi",
   description:
-    "GençTek Ekosistemi öğrenci ve danışman öğretmen envanteri, çalışma grupları ve faaliyet başvuru sistemi",
+    "GençTek Ekosistemi öğrenci ve danışman öğretmen envanteri, çalışma grupları ve etkinlik başvuru sistemi",
 };
 
 export default async function RootLayout({

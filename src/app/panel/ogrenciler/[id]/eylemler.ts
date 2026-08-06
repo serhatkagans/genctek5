@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import { BILDIRIM_KODLARI } from "@/lib/bildirim/sablon";
+import { bildirimGonder } from "@/lib/bildirim/gonder";
+import { ilKoordinatoruGetir, tekOgrenciyiBirak } from "@/lib/danisman/atama";
+import { birakmaGerekcesiniCoz } from "@/lib/danisman/karar";
 import { prisma } from "@/lib/db";
 import { ogrenciCalismaGrubuYonetebilirMi } from "@/lib/yetki/izinler";
 import { ogrenciKapsamFiltresi } from "@/lib/yetki/kapsam";
@@ -151,4 +155,79 @@ export async function ogrenciyiGruptanCikarEylemi(
   revalidatePath("/panel/profil");
   revalidatePath("/panel/calisma-gruplari");
   redirect(`${ogrenciYolu(ogrenci.id)}?durum=grup-cikarildi`);
+}
+
+/**
+ * Danışman öğretmen TEK bir öğrencinin danışmanlığını bırakır (J1).
+ *
+ * Görevin TAMAMINI bırakma ayrı bir akıştır (profil ekranı); bu yalnızca bir
+ * öğrenciyi bırakır ve öğretmen danışman olarak kalır.
+ *
+ * ÜÇ ŞEY BİRLİKTE YAPILIR ve hiçbiri isteğe bağlı değil:
+ *   1. gerekçe zorunlu tutulur,
+ *   2. il koordinatörüne bildirim gider (gerekçeyle birlikte),
+ *   3. erişim kaydına yazılır.
+ * Sebebi açık bir kötüye kullanım kapısı: "zor" bulunan öğrencinin sessizce
+ * bırakılması. Üçü birden olmadan karar görünmez kalır.
+ */
+export async function danismanligiBirakEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const ogrenciId = Number.parseInt(String(veri.get("ogrenciId") ?? ""), 10);
+  if (!Number.isFinite(ogrenciId)) throw new BulunamadiHatasi();
+
+  const karar = birakmaGerekcesiniCoz(String(veri.get("gerekce") ?? ""));
+  if (!karar.olurMu) hataylaDon(ogrenciId, karar.neden);
+
+  const sonuc = await tekOgrenciyiBirak({
+    danismanKullaniciId: kullanici.id,
+    ogrenciId,
+    gerekce: karar.gerekce,
+  });
+  if (!sonuc.olurMu) hataylaDon(ogrenciId, sonuc.neden);
+
+  /*
+   * Koordinatöre bildirim, bırakma GERÇEKLEŞTİKTEN sonra gönderilir: işlem
+   * yarıda kalırsa (ör. devredilecek kimse yok) haber gitmemeli.
+   */
+  const okul =
+    kullanici.kurumKodu !== null
+      ? await prisma.kurum.findUnique({
+          where: { kurumKodu: kullanici.kurumKodu },
+          select: { ad: true, ilKodu: true },
+        })
+      : null;
+
+  const koordinatorId = await ilKoordinatoruGetir(
+    okul?.ilKodu ?? kullanici.ilKodu,
+  );
+  if (koordinatorId !== null) {
+    await bildirimGonder({
+      kullaniciId: koordinatorId,
+      kod: BILDIRIM_KODLARI.DANISMANLIK_TEKIL_BIRAKILDI,
+      degiskenler: {
+        ogrenciAdSoyad: sonuc.ogrenciAdSoyad,
+        danismanAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+        okulAdi: okul?.ad ?? "-",
+        gerekce: karar.gerekce,
+        yeniDurum: sonuc.yeniDurum,
+      },
+    });
+  }
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "DANISMAN_ATAMA",
+    hedefId: ogrenciId,
+    detay: `Danışmanlık bırakıldı: ${sonuc.ogrenciAdSoyad} · gerekçe: ${karar.gerekce} · ${sonuc.yeniDurum}`,
+  });
+
+  revalidatePath(ogrenciYolu(ogrenciId));
+  revalidatePath("/panel/ogrenciler");
+  /*
+   * Öğrenci artık kapsamda olmayabilir (başka danışmana geçtiyse); listeye
+   * dönülüyor, çünkü detay sayfası 404 verebilir ve bu bir hata gibi görünürdü.
+   */
+  redirect("/panel/ogrenciler?durum=danismanlik-birakildi");
 }

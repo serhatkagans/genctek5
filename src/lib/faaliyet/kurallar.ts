@@ -48,7 +48,7 @@ export const BASVURU_DURUMU_ETIKETLERI: Record<BasvuruDurumu, string> = {
   YEDEK: "Yedek",
   REDDEDILDI: "Reddedildi",
   GERI_CEKILDI: "Geri çekildi",
-  IPTAL_EDILDI: "Faaliyet iptal edildi",
+  IPTAL_EDILDI: "Etkinlik iptal edildi",
 };
 
 export const FAALIYET_DURUMU_ETIKETLERI: Record<FaaliyetDurumu, string> = {
@@ -143,7 +143,7 @@ export function etkinlikKategorisiDogrula(
 ): { olurMu: boolean; neden?: string } {
   if (!programSecimiGerekiyorMu(girdi.kategori)) {
     if (!girdi.serbestAd) {
-      return { olurMu: false, neden: "İl etkinliğinde faaliyet adı zorunludur." };
+      return { olurMu: false, neden: "İl Etkinliği'nde ad alanı zorunludur." };
     }
     return { olurMu: true };
   }
@@ -162,7 +162,7 @@ export function etkinlikKategorisiDogrula(
     if (girdi.serbestAd) return { olurMu: true };
     return {
       olurMu: false,
-      neden: `${ETKINLIK_KATEGORISI_ETIKETLERI[girdi.kategori]} için listeden bir program seçin ya da "Diğer" işaretleyip faaliyet adını yazın.`,
+      neden: `${ETKINLIK_KATEGORISI_ETIKETLERI[girdi.kategori]} için listeden bir program seçin ya da "Diğer" işaretleyip etkinlik adını yazın.`,
     };
   }
 
@@ -250,7 +250,7 @@ export function faaliyetYeriBelirle(
       const kurumKodu = danismanKurumKodu(kullanici) ?? kullanici.kurumKodu;
       if (kurumKodu === null) {
         throw new FaaliyetKuralHatasi(
-          "Okul içi faaliyet için okul bilgisi olan bir görev gerekir.",
+          "Okul içi etkinlik için okul bilgisi olan bir görev gerekir.",
         );
       }
       return { kurumKodu, ilKodu: null };
@@ -260,7 +260,7 @@ export function faaliyetYeriBelirle(
         ? (secilenIlKodu ?? null)
         : (koordinatorIlKodu(kullanici) ?? kullanici.ilKodu);
       if (!ilKodu) {
-        throw new FaaliyetKuralHatasi("İl geneli faaliyet için il seçilmeli.");
+        throw new FaaliyetKuralHatasi("İl geneli etkinlik için il seçilmeli.");
       }
       return { kurumKodu: null, ilKodu };
     }
@@ -412,13 +412,13 @@ export function basvuruYapilabilirMi(girdi: {
   kontenjanDoluMu?: boolean;
 }): { olurMu: boolean; neden?: string } {
   if (girdi.faaliyetDurumu === "IPTAL_EDILDI") {
-    return { olurMu: false, neden: "Bu faaliyet iptal edildi." };
+    return { olurMu: false, neden: "Bu etkinlik iptal edildi." };
   }
   if (girdi.onayDurumu === "BEKLIYOR") {
-    return { olurMu: false, neden: "Faaliyet henüz onaylanmadı." };
+    return { olurMu: false, neden: "Etkinlik henüz onaylanmadı." };
   }
   if (girdi.onayDurumu === "REDDEDILDI") {
-    return { olurMu: false, neden: "Faaliyet reddedildi." };
+    return { olurMu: false, neden: "Etkinlik reddedildi." };
   }
   if (girdi.pencere === "ACILMADI") {
     return { olurMu: false, neden: "Başvurular henüz açılmadı." };
@@ -431,12 +431,12 @@ export function basvuruYapilabilirMi(girdi: {
     girdi.mevcutBasvuruDurumu !== "GERI_CEKILDI" &&
     girdi.mevcutBasvuruDurumu !== "IPTAL_EDILDI"
   ) {
-    return { olurMu: false, neden: "Bu faaliyete zaten başvurdunuz." };
+    return { olurMu: false, neden: "Bu etkinliğe zaten başvurdunuz." };
   }
   if (girdi.kontenjanDoluMu) {
     return {
       olurMu: false,
-      neden: "Kontenjan doldu; bu faaliyete yeni başvuru alınamıyor.",
+      neden: "Kontenjan doldu; bu etkinliğe yeni başvuru alınamıyor.",
     };
   }
   return { olurMu: true };
@@ -552,7 +552,7 @@ export function degerlendirmeYapilabilirMi(
     return {
       olurMu: false,
       neden:
-        "Bu durum yalnızca faaliyet iptal edildiğinde sistem tarafından yazılır.",
+        "Bu durum yalnızca etkinlik iptal edildiğinde sistem tarafından yazılır.",
     };
   }
   return { olurMu: true };
@@ -604,7 +604,7 @@ export function faaliyetSuresiGecerliMi(
   if (bitisTarihi < tarih) {
     return {
       olurMu: false,
-      neden: "Faaliyet bitişi başlangıcından önce olamaz.",
+      neden: "Etkinlik bitişi başlangıcından önce olamaz.",
     };
   }
   return { olurMu: true };

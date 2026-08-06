@@ -28,6 +28,26 @@ enum RolKodu {
   DANISMAN
   IL_KOORDINATOR
   PROJE_YONETICISI
+  /// EBA hesabı olmayan, proje yöneticisinin onayıyla giren kullanıcılar.
+  ///
+  /// Diğer dört rolden temel farkları: kurum kodları YOKTUR ve kimlikleri
+  /// AuthProvider'dan gelmez (bkz. model DisKimlik). Kapsam filtreleri il ve
+  /// kurum ekseninde çalıştığı için bu iki rol her filtrede AÇIKÇA ele
+  /// alınmalıdır — varsayılan "hiçbir şey görmez"dir.
+  MEZUN
+  /// Paydaş kurumun sistemdeki temsilcisi. Kurum kaydının kendisi `paydas`
+  /// tablosundadır; bu rol o kayda bağlı bir KİŞİdir.
+  PAYDAS_TEMSILCISI
+}
+
+/// Dış başvurunun hangi grup için yapıldığı.
+///
+/// RolKodu ile birebir eşleşir (MEZUN → MEZUN, PAYDAS → PAYDAS_TEMSILCISI) ama
+/// ayrı tutulur: başvuru henüz bir rol değildir, rol yalnızca onayla doğar.
+/// Aynı enum kullanılsaydı onaysız bir başvuru satırı rol adı taşırdı.
+enum DisKullaniciTuru {
+  MEZUN
+  PAYDAS
 }
 
 enum AtamaTipi {
@@ -67,6 +87,12 @@ enum KazanimTipi {
   URUN
   AKRAN_EGITIMI
   YARISMA_DERECESI
+  /// Aldığı sertifika ve katılım belgeleri. Belgenin kendisi `kazanim_ek`
+  /// altyapısıyla yüklenir; ayrı bir dosya alanı açılmadı.
+  SERTIFIKA
+  /// İçinde yer aldığı kulüp, proje ekibi, takım. BEYANDIR — sistem
+  /// doğrulamaz, danışman onayına da tabi değildir.
+  TOPLULUK
   /// Yukarıdakilerin hiçbirine girmeyen katkılar.
   DIGER
 }
@@ -79,6 +105,26 @@ enum KatilimBicimi {
   YUZ_YUZE
   ONLINE
   KARMA
+}
+
+/// "Rotam" hedefinin durumu. VAZGEÇİLDİ diye bir değer YOK: vazgeçilen hedef
+/// silinir. Ayrı bir durum, öğrencinin profilinde yapmaktan vazgeçtiği
+/// şeylerin kalıcı bir listesini tutmak demek olurdu.
+enum HedefDurumu {
+  PLANLANDI
+  SURUYOR
+  TAMAMLANDI
+}
+
+/// Bir envanter uygulamasının durumu (Algoritmam · E).
+///
+/// YARIDA BIRAKMAK NORMAL SAYILIR: envanterler 20–25 maddelik ve tek oturumda
+/// bitirilmek zorunda değil. "VAZGEÇTİ" diye üçüncü bir durum yok — vazgeçilen
+/// uygulama silinir; ayrı bir durum, kişinin yarım bıraktığı denemelerin
+/// kalıcı listesini tutmak olurdu.
+enum EnvanterDurumu {
+  SURUYOR
+  TAMAMLANDI
 }
 
 /// Faaliyetin KİME AÇIK olduğunu belirler. Etkinliğin niteliğini belirleyen
@@ -152,6 +198,9 @@ enum LogHedefTip {
   ETKINLIK_PROGRAMI
   PAYDAS
   BILDIRIM_SABLONU
+  /// EBA dışı kullanıcı başvurusu (kayıt, onay, ret). Başvuru sahibinin henüz
+  /// kullanıcı kaydı olmayabileceği için hedefId başvurunun kendi kimliğidir.
+  DIS_BASVURU
 }
 
 enum GonderimKanali {
@@ -169,6 +218,25 @@ enum GonderimDurumu {
   GEREKMIYOR
   GONDERILDI
   BASARISIZ
+}
+
+/// Kullanıcıdan onayı istenen belgeler.
+///
+/// Dördü de AYRI kayıt tutar çünkü ayrı yükümlülüklerdir: biri kalkarsa ya da
+/// metni değişirse diğerlerinin onayı etkilenmemeli. Kimden isteneceği koddadır
+/// (bkz. lib/kvkk/kurallar.ts · BELGE_TANIMLARI), veritabanında değil — rol
+/// eşlemesi bir iş kuralıdır, veri değil.
+enum OnayBelgesi {
+  /// KVKK aydınlatma metni — "verini şöyle işliyoruz". Öğrenciden istenir.
+  AYDINLATMA
+  /// KVKK açık rıza onayı — aydınlatmadan AYRI bir irade beyanıdır ve
+  /// sistemdeki HERKESTEN istenir.
+  ACIK_RIZA
+  /// İl koordinatörü görev taahhütnamesi — görevin nasıl yürütüleceği.
+  TAAHHUTNAME
+  /// İl koordinatörü gizlilik sözleşmesi — başkasının verisiyle nasıl
+  /// davranılacağı. Taahhütnameden ayrıdır: biri görevle, öbürü veriyle ilgili.
+  GIZLILIK_SOZLESMESI
 }
 
 /// İl bazlı iş birliği yapılabilecek paydaş kurumun türü. Liste sabittir:
@@ -204,6 +272,7 @@ model Il {
   faaliyetler      Faaliyet[]
   ogrenciGorevleri OgrenciGorevRolu[]
   paydaslar        Paydas[]
+  disBasvurular    DisKullaniciBasvurusu[]
 
   @@map("il")
 }
@@ -237,6 +306,7 @@ model Kurum {
   roller           KullaniciRol[]
   faaliyetler      Faaliyet[]
   ogrenciGorevleri OgrenciGorevRolu[]
+  mezunBasvurulari DisKullaniciBasvurusu[]
 
   @@index([ilKodu])
   @@index([ilceKodu])
@@ -251,6 +321,11 @@ model Kurum {
 /// ad, soyad, cinsiyet, kurumKodu, ilKodu, ilceKodu, sinif, brans ve
 /// egitimOgretimYili SALT OKUNUR alanlardır — hiçbir ekrandan düzenlenemez,
 /// yalnızca AuthProvider senkronizasyonu günceller.
+///
+/// TEK İSTİSNA KAYNAKTADIR, KURALDA DEĞİL: mezun ve paydaş temsilcisi
+/// kullanıcılarının bu alanları AuthProvider'dan değil onaylanmış başvuru
+/// kaydından gelir (bkz. model DisKullaniciBasvurusu). Alanlar onlarda da salt
+/// okunurdur — düzeltme, başvuruyu onaylayan proje yöneticisinden istenir.
 model Kullanici {
   id                Int      @id @default(autoincrement())
   authProviderId    String   @unique @map("auth_provider_id") @db.VarChar(64)
@@ -290,6 +365,10 @@ model Kullanici {
   atadigiRoller   KullaniciRol[] @relation("RolAtayan")
   ogretmenProfil  OgretmenProfil?
   ogrenciProfil   OgrenciProfil?
+  /// Onayladığı belgeler. Profil tablolarında DEĞİL burada: proje yöneticisinin
+  /// ne öğrenci ne öğretmen profili açılıyor (bkz. lib/kullanici/sagla.ts),
+  /// oysa açık rıza ondan da isteniyor.
+  onaylar         KullaniciOnayi[]
 
   onayladigiIlDisiBasvurular Basvuru[] @relation("BasvuruKaynakIlOnaylayan")
   yazdigiRaporlar            FaaliyetRaporu[] @relation("RaporYazan")
@@ -308,6 +387,10 @@ model Kullanici {
   gorevRolleri    OgrenciGorevRolu[]  @relation("GorevSahibi")
   atadigiGorevler OgrenciGorevRolu[]  @relation("GorevAtayan")
   kazanimlar      KullaniciKazanim[]
+  hedefler        KullaniciHedefi[]
+  /// Algoritmam envanterleri. Hedefler gibi KİŞİYE ÖZELDİR: danışmanın ve
+  /// koordinatörün sorgularında hiç görünmez.
+  envanterUygulamalari EnvanterUygulamasi[]
 
   duzenledigiFaaliyetler Faaliyet[]   @relation("FaaliyetDuzenleyen")
   onayladigiFaaliyetler  Faaliyet[]   @relation("FaaliyetOnaylayan")
@@ -322,6 +405,16 @@ model Kullanici {
   degerlendirdigiBasvurular Basvuru[] @relation("BasvuruDegerlendiren")
 
   ekledigiPaydaslar Paydas[] @relation("PaydasEkleyen")
+
+  /// EBA dışı kullanıcının şifreli giriş kimliği. EBA/mock kimlikli
+  /// kullanıcılarda YOKTUR — şifre yalnızca kimliği AuthProvider'dan gelmeyen
+  /// kişilerde vardır.
+  disKimlik DisKimlik?
+  /// Kullanıcıyı doğuran başvuru. Mezun/paydaşın hangi okuldan mezun olduğu
+  /// ya da hangi paydaş kurumu temsil ettiği buradan okunur; alanlar kullanıcı
+  /// satırına KOPYALANMAZ, tek doğruluk kaynağı başvurudur.
+  disBasvurusu              DisKullaniciBasvurusu?  @relation("DisBasvuruKullanicisi")
+  kararVerdigiDisBasvurular DisKullaniciBasvurusu[] @relation("DisBasvuruKararVeren")
 
   erisimLoglari Erisimlogu[]
   bildirimler   Bildirim[]
@@ -358,6 +451,118 @@ model KullaniciRol {
   @@map("kullanici_rol")
 }
 
+/// EBA hesabı olmayanların (mezun, paydaş temsilcisi) sisteme giriş başvurusu.
+///
+/// ONAYLANANA KADAR `kullanici` SATIRI AÇILMAZ. Açılsaydı onaysız kişi
+/// sistemde "varmış" gibi görünür, kapsam filtrelerine ve envanter sayılarına
+/// sızardı. Kullanıcı yalnızca proje yöneticisinin onayıyla doğar
+/// (bkz. lib/dis-kimlik/basvuru.ts).
+///
+/// SİLME YOKTUR: reddedilen başvuru da durur. "Bu kişi neden alınmadı"
+/// sorusunun cevabı gerekiyor ve aynı kişi tekrar başvurabiliyor.
+model DisKullaniciBasvurusu {
+  id      Int              @id @default(autoincrement())
+  tur     DisKullaniciTuru
+  ad      String           @db.VarChar(100)
+  soyad   String           @db.VarChar(100)
+  /// Hem giriş adı hem tebligat adresi. Küçük harfe indirgenmiş olarak
+  /// saklanır; büyük/küçük harf farkı iki ayrı hesap doğurmamalı.
+  eposta  String           @db.VarChar(150)
+  telefon String?          @db.VarChar(20)
+  /// Başvuranın ili. Kurum kodu YOKTUR — mezun okulundan ayrılmıştır, paydaş
+  /// temsilcisi zaten okula bağlı değildir.
+  ilKodu  String           @map("il_kodu") @db.Char(2)
+
+  /// Kişinin başvuruda belirlediği şifre.
+  ///
+  /// ONAYLA BİRLİKTE `dis_kimlik`e TAŞINIR ve burası NULL'lanır; reddedilen
+  /// başvuruda da NULL'lanır. Sır, karara bağlanmış bir başvuru satırında
+  /// süresiz durmaz.
+  sifreOzeti String? @map("sifre_ozeti") @db.VarChar(200)
+
+  /// MEZUN başvurusunda: mezun olduğu okul ve yılı. Okul isteğe bağlıdır —
+  /// kapanmış ya da referans tablosunda bulunmayan bir okuldan mezun olan
+  /// kişi başvuramaz hâle gelmemeli.
+  mezunKurumKodu Int? @map("mezun_kurum_kodu")
+  mezuniyetYili  Int? @map("mezuniyet_yili")
+
+  /// PAYDAS başvurusunda: temsil ettiği kurumun envanterdeki kaydı ve kişinin
+  /// oradaki görevi. Kurum envanteri il koordinatörlerince yönetildiği için
+  /// başvuran serbest metin kurum adı YAZAMAZ, mevcut kayıttan seçer.
+  paydasId    Int?    @map("paydas_id")
+  gorevUnvani String? @map("gorev_unvani") @db.VarChar(150)
+
+  /// "Ekosisteme nasıl katkı vermek istiyorsunuz" — kararın verildiği alan.
+  /// Zorunlu: adı ve e-postası olan ama ne yapmak istediği yazılmayan bir
+  /// başvuru, onaylayan için karar verilemez bir kayıttır.
+  beyan String @db.Text
+
+  /// Başvuru anında okutulan aydınlatma metninin onay tarihi.
+  ///
+  /// Diğer onaylar `kullanici_onayi`ndadır ama bu ORADA TUTULAMAZ: başvuru
+  /// anında kullanıcı kaydı henüz yoktur, oysa veri işleme o anda başlar.
+  aydinlatmaOnayTarihi DateTime @map("aydinlatma_onay_tarihi") @db.Timestamptz(6)
+
+  /// BEKLIYOR / ONAYLANDI / REDDEDILDI. ONAY_GEREKMEZ bu akışta kullanılmaz;
+  /// enum, bağlantı isteğinde olduğu gibi paylaşılıyor.
+  durum                 OnayDurumu @default(BEKLIYOR)
+  kararVerenKullaniciId Int?       @map("karar_veren_kullanici_id")
+  kararTarihi           DateTime?  @map("karar_tarihi") @db.Timestamptz(6)
+  /// Rette ZORUNLU (uygulama katmanında): gerekçesiz ret, kişiye tekrar
+  /// başvururken neyi düzelteceğini söylemez.
+  retGerekcesi          String?    @map("ret_gerekcesi") @db.Text
+
+  /// Onayla açılan kullanıcı. Başvuru ile kullanıcı arasındaki tek bağ budur.
+  olusanKullaniciId Int?     @unique @map("olusan_kullanici_id")
+  olusturmaTarihi   DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+
+  il             Il         @relation(fields: [ilKodu], references: [ilKodu])
+  mezunKurum     Kurum?     @relation(fields: [mezunKurumKodu], references: [kurumKodu])
+  paydas         Paydas?    @relation(fields: [paydasId], references: [id])
+  kararVeren     Kullanici? @relation("DisBasvuruKararVeren", fields: [kararVerenKullaniciId], references: [id])
+  olusanKullanici Kullanici? @relation("DisBasvuruKullanicisi", fields: [olusanKullaniciId], references: [id])
+
+  @@index([durum, olusturmaTarihi])
+  @@index([ilKodu])
+  @@index([paydasId])
+  /// Aynı e-posta için aynı anda tek BEKLEYEN başvuru olur; kısıt kısmi unique
+  /// index olduğu için migration'da durur (ux_dis_basvuru_bekleyen_eposta).
+  @@map("dis_kullanici_basvurusu")
+}
+
+/// Onaylanmış dış kullanıcının giriş kimliği.
+///
+/// Sistemin ŞİFRE TUTAN TEK TABLOSUDUR ve bilinçli olarak `kullanici`dan
+/// ayrıdır: EBA/mock kimlikli kullanıcıların şifresi yoktur ve olmamalıdır.
+/// Ayrı tablo, "şifresi olan kullanıcı" kümesini sorguyla değil şemayla
+/// belirler — kullanıcı tablosuna sütun eklenseydi, boş şifreli bir satırın
+/// giriş yapamayacağını her seferinde uygulama katmanı garanti etmek zorunda
+/// kalırdı.
+model DisKimlik {
+  kullaniciId Int    @id @map("kullanici_id")
+  /// Küçük harfe indirgenmiş; giriş bununla yapılır.
+  eposta      String @unique @db.VarChar(150)
+  /// scrypt özeti — biçim: scrypt$N$r$p$tuz$ozet (bkz. lib/dis-kimlik/sifre.ts).
+  sifreOzeti  String @map("sifre_ozeti") @db.VarChar(200)
+
+  /// Kaba kuvvet koruması. Başarılı girişte sıfırlanır.
+  basarisizDeneme  Int       @default(0) @map("basarisiz_deneme")
+  kilitBitisTarihi DateTime? @map("kilit_bitis_tarihi") @db.Timestamptz(6)
+
+  /// Parola sıfırlama jetonunun ÖZETİ tutulur, kendisi değil: veritabanını
+  /// okuyabilen biri jetonla hesap ele geçirememeli.
+  sifirlamaJetonuOzeti   String?   @map("sifirlama_jetonu_ozeti") @db.VarChar(200)
+  sifirlamaSonGecerlilik DateTime? @map("sifirlama_son_gecerlilik") @db.Timestamptz(6)
+
+  sonGirisTarihi   DateTime? @map("son_giris_tarihi") @db.Timestamptz(6)
+  olusturmaTarihi  DateTime  @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi DateTime  @default(now()) @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
+
+  @@map("dis_kimlik")
+}
+
 /// danismanOlmakIstiyor false olduğu sürece öğretmen, öğrencinin danışman
 /// seçim listesinde GÖRÜNMEZ. Onay süreci yoktur, işaretlemek yeterlidir.
 model OgretmenProfil {
@@ -365,16 +570,12 @@ model OgretmenProfil {
   danismanOlmakIstiyor Boolean   @default(false) @map("danisman_olmak_istiyor")
   isaretlemeTarihi     DateTime? @map("isaretleme_tarihi") @db.Timestamptz(6)
   /// Kişinin kendi girdiği iletişim bilgisi; e-Okul'dan GELMEZ ve senkronda
-  /// üzerine yazılmaz. Öğretmen, il koordinatörü ve YEĞİTEK personeli aynı
-  /// tabloyu kullanır — iletişim bilgisi role bağlı bir alan değildir.
+  /// üzerine yazılmaz. Öğretmen, il koordinatörü, YEĞİTEK personeli ve dış
+  /// kullanıcılar (mezun, paydaş temsilcisi) aynı tabloyu kullanır — iletişim
+  /// bilgisi role bağlı bir alan değildir. Tablonun adı tarihseldir: içeriği
+  /// "öğrenci OLMAYAN kullanıcının iletişim bilgisi"dir.
   eposta               String?   @db.VarChar(150)
   telefon              String?   @db.VarChar(20)
-  /// İl koordinatörünün gizlilik taahhüdünü onayladığı an.
-  ///
-  /// Koordinatör ilindeki öğretmenlerin kişisel verilerini görebiliyor;
-  /// öğrenci tarafındaki aydınlatma onayının öğretmen karşılığıdır. Metin
-  /// sistem_ayari'nda tutulur, güncellenince onay tazeliğini yitirir.
-  taahhutOnayTarihi    DateTime? @map("taahhut_onay_tarihi") @db.Timestamptz(6)
 
   kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
 
@@ -476,7 +677,6 @@ model OgrenciProfil {
   kullaniciId                Int       @id @map("kullanici_id")
   eposta                     String?   @db.VarChar(150)
   telefon                    String?   @db.VarChar(20)
-  aydinlatmaMetniOnayTarihi  DateTime? @map("aydinlatma_metni_onay_tarihi") @db.Timestamptz(6)
   /// Öğrencinin yüklediği CV. Orijinal dosya adı yalnızca indirirken gösterilir;
   /// diskteki ad depolama katmanının ürettiği anahtardır (bkz. FaaliyetEk).
   cvDosyaAdi                 String?   @map("cv_dosya_adi") @db.VarChar(255)
@@ -499,6 +699,29 @@ model OgrenciProfil {
   kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
 
   @@map("ogrenci_profil")
+}
+
+/// Kullanıcının bir belgeye verdiği onay. Belge başına EN FAZLA BİR satır olur;
+/// yeniden onay tarihi günceller, yeni satır açmaz.
+///
+/// Neden geçmiş tutulmuyor: onay bir DURUMDUR, "şu an geçerli metni kabul etmiş
+/// mi" sorusuna cevap verir. Onayın kendisi ayrıca erişim kaydına yazıldığı için
+/// (bkz. lib/yetki/log.ts) "kim ne zaman onayladı" izi zaten denetlenebilir
+/// bir yerde duruyor — burada ikinci bir geçmiş tablosu tutmak aynı bilgiyi iki
+/// kez saklamak olurdu.
+///
+/// Metnin sürümü SAKLANMAZ: tazelik, onay tarihi ile sistem_ayari'ndaki metnin
+/// güncelleme tarihi karşılaştırılarak bulunur (bkz. lib/kvkk/kurallar.ts ·
+/// onayiGerekiyorMu). Metin güncellenince onay kendiliğinden eskir.
+model KullaniciOnayi {
+  kullaniciId Int         @map("kullanici_id")
+  belge       OnayBelgesi
+  onayTarihi  DateTime    @default(now()) @map("onay_tarihi") @db.Timestamptz(6)
+
+  kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
+
+  @@id([kullaniciId, belge])
+  @@map("kullanici_onayi")
 }
 
 /// İl, İlçe ve Okul Temsilcisi görev rolleri HİÇBİR ek veri görüntüleme yetkisi
@@ -578,15 +801,164 @@ model KullaniciKazanim {
   /// Eğitimin/etkinliğin kime yönelik olduğu ("9. sınıflar", "veliler").
   /// Serbest metindir: sabit bir liste, akran eğitiminin çeşitliliğini taşımaz.
   hedefKitle  String?     @map("hedef_kitle") @db.VarChar(200)
+  /// Ürünü geliştiren ekip. Yalnızca tip=URUN kayıtlarında anlamlıdır.
+  gelistirenEkip String?  @map("gelistiren_ekip") @db.VarChar(250)
+  /// "Bu ürünü markette paylaş". Varsayılan false: paylaşım bir TERCİHTİR,
+  /// açık gelmesi kullanıcının istemeden vitrine çıkması demek olurdu.
+  /// GençTek Market (I maddesi) bu bayrağı okuyacak.
+  markettePaylasilsin Boolean @default(false) @map("markette_paylasilsin")
+  /// Market vitrin sayaçları (I). Yalnızca tip=URUN kayıtlarında anlamlıdır.
+  ///
+  /// Ürün detayı her açıldığında artar — SAHİBİ AÇTIĞINDA ARTMAZ, yoksa kişi
+  /// kendi sayfasını yenileyerek sayacı şişirebilirdi. Tekilleştirme yoktur:
+  /// aynı kişi iki kez bakarsa iki sayılır (vitrin sayacı, denetim kaydı
+  /// değil — kim neye baktı bilgisi erişim logunda).
+  goruntulenmeSayisi Int @default(0) @map("goruntulenme_sayisi")
+  /// "İNDİRİLME" DEĞİL, bağlantıya gidilme sayısı — ve bu bilinçli.
+  ///
+  /// İstek "indirilme sayıları görüntülenecek" diyor ama ürünlerde dosya
+  /// yükleme kapsam dışı ("şimdilik sadece tanıtım yapsınlar" · D5). İndirilecek
+  /// bir dosya olmadığı için sayılabilecek en yakın olay, kullanıcının ürünün
+  /// deposuna/canlı sürümüne gitmesidir. Dosya yükleme açılırsa gerçek indirme
+  /// AYRI bir sütun olur; bu sayaç anlamını korur (→ S22).
+  baglantiTiklamasi Int @default(0) @map("baglanti_tiklamasi")
   /// Kaydın girildiği an. Kullanıcının girdiği `tarih` boş olabildiği için
   /// listeleme sırası buradan kurulur.
   olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   kullanici             Kullanici              @relation(fields: [kullaniciId], references: [id])
   temelEtkinlikProgrami TemelEtkinlikProgrami? @relation(fields: [temelEtkinlikProgramiId], references: [id])
+  ekler                 KazanimEk[]
+  baglantilar           KazanimBaglanti[]
 
   @@index([kullaniciId])
   @@map("kullanici_kazanim")
+}
+
+/// Kazanım kaydının bağlantıları — ürünün deposu, canlı adresi, tanıtım
+/// videosu ayrı ayrı olabilir. Kazanım tablosundaki tek `baglantiUrl` alanı
+/// KALDIRILMADI: dolu kayıtlar var ve diğer tipler onu kullanmaya devam ediyor.
+model KazanimBaglanti {
+  id        Int     @id @default(autoincrement())
+  kazanimId Int     @map("kazanim_id")
+  adres     String  @db.VarChar(500)
+  /// Bağlantının ne olduğu ("kaynak kod", "canlı sürüm").
+  etiket    String? @db.VarChar(100)
+  siraNo    Int     @default(0) @map("sira_no")
+
+  kazanim KullaniciKazanim @relation(fields: [kazanimId], references: [id], onDelete: Cascade)
+
+  @@index([kazanimId])
+  @@map("kazanim_baglanti")
+}
+
+/// Kazanım kaydının destekleyici belgeleri (etkinlik fotoğrafı, katılım
+/// belgesi vb.). Depolama deseni `faaliyet_ek` ile aynıdır.
+///
+/// Soft-delete YOKTUR (faaliyet_ek'ten ayrıldığı tek nokta): kazanım kaydının
+/// kendisi de kalıcı siliniyor, eki soft-delete tutmak tutarsız bir çift
+/// üretirdi. Silme erisim_logu'na yazılır.
+model KazanimEk {
+  id             Int      @id @default(autoincrement())
+  kazanimId      Int      @map("kazanim_id")
+  dosyaAdi       String   @map("dosya_adi") @db.VarChar(255)
+  /// Depolama soyutlamasının döndürdüğü anahtar — dosya sistemi yolu değil.
+  depolamaYolu   String   @map("depolama_yolu") @db.Text
+  mimeTipi       String   @map("mime_tipi") @db.VarChar(100)
+  boyutBayt      BigInt   @map("boyut_bayt")
+  yuklenmeTarihi DateTime @default(now()) @map("yuklenme_tarihi") @db.Timestamptz(6)
+
+  kazanim KullaniciKazanim @relation(fields: [kazanimId], references: [id], onDelete: Cascade)
+
+  @@index([kazanimId])
+  @@map("kazanim_ek")
+}
+
+/// "Rotam" — öğrencinin hedefleri, yapmak istedikleri.
+///
+/// KAZANIMDAN FARKI, iki alanın da metin tutuyor olmasına rağmen esastır:
+/// kazanım "yaptım" beyanıdır, geçmişe bakar ve danışman/koordinatör görür;
+/// hedef "yapmak istiyorum" beyanıdır, geleceğe bakar ve KİŞİYE ÖZELDİR.
+/// İkisini tek tabloda birleştirmek, birinin görünürlük kuralını öbürüne
+/// bulaştırırdı.
+///
+/// Serbest metin yerine LİSTE seçildi; gerekçesi göç dosyasında.
+model KullaniciHedefi {
+  id          Int         @id @default(autoincrement())
+  kullaniciId Int         @map("kullanici_id")
+  baslik      String      @db.VarChar(250)
+  aciklama    String?     @db.Text
+  durum       HedefDurumu @default(PLANLANDI)
+  /// Yalnızca tarih (saat yok): "bu yıl içinde" ölçeğinde bir niyet, randevu
+  /// değil. Saat tutulsaydı dilim kayması hedefi bir gün oynatabilirdi.
+  hedefTarihi DateTime?   @map("hedef_tarihi") @db.Date
+  /// Tamamlanma ANI. `durum`dan türetilemez — durum TAMAMLANDI'ya çevrildiğinde
+  /// bunun ne zaman olduğunu başka hiçbir alan tutmuyor.
+  tamamlanmaTarihi DateTime? @map("tamamlanma_tarihi") @db.Timestamptz(6)
+
+  olusturmaTarihi  DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi DateTime @default(now()) @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  kullanici Kullanici @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+
+  @@index([kullaniciId])
+  @@map("kullanici_hedefi")
+}
+
+// ---------------------------------------------------------------------------
+// 5b. Algoritmam — öz değerlendirme envanterleri (E)
+// ---------------------------------------------------------------------------
+
+/// ENVANTER TANIMLARI BURADA DEĞİL, KODDA: madde metinleri, ölçek ve puanlama
+/// anahtarı `lib/envanter/tanimlar.ts` içinde durur (KAZANIM_TANIMLARI ve
+/// BELGE_TANIMLARI ile aynı desen). Gerekçe göç dosyasında; kısası: tanım
+/// sürümlenmeli, editörü istenmedi, telifli metin veri dışa aktarımına
+/// karışmamalı.
+///
+/// Veritabanında yalnızca kişiye ait olan tutulur: hangi envanteri ne zaman
+/// çözdüğü ve verdiği cevaplar.
+model EnvanterUygulamasi {
+  id           Int    @id @default(autoincrement())
+  kullaniciId  Int    @map("kullanici_id")
+  /// Kod tarafındaki tanımın kodu. Yabancı anahtarı YOKTUR — karşılığı
+  /// veritabanında değil. Tanımı olmayan koda kayıt açılmaz (uygulama katmanı).
+  envanterKodu String @map("envanter_kodu") @db.VarChar(60)
+  /// Cevapların hangi madde listesine göre verildiği. Tanım değişip sürüm
+  /// artınca eski uygulamalar PUANLANMAZ; yeni anahtarla eski cevabı puanlamak
+  /// sessizce yanlış bir sonuç üretirdi.
+  surum        Int
+
+  durum EnvanterDurumu @default(SURUYOR)
+
+  baslamaTarihi DateTime @default(now()) @map("baslama_tarihi") @db.Timestamptz(6)
+  /// Yalnızca TAMAMLANDI iken doludur; `durum`dan türetilemez.
+  tamamlanmaTarihi DateTime? @map("tamamlanma_tarihi") @db.Timestamptz(6)
+
+  kullanici Kullanici        @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+  cevaplar  EnvanterCevabi[]
+
+  @@index([kullaniciId, envanterKodu])
+  @@map("envanter_uygulamasi")
+}
+
+/// Tek maddeye verilen tek cevap.
+///
+/// JSON değil SATIR: puanlama madde madde çalışıyor (ters puanlanan maddeler
+/// var) ve eksik madde JSON'da sessizce geçerken burada benzersizlik kısıtına
+/// takılır.
+model EnvanterCevabi {
+  id         Int    @id @default(autoincrement())
+  uygulamaId Int    @map("uygulama_id")
+  maddeKodu  String @map("madde_kodu") @db.VarChar(80)
+  /// Likert derecesi. Geçerli aralık ENVANTERE GÖRE değişir ve doğrulaması
+  /// tanıma bakılarak yapılır; sütun kısıtı yalnızca kaba bir üst sınırdır.
+  deger      Int    @db.SmallInt
+
+  uygulama EnvanterUygulamasi @relation(fields: [uygulamaId], references: [id], onDelete: Cascade)
+
+  @@unique([uygulamaId, maddeKodu], map: "envanter_cevabi_tekil")
+  @@index([uygulamaId])
+  @@map("envanter_cevabi")
 }
 
 // ---------------------------------------------------------------------------
@@ -850,6 +1222,9 @@ model Paydas {
   ekleyen Kullanici @relation("PaydasEkleyen", fields: [ekleyenKullaniciId], references: [id])
 
   faaliyetler FaaliyetPaydas[]
+  /// Bu kurumu temsilen sisteme giriş isteyen kişiler. Aynı kurumdan birden
+  /// fazla temsilci olabilir; kurum kaydı kişiden bağımsız yaşar.
+  temsilciBasvurulari DisKullaniciBasvurusu[]
 
   @@index([ilKodu, aktif])
   @@index([tur])
@@ -970,9 +1345,22 @@ model SistemAyari {
 
 /// Öğrencinin açtığı ilan: "şu alan için takım arkadaşı arıyorum".
 /// Kişiden kişiye temas İÇERMEZ; modülün en düşük riskli parçasıdır.
+/// Panodaki ilanın ne aradığı. NULL kabul eder: tür alanı 6 Ağustos 2026'da
+/// eklendi ve eski ilanlarda bilinmiyor. Geriye dönük doldurulmadı — varsayılan
+/// atamak, filtrelenen listeyi sessizce yanlışlardı. Zorunluluk uygulama
+/// katmanında ve yalnızca yeni ilanlarda.
+enum TalepTuru {
+  EKIP_ARKADASI
+  TEKNIK_DESTEK
+  SPONSOR
+  /// Tanıtım / yaygınlaştırma duyurusu.
+  DUYURU
+}
+
 model Talep {
-  id              Int      @id @default(autoincrement())
-  acanKullaniciId Int      @map("acan_kullanici_id")
+  id              Int        @id @default(autoincrement())
+  acanKullaniciId Int        @map("acan_kullanici_id")
+  tur             TalepTuru?
   /// İlanın ilgili olduğu çalışma alanı. Boş olabilir: her ilan bir gruba
   /// girmeyebilir ve zorlamak kullanıcıyı yanlış grup seçmeye iter.
   calismaGrubuId  Int?     @map("calisma_grubu_id")
@@ -991,6 +1379,7 @@ model Talep {
   @@index([acanKullaniciId])
   @@index([calismaGrubuId])
   @@index([kapatildiMi, sonGecerlilik])
+  @@index([tur])
   @@map("talep")
 }
 

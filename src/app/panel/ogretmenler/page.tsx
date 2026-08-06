@@ -385,7 +385,7 @@ export default async function OgretmenlerSayfasi({
                 <th className="px-4 py-3 font-medium">Görev</th>
                 <th className="px-4 py-3 font-medium">Görev yılları</th>
                 <th className="px-4 py-3 font-medium">Öğrenci</th>
-                <th className="px-4 py-3 font-medium">Faaliyet</th>
+                <th className="px-4 py-3 font-medium">Etkinlik</th>
               </tr>
             </thead>
             <tbody>

@@ -1,4 +1,6 @@
 import {
+  SEFERLER,
+  seferDurumlari,
   type KatilimKaydi,
   type KazanimGirdisi,
   katilimOzeti,
@@ -215,5 +217,109 @@ describe("katilimOzeti", () => {
     expect(Object.values(ozet.kapsamaGore).every((sayi) => sayi === 0)).toBe(
       true,
     );
+  });
+});
+
+/*
+ * SEFERLER — seviye sistemi (D7 · 6 Ağustos 2026).
+ *
+ * Seviye, ekranın gösterdiği bir etiket değil bir HESAPLAMA KURALIDIR: yanlış
+ * ölçüt hata vermez, öğrenciye yanlış bir derece gösterir. Bu yüzden her
+ * seviyenin ölçütü ayrı ayrı sınanıyor.
+ *
+ * Seviyeler bir MERDİVEN DEĞİL: "üreten" ile "paylaşan" biri öbürünün üstü
+ * değil, farklı davranışlar. Sıralı kurulsaydı ürün eklemeyen bir öğrenci akran
+ * eğitimi verse bile "paylaşan" olamazdı.
+ */
+describe("seferler (seviyeler)", () => {
+  const bos = {
+    katilimlar: [],
+    urunSayisi: 0,
+    verdigiEgitimSayisi: 0,
+    gorevRolSayisi: 0,
+    duzenledigiEtkinlikSayisi: 0,
+  };
+  const kazanilanlar = (girdi: Parameters<typeof seferDurumlari>[0]) =>
+    seferDurumlari(girdi)
+      .filter((s) => s.kazanildiMi)
+      .map((s) => s.kod);
+
+  const katilim = (kapsam: "OKUL" | "IL" | "ULUSAL") => ({
+    kapsam,
+    etkinlikKategorisi: "TEMEL_ETKINLIK" as const,
+    tarih: new Date("2026-01-01"),
+  });
+
+  it("beş seviyeyi listeler", () => {
+    expect(SEFERLER.map((s) => s.kod)).toEqual([
+      "KESFEDEN",
+      "URETEN",
+      "PAYLASAN",
+      "LIDER",
+      "ELCI",
+    ]);
+  });
+
+  it("hiçbir şey yapmamış öğrencide seviye yok", () => {
+    expect(kazanilanlar(bos)).toEqual([]);
+  });
+
+  it("okul içi katılım Keşfeden yapar ama Elçi yapmaz", () => {
+    // Elçi okulun DIŞINI temsil etmektir; okul içi sayılsaydı Keşfeden'den
+    // farkı kalmazdı.
+    expect(kazanilanlar({ ...bos, katilimlar: [katilim("OKUL")] })).toEqual([
+      "KESFEDEN",
+    ]);
+  });
+
+  it("ulusal katılım hem Keşfeden hem Elçi yapar", () => {
+    expect(kazanilanlar({ ...bos, katilimlar: [katilim("ULUSAL")] })).toEqual([
+      "KESFEDEN",
+      "ELCI",
+    ]);
+  });
+
+  it("il geneli katılım da Elçi yapar", () => {
+    expect(kazanilanlar({ ...bos, katilimlar: [katilim("IL")] })).toContain(
+      "ELCI",
+    );
+  });
+
+  it("ürün Üreten yapar", () => {
+    expect(kazanilanlar({ ...bos, urunSayisi: 1 })).toEqual(["URETEN"]);
+  });
+
+  it("akran eğitimi Paylaşan yapar", () => {
+    expect(kazanilanlar({ ...bos, verdigiEgitimSayisi: 1 })).toEqual([
+      "PAYLASAN",
+    ]);
+  });
+
+  it("Lider iki yoldan da kazanılır", () => {
+    // Tek yola bağlansaydı, okulunda temsilcilik boşalmayan ama etkinlik
+    // düzenleyen öğrenci hiçbir zaman lider sayılmazdı.
+    expect(kazanilanlar({ ...bos, gorevRolSayisi: 1 })).toEqual(["LIDER"]);
+    expect(kazanilanlar({ ...bos, duzenledigiEtkinlikSayisi: 1 })).toEqual([
+      "LIDER",
+    ]);
+  });
+
+  it("seviyeler birbirinin ön koşulu DEĞİLDİR", () => {
+    // Hiç etkinliğe katılmamış biri yalnızca akran eğitimiyle Paylaşan olur.
+    const sonuc = kazanilanlar({ ...bos, verdigiEgitimSayisi: 2 });
+    expect(sonuc).toEqual(["PAYLASAN"]);
+    expect(sonuc).not.toContain("KESFEDEN");
+  });
+
+  it("kazanılmayan seviyeler de listede döner", () => {
+    // Ekran kilitli seviyeleri de gösteriyor: hangi yolların açık olduğunu
+    // görmek, yalnızca kazanılanları görmekten daha çok şey anlatıyor.
+    expect(seferDurumlari(bos)).toHaveLength(5);
+  });
+
+  it("her seviyenin ekranda gösterilecek açıklaması vardır", () => {
+    for (const sefer of SEFERLER) {
+      expect(sefer.aciklama.trim()).toBeTruthy();
+    }
   });
 });

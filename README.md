@@ -72,12 +72,12 @@ Kısa hâli: `git clone` → `.env` doldur → `npm ci && npm run build` →
 |---|---|
 | `npm run dev` | Geliştirme sunucusu |
 | `npm run build` / `npm start` | Üretim derlemesi ve sunucu |
-| `npm test` | Birim testler (511 test) |
+| `npm test` | Birim testler (576 test) |
 | `npm run test:duman` | Gerçek veritabanında uçtan uca doğrulama (40 kontrol) |
 | `npm run test:eposta` | E-posta kopyasının bildirim akışına doğru bağlandığını sınar (4 kontrol) |
-| `npm run senaryo:goruntu` | Yetki senaryolarını ve faaliyet akışını tarayıcıda gezer, ekran görüntüsü alır (`--tema=a` / `--tema=b` / `--tema=c` ile diğer temalar) |
+| `npm run senaryo:goruntu` | Yetki senaryolarını ve faaliyet akışını tarayıcıda gezer, ekran görüntüsü alır (`--tema=b` ile diğer tema) |
 | `npm run disaaktarma:dogrula` | CSV çıktısının ekranla aynı kümeyi verdiğini ve kapsam dışına sızmadığını canlı sistemde sınar |
-| `npm run hata:goruntu` | Bulunamadı ekranının dört temadaki görüntüsünü alır |
+| `npm run hata:goruntu` | Bulunamadı ekranının iki temadaki görüntüsünü alır |
 | `npm run db:deploy` | Migration'ları uygular |
 | `npm run db:seed` | Referans veri ve başlangıç yöneticisi |
 | `npm run veri:ornek` | Örnek envanter üretir (50 koordinatör, 50 öğretmen, 300 öğrenci); `-- --temizle` ile geri alır |
@@ -108,18 +108,23 @@ VPS'te iki zamanlanmış iş vardır:
 
 ### Açılış ekranı
 
-`/` adresi sistemin kapısıdır (`src/app/page.tsx`): GençTek markası, tek bir
-**EBA ile Giriş Yap** düğmesi ve "dış kayıt yoktur, kimlik bilgileri EBA
-üzerinden alınır" notu. Kayıt, şifre ve parola sıfırlama akışı yoktur ve
-olmayacaktır. Oturumu açık kullanıcı kapıda bekletilmez, doğrudan `/panel`'e
+`/` adresi sistemin kapısıdır (`src/app/page.tsx`): GençTek markası, birincil
+**EBA ile Giriş Yap** düğmesi ve altında ikincil bir **Mezun ve paydaş girişi**
+bağlantısı. Oturumu açık kullanıcı kapıda bekletilmez, doğrudan `/panel`'e
 gider.
+
+İki giriş yolu **eşit ağırlıkta değildir** ve bu bilinçli: kullanıcıların ezici
+çoğunluğu EBA'dan girer, iki eşit düğme öğrenciyi yanlış kapıya yönlendirirdi.
+Öğrenci ve öğretmen tarafında şifre kavramı **yoktur ve olmayacaktır**.
 
 EBA SSO erişimi gelene kadar düğme, geliştirme senaryolarının bulunduğu
 `/giris` ekranına götürür ve ekranda bunu söyleyen bir not durur. Erişim
 sağlandığında burada değişecek tek şey düğmenin hedefidir; ekranın kendisi aynı
-kalır. Ekran dört temada da çalışır (D: beyaz zemin + kırmızı düğme, A:
-lacivert zemin + amber düğme, B: açık zemin + mavi düğme, C: bordo zemin +
-kırmızı düğme) — renkler anlam adından geldiği için ayrıca uyarlanmadı.
+kalır. Ekran iki temada da çalışır (D: beyaz zemin + kırmızı düğme, B: açık
+zemin + mavi düğme) — renkler anlam adından geldiği için ayrıca uyarlanmadı.
+
+Logonun altında **"Genç Bilişim Ekosistemi"** yazar; ekosistemin adı burada tam
+hâliyle görünsün diye kısaltma kullanılmadı.
 
 EBA SSO erişimi henüz sağlanmadı. Kimlik doğrulama bir arayüz arkasına alındı:
 
@@ -134,6 +139,36 @@ src/lib/auth/index.ts           AUTH_PROVIDER ortam değişkenine göre seçim
 geldiğinde `eba-provider.ts` yazılır, `AUTH_PROVIDER=eba` yapılır; başka hiçbir
 yer değişmez. Mock aşamada da salt okunur alanlar ve kapsam filtreleri gerçek
 kurallarla çalışır, böylece entegrasyonda sürpriz çıkmaz.
+
+### EBA dışı giriş: mezun ve paydaş temsilcisi
+
+EBA hesabı olmayan iki grup sisteme e-posta ve şifreyle girer. Bu, `AuthProvider`
+soyutlamasının **yerine geçmez, yanına gelir**: oturum katmanı ikisini ayırt
+etmez, çerez yalnızca `authProviderId` taşır ve rol/kapsam her istekte
+veritabanından okunur. EBA SSO bağlandığında bu akış olduğu gibi kalır.
+
+| Ekran | İş |
+|---|---|
+| `/basvuru` | İki adımlı başvuru formu (tür + il → kimlik, kurum/mezuniyet, gerekçe, şifre). Aydınlatma metni burada okutulur. |
+| `/dis-giris` | E-posta + şifreyle giriş |
+| `/sifre-sifirlama` | Jetonla parola sıfırlama (60 dk, tek kullanımlık) |
+| `/panel/dis-basvurular` | Proje yöneticisinin onay kuyruğu |
+
+**Onaylanana kadar `kullanici` satırı açılmaz.** Başvuru bir kullanıcı değildir;
+açılsaydı onaysız kişi kapsam filtrelerine ve envanter sayılarına sızardı.
+Onayda kullanıcı, rolü, iletişim profili ve giriş kimliği **tek transaction'da**
+açılır — yarım kalmış bir onay, hiç giremeyen ya da rolsüz bir hesap bırakırdı.
+
+Şifreler `dis_kimlik` tablosunda scrypt özetiyle durur (`scrypt$N$r$p$tuz$ozet`;
+parametreler özetin içinde, ileride sertleştirilirse eski özetler doğrulanmaya
+devam etsin diye). Dış bağımlılık yok — bcrypt/argon2 yerel derleme ister ve
+VPS'te Node sürümüne bağlı olarak kırılır. 5 hatalı denemede 15 dakikalık
+**süreli** kilit gelir; kalıcı kilit, saldırganın başkasının hesabını kasten
+kilitlemesine izin verirdi.
+
+İki rolün yetkisi **dar başlangıç** ilkesine tabidir: yalnızca kendi profili,
+etkinlik takvimi ve talep panosu. Ayrıntı ve gerekçeler `permissions.md`
+Bölüm 1.1'de.
 
 ### Dört giriş senaryosu
 
@@ -270,15 +305,17 @@ sayfadır.
 
 ## Arayüz temaları
 
-Dört tema var, kullanıcı sağ üstteki **Tema D / A / B / C** düğmesiyle geçiş
-yapar:
+İki tema var, kullanıcı sağ üstteki **Tema D / B** düğmesiyle geçiş yapar:
 
 | Tema | Görünüm |
 |---|---|
 | **D** (varsayılan) | GençTek marka: tam kırmızı üst bar (menü alanı), beyaz sayfa gövdesi, nötr siyah metin, kırmızı düğme ve bağlantılar |
-| **A** | GençTek kurumsal: koyu lacivert üst bar, kağıt tonu zemin, amber vurgu, rol renk kodları |
 | **B** | Sade kurumsal: açık üst bar, mavi vurgu, düşük kontrastlı sade görünüm |
-| **C** | MEB kırmızı: bordo üst bar, MEB kırmızısı düğme ve bağlantılar, altın seçim vurgusu |
+
+Daha önce iki tema daha vardı — **A** (GençTek kurumsal: lacivert üst bar, amber
+vurgu) ve **C** (MEB kırmızı: bordo üst bar, altın seçim vurgusu) — kullanıcı
+kararıyla kaldırıldılar. Çerezinde `a` ya da `c` kalmış kullanıcı sessizce
+varsayılan temaya (D) düşer; `temaGecerliMi` geçersiz değeri kabul etmez.
 
 Varsayılan tema D, kurumsal renk paletinin doğrudan karşılığıdır:
 
@@ -298,30 +335,26 @@ bir sunucu eylemidir; JavaScript kapalı olsa da çalışır.
 
 Ekranlar renk adı değil **anlam adı** kullanır: `bg-zemin`, `bg-kart`,
 `text-baslik`, `bg-birincil`, `bg-uyari-zemin`, `bg-rol-danisman-zemin` gibi. Bu
-adların temaya göre karşılıkları yalnızca `src/app/globals.css` içindeki dört
+adların temaya göre karşılıkları yalnızca `src/app/globals.css` içindeki iki
 değişken bloğunda tanımlıdır. Sonuç olarak:
 
 - yeni bir tema eklemek `[data-tema="..."]` bloğu yazıp `src/lib/tema.ts`'e bir
-  satır eklemekten ibarettir — ekranlara dokunulmaz (Tema C ve marka teması D
-  tam olarak böyle eklendi);
+  satır eklemekten ibarettir — ekranlara dokunulmaz (marka teması D tam olarak
+  böyle eklendi, kaldırılan A ve C de tek dosyadan silindi);
 - kurumsal kimlik değişirse tek dosya güncellenir.
 
 Tema D kırmızı üst bar için ek bir token çifti getirdi:
 `ust-bar-secili-zemin` / `ust-bar-secili-metin`. Sebebi, seçim vurgusunun iki
 ayrı zeminde yaşaması: sayfa gövdesinde beyaz kartın üstünde (kırmızı olmalı) ve
 kırmızı üst barda menü sekmesi olarak (beyaz olmalı). Tek token ikisini birden
-karşılayamıyordu. Diğer üç temada bu çift kendi `secili-*` değerlerine eşit
-tanımlandı, dolayısıyla A/B/C'nin görünümü değişmedi.
+karşılayamıyordu. Tema B'de bu çift kendi `secili-*` değerlerine eşit
+tanımlandı, dolayısıyla B'nin görünümü değişmedi.
 
 Tema D'de iki bilinçli sapma var: sayfa zemini saf beyaz değil **#f7f7f8**,
 çünkü `bg-zemin` yalnızca sayfa arka planı değil kart içindeki ikincil yüzey de
 (tablo başlığı, ikincil düğme hover'ı, pasif rozet) — kartla aynı beyaz olsaydı
 bu yüzeyler kaybolurdu. Ve **hata rengi vurgu renginden ayrı**, aksi halde
 kırmızı bir temada hata kutusu sıradan bir etiketten ayırt edilemezdi.
-
-Tema C'de iki bilinçli sapma var: seçim vurgusu kırmızı değil **altın**, çünkü
-kırmızının bir tonu hem bordo üst barda hem beyaz kartta aynı anda okunur
-kalamıyordu; ve hata rengi yine vurgudan ayrı tutuldu.
 
 Roller her ekranda kendi renginde görünür (`src/components/RolEtiketi.tsx`):
 öğrenci amber, danışman yeşil, il koordinatörü lacivert, YEĞİTEK mor.
@@ -345,17 +378,24 @@ src/lib/
   ogrenci/               profil erişimi, kazanım ve CV kuralları (kurallar saf, cv.ts depolama)
   ogretmen/              danışmanlık görevi, görev yılı hesabı (gorev-yillari.ts saf)
   paydas/                il bazlı paydaş envanteri kuralları (saf)
+  dis-kimlik/            EBA dışı giriş: başvuru, onay, şifre (scrypt), sıfırlama
   bildirim/              şablonlu bildirim + e-posta ve SMS kopyası
   eposta/                EpostaSaglayici soyutlaması (günlük / SMTP)
   sms/                   SmsSaglayici soyutlaması (kapalı / günlük / operatör)
   kazanim/               kazanım/nişan kuralları (kurallar.ts + rozetler.ts saf, getir.ts veritabanı)
+  kvkk/                  onay belgeleri (kurallar.ts saf: metinler + rol eşlemesi), saklama temizliği
   rapor/                 rol envanteri, CSV üretimi ve filtre seçenekleri
 src/app/page.tsx         açılış ekranı (EBA ile giriş kapısı)
 src/app/giris/           kimlik seçimi (mock aşama) ve giriş eylemi
+src/app/dis-giris/       mezun / paydaş temsilcisi girişi (e-posta + şifre)
+src/app/basvuru/         EBA dışı giriş başvurusu (iki adımlı form + aydınlatma metni)
+src/app/sifre-sifirlama/ parola sıfırlama (yalnızca dış kullanıcılar)
+src/app/onay/            ilk giriş onay kapısı (belgeler onaylanmadan panele girilemez)
 src/app/panel/           Next.js ekranları ve sunucu eylemleri
   faaliyetler/           liste, açma formu, detay + başvuru + değerlendirme + paydaş
   gorev-rolleri/         İl Temsilcisi / Okul Temsilcisi atama
   rol-envanteri/         il koordinatörü / danışman boşlukları + koordinatör atama
+  dis-basvurular/        EBA dışı giriş başvurularının onay kuyruğu (proje yöneticisi)
   ogrenciler/            öğrenci envanteri, filtreler ve CSV çıktısı
   ogrenciler/[id]/       tekil öğrenci profili, çalışma grubu ekleme, CV indirme
   ogretmenler/           öğretmen envanteri, filtreler ve CSV çıktısı
@@ -364,7 +404,8 @@ src/app/panel/           Next.js ekranları ve sunucu eylemleri
   paydaslar/[id]/        tekil paydaş kaydı ve düzenleme
   profil/                kendi profili: iletişim, kazanım girişi, CV yükleme
   kazanimlarim/          katılım geçmişi, katkı kartı ve nişanlar (öğrenci + öğretmen)
-src/app/globals.css      dört temanın renk değişkenleri
+  kvkk/                  onay belgelerinin kalıcı ekranı (metin + onay durumu)
+src/app/globals.css      iki temanın renk değişkenleri
 src/components/          ortak arayüz parçaları (kart, buton, rol etiketi)
 tests/                   birim testler
 scripts/                 gecelik senkron, duman testi
@@ -386,8 +427,8 @@ Skill'deki 13 adımlık geliştirme sırasına göre:
 | 8 | Dosya/görsel yükleme ve yorumlar | Tamam |
 | 9 | Başvuru ve değerlendirme | Tamam |
 | 10 | Raporlama ve filtreleme | Tamam (filtreler + CSV dışa aktarma) |
-| 11 | KVKK aydınlatma ve saklama süresi | Tamam |
-| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (511 test) |
+| 11 | KVKK onay belgeleri (aydınlatma, açık rıza, taahhütname, gizlilik sözleşmesi), ilk giriş kapısı ve saklama süresi | Tamam |
+| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (519 test) |
 | 13 | Gerçek EBA SSO entegrasyonu | Erişim bekleniyor |
 | 14 | Danışman öğretmen envanteri (analiz Bölüm 2) | Tamam |
 | 15 | İl bazlı paydaş bilgi sistemi (analiz Bölüm 3) | Tamam |
@@ -428,7 +469,7 @@ Faaliyet detayında **Görseller ve belgeler** ile **Yorumlar** kartları vardı
   Silinen üst yorum "silindi" görünür, altındaki yanıtlar yerinde durur.
 
 Dosyalar public bir dizinden servis **edilmez**. Her indirme
-`/panel/faaliyetler/[id]/ekler/[ekId]` üzerinden gider ve önce oturum, sonra
+`/panel/etkinlikler/[id]/ekler/[ekId]` üzerinden gider ve önce oturum, sonra
 faaliyetin kapsam filtresi kontrol edilir — kapsam dışında 404 döner. Yani ek ve
 yorum ayrı bir izin sistemi değil, faaliyet kapsamının uzantısıdır (Değişmez 8).
 
@@ -616,8 +657,8 @@ dosya ekrandaki kümenin aynısıdır.
 | Yol | İçerik |
 |---|---|
 | `/panel/ogrenciler/disa-aktar` | Ad, sınıf, okul, il/ilçe, danışman, çalışma grupları |
-| `/panel/faaliyetler/disa-aktar` | Faaliyet, tarih, kapsam, kategori, kontenjan/başvuru sayıları, onay ve faaliyet durumu |
-| `/panel/faaliyetler/:id/basvurular/disa-aktar` | Tek faaliyetin başvuranları: ad, katılımcı tipi, sınıf/branş, okul, il, çalışma grupları, başvuru tarihi, durum, adına başvuran, gerekçe |
+| `/panel/etkinlikler/disa-aktar` | Faaliyet, tarih, kapsam, kategori, kontenjan/başvuru sayıları, onay ve faaliyet durumu |
+| `/panel/etkinlikler/:id/basvurular/disa-aktar` | Tek faaliyetin başvuranları: ad, katılımcı tipi, sınıf/branş, okul, il, çalışma grupları, başvuru tarihi, durum, adına başvuran, gerekçe |
 
 Başvuru dosyasını değerlendirme kartını görebilen indirir: faaliyeti açan
 kullanıcı, yetki devrolmuşsa ilin koordinatörü, bir de proje yöneticisi
@@ -932,14 +973,22 @@ envanterde kırmızı uyarı olarak görünür; ile yeni koordinatör atandığ�
 
 ### Görev rolleri
 
-`IL_TEMSILCISI`, `ILCE_TEMSILCISI` ve `OKUL_TEMSILCISI` **Görev Rolleri**
-ekranından verilir: il koordinatörü kendi ilinde (il ve ilçe temsilcisi),
-danışman öğretmen kendi okulunda, proje yöneticisi her yerde. Aday listesi
-öğrenci kapsam filtresinden geçer, dönem başına tek kişi kısıtı
-veritabanındadır.
+Üç rol iki ayrı ekrandan verilir (5 Ağustos 2026):
 
-İlçe temsilcisini **ilin** koordinatörü atar: sistemde ilçe düzeyinde görevli
-yoktur, ilçe ilin içindeki bir basamaktır. Görevin kapsamı (il / ilçe / kurum
+- **`OKUL_TEMSILCISI` → Öğrenciler ekranı.** Danışman öğretmen, listedeki satır
+  başına düşen düğmeyle atar ve kaldırır; işlem sonrası **filtreler korunarak**
+  listeye döner. Görev Rolleri sekmesi danışman öğretmenin menüsünde artık yok.
+- **`IL_TEMSILCISI` ve `ILCE_TEMSILCISI` → Görev Rolleri ekranı.** İl
+  koordinatörü ve proje yöneticisinde kaldı; ilçe temsilcisini de **ilin**
+  koordinatörü belirler.
+
+Proje yöneticisi Görev Rolleri ekranında üçünü de görür — okulda danışman
+kalmadığında yanlış bir atamayı düzeltebilecek tek kişi odur. Aday listesi her
+iki ekranda da öğrenci kapsam filtresinden geçer; dönem başına tek kişi kısıtı
+veritabanındadır ve yetki hem ekranda hem sunucu eyleminde ayrı ayrı sorulur.
+
+Sistemde ilçe düzeyinde görevli yoktur, ilçe ilin içindeki bir basamaktır.
+Görevin kapsamı (il / ilçe / kurum
 kodu) atama anında öğrencinin kaydından okunup **göreve yazılır**; öğrenci dönem
 içinde okul değiştirdiğinde görev verildiği yerde kalır. Roller, öğrenci
 listesinde ve profilde tam unvanıyla görünür ("Ankara / Çankaya İlçe
@@ -976,17 +1025,55 @@ adına taşınmış bir profil de geçerlidir.
 
 ## KVKK
 
-Hedef kitle 18 yaş altı olduğu için aydınlatma ve saklama süresi ayrı bir ekran
-değil, sistemin işleyişine gömülü iki mekanizmadır.
+Hedef kitle 18 yaş altı olduğu için onay belgeleri ve saklama süresi ayrı bir
+ekran değil, sistemin işleyişine gömülü iki mekanizmadır.
 
-**Aydınlatma onayı.** Metni okumamış öğrenciye panelin üstünde kalıcı bir uyarı
-şeridi çıkar ve **Panel → KVKK** ekranına götürür. Onay tarihi
-`ogrenci_profil.aydinlatma_metni_onay_tarihi` alanına yazılır ve erişim loguna
-düşer. Metin yönetim ekranından güncellenirse onay **geçersizleşir** ve şerit
-yeniden görünür (`aydinlatmaOnayiGerekiyorMu`): değişen bir metne verilmiş eski
-onay, onay değildir. Onay işlemi engelleyici değildir — öğrenci uyarıyı görmezden
-gelip sistemi kullanabilir; erişimi kesmek, bilgilendirme yükümlülüğünü yerine
-getirmenin değil cezalandırmanın aracı olurdu.
+### Onay belgeleri ve ilk giriş kapısı
+
+Sistemde **kayıt akışı yoktur**; kimlik EBA'dan gelir. Bu yüzden belgelerin
+okutulacağı tek an, kişinin sisteme **ilk girdiği** andır. Dört belge tanımlıdır
+ve kimden isteneceğini rolü belirler:
+
+| Belge | Kimden | Ayar anahtarı |
+|---|---|---|
+| KVKK Aydınlatma Metni | Öğrenci | `KVKK_AYDINLATMA_METNI` |
+| KVKK Açık Rıza Onayı | **Herkes** | `KVKK_ACIK_RIZA_METNI` |
+| İl Koordinatörü Taahhütnamesi | İl koordinatörü | `KOORDINATOR_TAAHHUTNAME_METNI` |
+| Gizlilik Sözleşmesi | İl koordinatörü | `GIZLILIK_SOZLESMESI_METNI` |
+
+Taahhütname ile gizlilik sözleşmesi **ayrı** belgelerdir: biri görevin nasıl
+yürütüleceğini, öbürü eriştiği veriyle nasıl davranacağını taahhüt ettirir. Aynı
+şekilde açık rıza aydınlatmadan ayrıdır ve yalnızca kanunî dayanağı olmayan
+işlemleri (isteğe bağlı iletişim bilgisi, profil fotoğrafı, belgelerde ad
+kullanımı) kapsar.
+
+**Kilit yalnızca ilk giriştedir.** Hiç onay vermemiş kullanıcı `/onay` kapısına
+düşer ve belgeleri tek tek işaretlemeden panele giremez; kapıda yalnızca iki yol
+vardır: onaylamak ya da çıkış. Sonradan eklenen bir belge ya da güncellenen bir
+metin kimseyi dışarıda bırakmaz — panelin üstünde uyarı şeridi çıkar ve
+**Profilim** sayfasının en altındaki "KVKK ve onay belgelerim" bölümünden tek tek
+onaylanır. Sebebi pratik: bir metin güncellemesi tüm ilin koordinatörünü aynı
+anda kapıda bırakabilir ve acil bir işin ortasında sistemin kilitlenmesi
+korumaktan çok zarar verir; erişimler zaten kayda geçiyor.
+
+**Belgelerin menüde sekmesi yoktur** (5 Ağustos 2026). Metin üye olurken
+okutulur; sonrasında lazım olduğunda profilin en altından açılır, tam metin
+katlanmış hâlde durur ve onay bekleyen belge açık gelir. Eski `/panel/kvkk` ve
+`/panel/taahhut` adresleri kalıcı yönlendirmeyle yaşar. Sekmeyi kaldırmak
+erişimi kapatmak değildir: onayladığı belgeye erişemeyen kullanıcı KVKK
+açısından savunulamaz, bu yüzden bölüm silinmedi — taşındı. Şerit de bu yüzden
+kaldırılamaz; sekme yokken **yeniden onayın tek yolu** odur.
+
+Onaylar `kullanici_onayi` tablosunda, kullanıcı + belge başına tek satır tutulur
+ve her onay erişim loguna düşer. Metin yönetim ekranından güncellenirse onay
+**geçersizleşir** (`onayiGerekiyorMu`): değişen bir metne verilmiş eski onay,
+onay değildir. Belgenin sürümü saklanmaz; tazelik, onay tarihi ile
+`sistem_ayari`'ndaki metnin güncelleme tarihi karşılaştırılarak bulunur.
+
+Hangi belgenin kimden isteneceği **tek yerde** durur:
+`src/lib/kvkk/kurallar.ts` · `BELGE_TANIMLARI`. Ekranlar "bu belge bana gerekli
+mi" diye ayrıca sormaz; sorsalardı kapsam iki yerden yönetilir ve biri
+unutulurdu.
 
 **Saklama süresi.** `npm run bakim:saklama` süresi dolan kayıtları siler:
 
@@ -1017,7 +1104,7 @@ işlemdir.
 **Panel → Yönetim** üç listeyi tek ekranda toplar:
 
 1. **Sistem ayarları** — dosya boyutu/tip sınırları (faaliyet ekleri ve öğrenci
-   CV'si ayrı ayrı), saklama süreleri, KVKK aydınlatma metni. Değerler
+   CV'si ayrı ayrı), saklama süreleri, dört onay belgesinin metni. Değerler
    `sistem_ayari` tablosundadır; kod değişikliği ve yeniden dağıtım gerekmez.
    İzinli tip listesine yeni bir MIME tipi eklerseniz karşılığını
    `src/lib/depolama/yerel.ts` içindeki uzantı eşlemesine de ekleyin — yoksa

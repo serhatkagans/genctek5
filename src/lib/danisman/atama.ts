@@ -56,6 +56,51 @@ export async function ilKoordinatoruGetir(
   return rol?.kullaniciId ?? null;
 }
 
+export interface KoordinatorBilgisi {
+  kullaniciId: number;
+  ad: string;
+  soyad: string;
+  brans: string | null;
+  eposta: string | null;
+  telefon: string | null;
+}
+
+/**
+ * İl koordinatörünün öğrenciye gösterilecek bilgileri.
+ *
+ * Okulunda danışman öğretmen olmayan öğrenci koordinatöre bağlanır ve bugüne
+ * kadar bu kişiyi ekranda hiç görmüyordu. İletişim bilgisi öğretmenin kendi
+ * girdiği alandır ve yalnızca ona BAĞLI öğrenciye gösterilir — koordinatörün
+ * telefonu ilin tamamına açık bir bilgi değildir.
+ */
+export async function ilKoordinatoruBilgisiGetir(
+  ilKodu: string | null,
+): Promise<KoordinatorBilgisi | null> {
+  const koordinatorId = await ilKoordinatoruGetir(ilKodu);
+  if (koordinatorId === null) return null;
+
+  const kayit = await prisma.kullanici.findUnique({
+    where: { id: koordinatorId },
+    select: {
+      id: true,
+      ad: true,
+      soyad: true,
+      brans: true,
+      ogretmenProfil: { select: { eposta: true, telefon: true } },
+    },
+  });
+  if (!kayit) return null;
+
+  return {
+    kullaniciId: kayit.id,
+    ad: kayit.ad,
+    soyad: kayit.soyad,
+    brans: kayit.brans,
+    eposta: kayit.ogretmenProfil?.eposta ?? null,
+    telefon: kayit.ogretmenProfil?.telefon ?? null,
+  };
+}
+
 export async function aktifAtamaGetir(ogrenciId: number) {
   return prisma.danismanAtama.findFirst({
     where: { ogrenciId, bitisTarihi: null },
@@ -74,6 +119,30 @@ export async function aktifAtamaGetir(ogrenciId: number) {
       },
     },
   });
+}
+
+/**
+ * Danışman seçim ekranının tüm verisi tek çağrıda.
+ *
+ * Panelim'deki bölüm ile `/panel/danisman-secim` kapısı AYNI kaynağı kullanır;
+ * iki yerde ayrı sorgu yazılsaydı biri koordinatör bilgisini ya da aday
+ * filtresini eksik kurabilirdi — ve o hata ekranda hata olarak değil, "okulumda
+ * danışman yokmuş" gibi görünürdü.
+ */
+export async function danismanSecimVerisiGetir(kullanici: {
+  id: number;
+  kurumKodu: number | null;
+  ilKodu: string | null;
+}) {
+  const [atama, adaylar, koordinator] = await Promise.all([
+    aktifAtamaGetir(kullanici.id),
+    kullanici.kurumKodu !== null
+      ? danismanAdaylariGetir(kullanici.kurumKodu)
+      : Promise.resolve([]),
+    ilKoordinatoruBilgisiGetir(kullanici.ilKodu),
+  ]);
+
+  return { atama, adaylar, koordinator };
 }
 
 interface AtamaGirdisi {
@@ -337,6 +406,138 @@ export async function danismanliktanAyrildi(
   }
 
   return { devredilenOgrenciSayisi: devredilen, yenidenSecimBekleyen };
+}
+
+/**
+ * Danışman öğretmen TEK bir öğrencinin danışmanlığını bırakır.
+ *
+ * `danismanliktan Ayrildi` görevin TAMAMINI bırakmayı yürütür; bu ise tek
+ * öğrenciyi bırakır ve öğretmenin danışmanlığı sürer.
+ *
+ * ÖĞRENCİ NEREYE GİDER: mevcut devir kuralları aynen uygulanır (bkz.
+ * `devirKarariVer`) — okulda tek danışman kaldıysa ona, birden fazla varsa
+ * öğrenciye "yeniden seç" bildirimi ve geçici olarak il koordinatörüne, hiç
+ * kalmadıysa koordinatöre. Ayrı bir kural yazılmadı: aynı soru (bu öğrenci
+ * şimdi kime bağlanacak) daha önce cevaplanmıştı ve iki ayrı cevap zamanla
+ * ayrışırdı. BOŞTA ÖĞRENCİ KALAMAZ (SKILL.md · Değişmezler 2).
+ *
+ * GEREKÇE ZORUNLU ve il koordinatörüne BİLDİRİM gider: burada açık bir kötüye
+ * kullanım kapısı var — "zor" bulunan öğrencinin sessizce bırakılması. Gerekçe
+ * hem bildirime hem erişim kaydına yazılır.
+ */
+export async function tekOgrenciyiBirak(girdi: {
+  danismanKullaniciId: number;
+  ogrenciId: number;
+  gerekce: string;
+}): Promise<
+  | { olurMu: false; neden: string }
+  | { olurMu: true; yeniDurum: string; ogrenciAdSoyad: string }
+> {
+  /*
+   * Atama, DANIŞMANIN KENDİSİNE bağlı olarak çekilir: sorguda
+   * `danismanKullaniciId` koşulu olmasaydı, forma başkasının öğrenci kimliğini
+   * yazan öğretmen o öğrencinin danışmanlığını bırakabilirdi.
+   */
+  const atama = await prisma.danismanAtama.findFirst({
+    where: {
+      ogrenciId: girdi.ogrenciId,
+      danismanKullaniciId: girdi.danismanKullaniciId,
+      bitisTarihi: null,
+    },
+    select: {
+      ogrenci: {
+        select: { id: true, ad: true, soyad: true, ilKodu: true, kurumKodu: true },
+      },
+    },
+  });
+  if (!atama) {
+    return {
+      olurMu: false,
+      neden: "Bu öğrencinin danışmanı değilsiniz.",
+    };
+  }
+
+  const ogrenci = atama.ogrenci;
+  const ogrenciAdSoyad = `${ogrenci.ad} ${ogrenci.soyad}`;
+
+  const kalanAdaylar =
+    ogrenci.kurumKodu !== null
+      ? await danismanAdaylariGetir(ogrenci.kurumKodu, girdi.danismanKullaniciId)
+      : [];
+  const koordinatorId = await ilKoordinatoruGetir(ogrenci.ilKodu);
+  const karar = devirKarariVer(kalanAdaylar, koordinatorId);
+
+  let yeniDurum: string;
+
+  switch (karar.tur) {
+    case "OTOMATIK_DEVIR": {
+      await atamaDegistir({
+        ogrenciId: ogrenci.id,
+        danismanKullaniciId: karar.yeniDanismanKullaniciId,
+        atamaTipi: "DEVIR",
+        kapanmaNedeni: "DANISMANLIK_BIRAKILDI",
+      });
+      await bildirimGonder({
+        kullaniciId: ogrenci.id,
+        kod: BILDIRIM_KODLARI.DANISMAN_DEGISTI,
+      });
+      yeniDurum = "Okuldaki diğer danışman öğretmene devredildi.";
+      break;
+    }
+
+    case "YENIDEN_SECIM": {
+      // Seçim yapılana kadar geçici olarak il koordinatörüne bağlanır.
+      if (karar.geciciDanismanKullaniciId !== null) {
+        await atamaDegistir({
+          ogrenciId: ogrenci.id,
+          danismanKullaniciId: karar.geciciDanismanKullaniciId,
+          atamaTipi: "IL_KOORDINATOR_FALLBACK",
+          kapanmaNedeni: "DANISMANLIK_BIRAKILDI",
+        });
+      }
+      await bildirimGonder({
+        kullaniciId: ogrenci.id,
+        kod: BILDIRIM_KODLARI.DANISMAN_YENIDEN_SECIM,
+      });
+      yeniDurum =
+        "Öğrenciden yeni danışmanını seçmesi istendi; seçene kadar il koordinatörüne bağlı.";
+      break;
+    }
+
+    case "IL_KOORDINATORUNE": {
+      await atamaDegistir({
+        ogrenciId: ogrenci.id,
+        danismanKullaniciId: karar.yeniDanismanKullaniciId,
+        atamaTipi: "IL_KOORDINATOR_FALLBACK",
+        kapanmaNedeni: "DANISMANLIK_BIRAKILDI",
+      });
+      await bildirimGonder({
+        kullaniciId: ogrenci.id,
+        kod: BILDIRIM_KODLARI.DANISMAN_DEGISTI,
+      });
+      yeniDurum = "İl koordinatörüne bağlandı.";
+      break;
+    }
+
+    case "ATANAMADI": {
+      /*
+       * Ne okulda danışman ne ilde koordinatör var. BIRAKMA YAPILMAZ: öğrenci
+       * boşta kalırdı ve bu, sistemin değişmezlerinden birini ihlal eder.
+       * Öğretmen görevde kalır, proje yöneticisine uyarı düşer.
+       */
+      await projeYoneticilerineBildir(BILDIRIM_KODLARI.OGRENCI_ATANAMADI, {
+        ogrenciAdSoyad,
+        ilKodu: ogrenci.ilKodu ?? "-",
+      });
+      return {
+        olurMu: false,
+        neden:
+          "Bu öğrenci devredilebileceği kimse olmadığı için bırakılamaz: okulda başka danışman öğretmen ve ilde koordinatör yok. Proje yöneticisine uyarı gönderildi.",
+      };
+    }
+  }
+
+  return { olurMu: true, yeniDurum, ogrenciAdSoyad };
 }
 
 /**

@@ -74,6 +74,11 @@ export interface KazanimTipiTanimi extends KazanimMetinleri {
   katilimBicimiVarMi: boolean;
   /** Hedef kitle yalnızca birine bir şey ANLATILAN kayıtlarda sorulur. */
   hedefKitleVarMi: boolean;
+  /**
+   * Ürüne özgü alanlar: geliştiren ekip, çoklu bağlantı ve "markette paylaş".
+   * Yalnızca URUN'da açılır — bir sertifikanın "geliştiren ekibi" olmaz.
+   */
+  urunAlanlariVarMi?: boolean;
 }
 
 /**
@@ -87,7 +92,7 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
   {
     /*
      * GençTek katılımı normalde OTOMATİK gelir (basvuru + faaliyet) ve profilde
-     * "Katıldığım faaliyetler" olarak görünür. Bu tip, sisteme hiç girilmemiş
+     * "Katıldığım etkinlikler" olarak görünür. Bu tip, sisteme hiç girilmemiş
      * eski etkinlikler için elle giriş sağlar.
      *
      * Kayıt bir BEYANDIR: sistem doğrulamaz ve otomatik listeyle çakışabilir.
@@ -125,12 +130,13 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
     baslikEtiketi: "Ürünün adı",
     baslikOrnegi: "Okul kütüphanesi mobil uygulaması",
     aciklama:
-      "Kendi geliştirdiğiniz web sitesi, uygulama, oyun, film ve benzeri ürünler.",
+      "Kendi geliştirdiğiniz web sitesi, uygulama, oyun, film ve benzeri ürünler. Şimdilik yalnızca TANITIM yapılır: program dosyası yüklenmez.",
     dereceVarMi: false,
     duzenleyenVarMi: false,
     programSecimiVarMi: false,
     katilimBicimiVarMi: false,
     hedefKitleVarMi: false,
+    urunAlanlariVarMi: true,
   },
   {
     tip: "AKRAN_EGITIMI",
@@ -146,7 +152,7 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
   },
   {
     tip: "YARISMA_DERECESI",
-    baslik: "Derece aldığım yarışmalar",
+    baslik: "Derecelerim",
     baslikEtiketi: "Yarışmanın adı",
     baslikOrnegi: "Ulusal Bilgisayar Olimpiyatları",
     aciklama:
@@ -155,6 +161,38 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
     duzenleyenVarMi: true,
     programSecimiVarMi: true,
     katilimBicimiVarMi: true,
+    hedefKitleVarMi: false,
+  },
+  {
+    tip: "SERTIFIKA",
+    baslik: "Sertifikalarım",
+    baslikEtiketi: "Sertifikanın adı",
+    baslikOrnegi: "Siber Güvenliğe Giriş — 40 saat",
+    aciklama:
+      "Aldığınız sertifikalar ve katılım belgeleri. Belgenin kendisini kaydın altındaki 'Destekleyici belgeler' alanından yükleyebilirsiniz.",
+    dereceVarMi: false,
+    duzenleyenVarMi: true,
+    programSecimiVarMi: false,
+    katilimBicimiVarMi: false,
+    hedefKitleVarMi: false,
+  },
+  {
+    /*
+     * Topluluk BEYANDIR, ortak bir kayıt değil: aynı kulübe iki öğrenci
+     * yazdığında iki ayrı satır oluşur ve sistem bunları eşleştirmez.
+     * Eşleştirilmiş bir topluluk kaydı ayrı bir referans tablosu ve üyelik
+     * yönetimi demekti — istekte istenen bu değil, "gösterebileceği" bir bölüm.
+     */
+    tip: "TOPLULUK",
+    baslik: "Topluluklarım",
+    baslikEtiketi: "Topluluğun adı",
+    baslikOrnegi: "Robotik Kulübü — takım kaptanı",
+    aciklama:
+      "İçinde yer aldığınız kulüp, proje ekibi, takım ve benzeri topluluklar. Kendi beyanınızdır; sistem doğrulamaz.",
+    dereceVarMi: false,
+    duzenleyenVarMi: true,
+    programSecimiVarMi: false,
+    katilimBicimiVarMi: false,
     hedefKitleVarMi: false,
   },
   {
@@ -195,7 +233,7 @@ const OGRETMEN_METINLERI: Partial<Record<KazanimTipi, Partial<KazanimMetinleri>>
         "Öğrencilere, meslektaşlarınıza ya da velilere verdiğiniz eğitim ve atölyeler.",
     },
     YARISMA_DERECESI: {
-      baslik: "Derece aldığımız yarışmalar",
+      baslik: "Derecelerimiz",
       aciklama:
         "Kendinizin ya da danışmanlığını yaptığınız takımın derece aldığı bilişim yarışmaları.",
     },
@@ -227,6 +265,46 @@ export function kazanimTipleri(
   return KAZANIM_TIPLERI.map((tanim) => kazanimTipiTanimi(tanim.tip, sahip));
 }
 
+/**
+ * Profildeki iki yolculuk bölümü hangi kazanım tiplerini taşır.
+ *
+ * Ayrım kaydın NEREDE geçtiğine göredir, ne olduğuna göre değil: GençTek
+ * içinde yapılan (katıldığı GençTek etkinlikleri, verdiği akran eğitimleri)
+ * bir bölümde, GençTek dışında yapılan (dış etkinlikler, ürünler, dereceler)
+ * öbüründe. "Diğer" bilişim tarafındadır — GençTek kapsamındaki bir kaydın
+ * zaten kendi tipi var, tipini bulamayan kayıt tanımı gereği dışarıdandır.
+ *
+ * İki listenin birleşimi TÜM tipleri kapsamak zorundadır; aksi halde kullanıcı
+ * bir kaydı girer ve profilinde hiçbir yerde göremez. `kazanimBolumuBulunmayan`
+ * bunu birim testte sınar.
+ */
+export const GENCTEK_YOLCULUGU_TIPLERI: readonly KazanimTipi[] = [
+  "GENCTEK_ETKINLIGI",
+  "AKRAN_EGITIMI",
+];
+
+export const BILISIM_YOLCULUGU_TIPLERI: readonly KazanimTipi[] = [
+  "DIS_ETKINLIK",
+  "URUN",
+  "YARISMA_DERECESI",
+  // Sertifika ve topluluk da GençTek DIŞINDA kazanılır; ikisi de buraya düşer
+  // (istek: "Ayrıca 'Sertifikalarım' ve ... 'Topluluklarım' bölümü eklenecek").
+  "SERTIFIKA",
+  "TOPLULUK",
+  "DIGER",
+];
+
+/** Hiçbir yolculuk bölümüne düşmeyen tipler — boş olmalı. */
+export function kazanimBolumuBulunmayan(): KazanimTipi[] {
+  const yerlesenler = new Set<KazanimTipi>([
+    ...GENCTEK_YOLCULUGU_TIPLERI,
+    ...BILISIM_YOLCULUGU_TIPLERI,
+  ]);
+  return KAZANIM_TIPLERI.map((tanim) => tanim.tip).filter(
+    (tip) => !yerlesenler.has(tip),
+  );
+}
+
 export function kazanimTipiGecerliMi(deger: string): deger is KazanimTipi {
   return KAZANIM_TIPLERI.some((tanim) => tanim.tip === deger);
 }
@@ -238,6 +316,19 @@ const DERECE_SINIRI = 120;
 const DUZENLEYEN_SINIRI = 200;
 const BAGLANTI_SINIRI = 500;
 const HEDEF_KITLE_SINIRI = 200;
+const GELISTIREN_EKIP_SINIRI = 250;
+const BAGLANTI_ETIKET_SINIRI = 100;
+/**
+ * Bir kayda eklenebilecek azami bağlantı. Sınırsız bırakılsaydı tek kayıt
+ * yüzlerce satır taşıyabilir ve ekran kullanılamaz hâle gelirdi.
+ */
+const BAGLANTI_ADEDI_SINIRI = 10;
+
+/** Ürün formundaki tek bir bağlantı satırı. */
+export interface BaglantiGirdisi {
+  adres: string;
+  etiket?: string | null;
+}
 
 export interface KazanimGirdisi {
   tip: string;
@@ -249,6 +340,11 @@ export interface KazanimGirdisi {
   duzenleyen?: string | null;
   katilimBicimi?: string | null;
   hedefKitle?: string | null;
+  /** Yalnızca üründe sorulur. */
+  gelistirenEkip?: string | null;
+  markettePaylasilsin?: boolean;
+  /** Ürünün birden çok adresi olabilir: depo, canlı sürüm, tanıtım videosu. */
+  baglantilar?: BaglantiGirdisi[];
   /**
    * Listeden seçilen GençTek programı. Seçilmediyse (ya da "Diğer" seçildiyse)
    * null gelir ve ad serbest metinden okunur.
@@ -257,6 +353,12 @@ export interface KazanimGirdisi {
 }
 
 /** Doğrulamadan geçmiş, veritabanına yazılmaya hazır kayıt. */
+export interface TemizBaglanti {
+  adres: string;
+  etiket: string | null;
+  siraNo: number;
+}
+
 export interface TemizKazanim {
   tip: KazanimTipi;
   baslik: string;
@@ -268,10 +370,12 @@ export interface TemizKazanim {
   temelEtkinlikProgramiId: number | null;
   katilimBicimi: KatilimBicimi | null;
   hedefKitle: string | null;
+  gelistirenEkip: string | null;
+  markettePaylasilsin: boolean;
 }
 
 export type KazanimKarari =
-  | { olurMu: true; kayit: TemizKazanim }
+  | { olurMu: true; kayit: TemizKazanim; baglantilar: TemizBaglanti[] }
   | { olurMu: false; neden: string };
 
 function kirp(deger: string | null | undefined): string | null {
@@ -286,7 +390,7 @@ function kirp(deger: string | null | undefined): string | null {
  * profilde tıklanabilir bağlantı olarak gösterildiğinde profile bakan
  * danışmanın tarayıcısında kod çalıştırırdı.
  */
-function baglantiGecerliMi(adres: string): boolean {
+export function baglantiGecerliMi(adres: string): boolean {
   try {
     const cozulen = new URL(adres);
     return cozulen.protocol === "http:" || cozulen.protocol === "https:";
@@ -365,8 +469,23 @@ export function kazanimKabulEdilirMi(girdi: KazanimGirdisi): KazanimKarari {
     };
   }
 
+  /*
+   * KATILIM BİÇİMİ YENİ KAYITLARDA ZORUNLU (5 Ağustos 2026).
+   *
+   * Formdaki "Belirtmek istemiyorum" seçeneği kaldırıldı: bilgi zaten
+   * kullanıcının kafasında var ve boş bırakılan her kayıt raporlamada
+   * "bilinmiyor" olarak birikiyordu.
+   *
+   * ESKİ KAYITLAR GERİYE DÖNÜK DOLDURULMAZ ve sütun NULL kabul etmeye devam
+   * eder: bugüne kadar boş bırakılmış beyanları "yüz yüze" diye varsaymak
+   * veriyi uydurmak olurdu. Kural yalnızca bu kapıdan, yani YENİ kayıttan
+   * geçenlere uygulanır.
+   */
   const hamKatilim = tanim.katilimBicimiVarMi ? kirp(girdi.katilimBicimi) : null;
   let katilimBicimi: KatilimBicimi | null = null;
+  if (tanim.katilimBicimiVarMi && hamKatilim === null) {
+    return { olurMu: false, neden: "Katılım biçimi seçilmelidir." };
+  }
   if (hamKatilim !== null) {
     if (!katilimBicimiGecerliMi(hamKatilim)) {
       return { olurMu: false, neden: "Katılım biçimi anlaşılamadı." };
@@ -387,6 +506,67 @@ export function kazanimKabulEdilirMi(girdi: KazanimGirdisi): KazanimKarari {
     return { olurMu: false, neden: "Tarih anlaşılamadı." };
   }
 
+  /*
+   * ÜRÜNE ÖZGÜ ALANLAR. Tipe uymayan alanlar burada da sessizce düşürülür:
+   * bir sertifikanın "geliştiren ekibi" ya da "markette paylaş" bayrağı olmaz
+   * ve istek elle kurcalanarak gönderilse bile yazılmamalı.
+   */
+  const urunAlanlari = tanim.urunAlanlariVarMi === true;
+
+  const gelistirenEkip = urunAlanlari ? kirp(girdi.gelistirenEkip) : null;
+  if (gelistirenEkip && gelistirenEkip.length > GELISTIREN_EKIP_SINIRI) {
+    return {
+      olurMu: false,
+      neden: `Geliştiren ekip en fazla ${GELISTIREN_EKIP_SINIRI} karakter olabilir.`,
+    };
+  }
+
+  const markettePaylasilsin = urunAlanlari
+    ? girdi.markettePaylasilsin === true
+    : false;
+
+  const baglantilar: TemizBaglanti[] = [];
+  if (urunAlanlari) {
+    // Boş satırlar formdan gelir (kullanıcı hepsini doldurmak zorunda değil);
+    // sayıya girmeden önce eleniyorlar.
+    const dolular = (girdi.baglantilar ?? []).filter((satir) =>
+      Boolean(satir.adres?.trim()),
+    );
+    if (dolular.length > BAGLANTI_ADEDI_SINIRI) {
+      return {
+        olurMu: false,
+        neden: `En fazla ${BAGLANTI_ADEDI_SINIRI} bağlantı eklenebilir.`,
+      };
+    }
+    for (const [sira, satir] of dolular.entries()) {
+      const adres = satir.adres.trim();
+      if (adres.length > BAGLANTI_SINIRI) {
+        return {
+          olurMu: false,
+          neden: `Bağlantı adresi en fazla ${BAGLANTI_SINIRI} karakter olabilir.`,
+        };
+      }
+      /*
+       * Protokol kontrolü tek bağlantıdakiyle AYNI: `javascript:` ile başlayan
+       * bir adres, profile bakan danışmanın tarayıcısında kod çalıştırırdı.
+       */
+      if (!baglantiGecerliMi(adres)) {
+        return {
+          olurMu: false,
+          neden: "Bağlantı adresleri http:// veya https:// ile başlamalıdır.",
+        };
+      }
+      const etiket = kirp(satir.etiket);
+      if (etiket && etiket.length > BAGLANTI_ETIKET_SINIRI) {
+        return {
+          olurMu: false,
+          neden: `Bağlantı etiketi en fazla ${BAGLANTI_ETIKET_SINIRI} karakter olabilir.`,
+        };
+      }
+      baglantilar.push({ adres, etiket, siraNo: sira });
+    }
+  }
+
   return {
     olurMu: true,
     kayit: {
@@ -400,6 +580,9 @@ export function kazanimKabulEdilirMi(girdi: KazanimGirdisi): KazanimKarari {
       temelEtkinlikProgramiId: program?.id ?? null,
       katilimBicimi,
       hedefKitle,
+      gelistirenEkip,
+      markettePaylasilsin,
     },
+    baglantilar,
   };
 }

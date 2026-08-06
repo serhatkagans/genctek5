@@ -14,10 +14,12 @@ import {
 import Link from "next/link";
 import { KatkiKarti } from "@/components/KatkiKarti";
 import {
-  KatilimKarti,
   KazanimBolumleri,
   SaltOkunurAlan,
+  SeferlerimKarti,
 } from "@/components/OgrenciProfilBolumleri";
+import { OnayBelgeleriBolumu } from "@/components/OnayBelgeleriBolumu";
+import { RotamKarti } from "@/components/RotamKarti";
 import {
   BilgiKutusu,
   Kart,
@@ -39,6 +41,8 @@ import {
 import { profilFotoSinirlariniGetir } from "@/lib/kullanici/profil-foto";
 import { SALT_OKUNUR_ACIKLAMASI } from "@/lib/kullanici/salt-okunur";
 import { cvSinirlariniGetir } from "@/lib/ogrenci/cv";
+import { kazanimEkSinirlariniGetir } from "@/lib/kazanim/ek";
+import { onayDurumlari } from "@/lib/kvkk/onay";
 import { cvTipAdlari } from "@/lib/ogrenci/cv-kurallar";
 import {
   ETKINLIK_KATEGORISI_ETIKETLERI,
@@ -47,6 +51,7 @@ import {
 import { BAGLANTI_TANIMLARI } from "@/lib/ogrenci/iletisim-kurallar";
 import { katkiVerisiGetir } from "@/lib/ogrenci/katki";
 import {
+  BILISIM_YOLCULUGU_TIPLERI,
   KATILIM_BICIMI_ETIKETLERI,
   KATILIM_BICIMLERI,
   kazanimTipiGecerliMi,
@@ -68,12 +73,20 @@ import {
   profilFotoYukleEylemi,
   profilGuncelleEylemi,
 } from "./eylemler";
+import { belgeOnaylaEylemi } from "./belge-eylemleri";
 import {
   cvSilEylemi,
   cvYukleEylemi,
+  kazanimBelgeEkleEylemi,
+  kazanimBelgeSilEylemi,
   kazanimEkleEylemi,
   kazanimSilEylemi,
 } from "./kazanim-eylemleri";
+import {
+  hedefDurumuEylemi,
+  hedefEkleEylemi,
+  hedefSilEylemi,
+} from "./hedef-eylemleri";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +98,9 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "cv-silindi": "CV'niz kaldırıldı.",
   "foto-yuklendi": "Profil fotoğrafınız güncellendi.",
   "foto-silindi": "Profil fotoğrafınız kaldırıldı.",
+  "belge-eklendi": "Destekleyici belge eklendi.",
+  "belge-silindi": "Destekleyici belge kaldırıldı.",
+  "belge-onaylandi": "Onayınız kaydedildi ve erişim kayıtlarına işlendi.",
 };
 
 /** Kazanım ekleme formunun hangi tür için açık olduğu. */
@@ -120,6 +136,19 @@ export default async function ProfilSayfasi({
         // Kullanıcının girdiği tarih boş olabildiği için ikinci sıralama ölçütü
         // gerekiyor; yoksa tarihsiz kayıtların sırası belirsiz kalır.
         orderBy: [{ tarih: "desc" }, { olusturmaTarihi: "desc" }],
+        include: {
+          // Destekleyici belgeler. Yalnızca ad ve kimlik gerekiyor; depolama
+          // anahtarı ekrana HİÇ çıkmaz, indirme kapsam kontrollü rotadan geçer.
+          ekler: {
+            select: { id: true, dosyaAdi: true },
+            orderBy: { yuklenmeTarihi: "asc" },
+          },
+          // Ürünün çoklu bağlantıları (D5).
+          baglantilar: {
+            select: { id: true, adres: true, etiket: true },
+            orderBy: { siraNo: "asc" },
+          },
+        },
       },
     },
   });
@@ -137,6 +166,29 @@ export default async function ProfilSayfasi({
   const cvSinirlari = ogrenci ? await cvSinirlariniGetir() : null;
 
   /*
+   * "Rotam" hedefleri (D6). Yalnızca öğrencide çekiliyor — kart da yalnızca
+   * öğrencide basılıyor; öğretmen için sorgu boşa dönerdi.
+   *
+   * Sıralama KODDA yapılıyor (lib/hedef/kurallar.ts), SQL'de değil: kural
+   * "önce süren, sonra planlanan, en sonda tamamlanan" ve bunun testi saf
+   * fonksiyon üzerinden yazılabiliyor. Burada sabit bir `id` sırası veriliyor
+   * ki sıralayıcının son kırıcısı belirli bir girdi görsün.
+   */
+  const hedefler = ogrenci
+    ? await prisma.kullaniciHedefi.findMany({
+        where: { kullaniciId: kullanici.id },
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          baslik: true,
+          aciklama: true,
+          durum: true,
+          hedefTarihi: true,
+        },
+      })
+    : [];
+
+  /*
    * Kazanım formunun "GençTek etkinliği" listesi, faaliyet formununkiyle AYNI
    * kaynaktan gelir. Pasife alınmışlar teklif edilmez; geçmiş kayıtların
    * bağlantısı korunur.
@@ -148,6 +200,31 @@ export default async function ProfilSayfasi({
   });
   // Fotoğraf sınırları role bakılmadan alınır: kart herkese gösteriliyor.
   const fotoSinirlari = await profilFotoSinirlariniGetir();
+
+  /*
+   * Destekleyici belge sınırları etkinlik ekleriyle ORTAKTIR: ikisi de aynı
+   * türde içerik taşıyor (etkinlik fotoğrafı ve belgesi). Ayrışmaları gerekirse
+   * değişecek tek yer lib/kazanim/ek.ts.
+   */
+  const belgeSinirlari = await kazanimEkSinirlariniGetir();
+
+  /*
+   * KVKK ve onay belgeleri. Menüden kaldırıldığı için buraya, sayfanın EN
+   * ALTINA taşındı: onayladığı belgeye sonradan erişememek KVKK açısından
+   * savunulabilir değil. Kullanıcıdan hiçbir belge istenmiyorsa liste boş
+   * döner ve bölüm hiç basılmaz.
+   */
+  const belgeDurumlari = await onayDurumlari(kullanici);
+  const izinliBelgeTipleri = [
+    ...belgeSinirlari.izinliGorselTipleri,
+    ...belgeSinirlari.izinliBelgeTipleri,
+  ];
+  const belgeEylemleri = {
+    silmeEylemi: kazanimSilEylemi,
+    belgeEkleEylemi: kazanimBelgeEkleEylemi,
+    belgeSilEylemi: kazanimBelgeSilEylemi,
+    izinliBelgeTipleri,
+  };
 
   // Koordinatörün sorumlu olduğu il, kişinin kayıtlı ilinden farklı olabilir;
   // adı ayrıca getirilir çünkü ham "34" kodu ekranda hiçbir şey anlatmıyor.
@@ -298,9 +375,20 @@ export default async function ProfilSayfasi({
         <dl className="grid gap-5 sm:grid-cols-2">
           <SaltOkunurAlan etiket="Ad" deger={kayit.ad} />
           <SaltOkunurAlan etiket="Soyad" deger={kayit.soyad} />
+          {/*
+            Üç değer var, iki değil: dış başvuruda (mezun, paydaş) cinsiyet
+            SORULMUYOR ve kayıt "B" ile açılıyor. İkili bir gösterim, sorulmamış
+            bir bilgiyi "Erkek" diye uydururdu.
+          */}
           <SaltOkunurAlan
             etiket="Cinsiyet"
-            deger={kayit.cinsiyet === "K" ? "Kadın" : "Erkek"}
+            deger={
+              kayit.cinsiyet === "K"
+                ? "Kadın"
+                : kayit.cinsiyet === "E"
+                  ? "Erkek"
+                  : "Belirtilmedi"
+            }
           />
           <SaltOkunurAlan
             etiket="Eğitim-öğretim yılı"
@@ -476,7 +564,7 @@ export default async function ProfilSayfasi({
           </Kart>
 
           {/*
-            Temsilcilik, çalışma grubu ve düzenlenen faaliyetler bu kartta
+            Temsilcilik, çalışma grubu ve düzenlenen etkinlikler bu kartta
             TOPLANDI; daha önce ilki danışman kartının dibinde, ikincisi ayrı
             bir listede duruyor ve üçüncüsü hiç görünmüyordu.
           */}
@@ -487,6 +575,26 @@ export default async function ProfilSayfasi({
               gruplar={katki.gruplar}
               faaliyetler={katki.faaliyetler}
               egitimOgretimYili={kullanici.egitimOgretimYili}
+              katilim={kazanim}
+              kazanimlar={kayit.kazanimlar}
+              {...belgeEylemleri}
+            />
+          )}
+
+          {/*
+            SEFERLERİM (D7 · 6 Ağustos 2026) — eski adıyla "Katkı nişanlarım".
+            İstek nişanları profil bölümüne aldı; aynı kart Katkılarım
+            ekranında da duruyor ve ikisi tek bileşenden basılıyor.
+
+            SEVİYE SİSTEMİ HENÜZ YOK: istekteki iki liste (usta/kalfa/çırak ve
+            keşfeden/üreten/paylaşan/lider/elçi) arasından hangisinin geçerli
+            olduğu ve seviye atlama ölçütleri belirsiz (→ S15).
+          */}
+          {kazanim && (
+            <SeferlerimKarti
+              rozetler={kazanim.rozetler}
+              seferler={kazanim.seferler}
+              bosMesaji="Henüz seferin yok. İlk etkinliğine katıldığında burası dolmaya başlayacak."
             />
           )}
 
@@ -548,7 +656,11 @@ export default async function ProfilSayfasi({
             </form>
           </Kart>
 
-          {kazanim && <KatilimKarti kazanim={kazanim} />}
+          {/*
+            "Katıldığım etkinlikler" ARTIK AYRI KART DEĞİL: GençTek
+            Yolculuğum'un içine taşındı. Ayrı kart olarak da bırakılsaydı aynı
+            liste sayfada iki kez görünürdü.
+          */}
         </>
       )}
 
@@ -557,26 +669,48 @@ export default async function ProfilSayfasi({
         geliştirdiği materyal, verdiği eğitim ve derece aldığı yarışma da
         ekosisteme katkıdır. Kayıt, alanları ve doğrulaması aynı; değişen
         yalnızca etiketler (bkz. lib/kazanim/kurallar.ts).
+
+        ÖĞRENCİDE bu kart yalnızca GençTek DIŞI kayıtları taşır: GençTek
+        tarafındakiler (katıldığı etkinlikler, akran eğitimleri) yukarıdaki
+        "GençTek Yolculuğum" kartına taşındı. ÖĞRETMENDE bölünme YOK — onun
+        profilinde GençTek Yolculuğum kartı basılmıyor, tipleri buradan da
+        çıkarsaydık kayıtları hiçbir yerde göremezdi.
       */}
       <Kart>
         <KartBasligi
-          baslik="Ekosisteme katkı"
+          baslik={ogrenci ? "Bilişim Yolculuğum" : "Ekosisteme katkı"}
           aciklama={
             ogrenci
-              ? "GençTek dışı etkinlikler, yaptığınız ürünler, verdiğiniz akran eğitimleri ve derece aldığınız yarışmalar. Kayıtları siz girersiniz; danışmanınız ve koordinatörünüz profilinizde görür."
+              ? "GençTek dışında yaptıkların: katıldığın etkinlikler, yaptığın ürünler ve derecelerin. Kayıtları sen girersin; danışmanın ve koordinatörün profilinde görür."
               : "GençTek dışı etkinlikler, geliştirdiğiniz ürünler, verdiğiniz eğitimler ve derece aldığınız yarışmalar. Kayıtları siz girersiniz; il koordinatörünüz ve proje yöneticisi öğretmen kaydınızda görür."
           }
           Ikon={Sparkles}
         />
         <KazanimBolumleri
           kazanimlar={kayit.kazanimlar}
-          silmeEylemi={kazanimSilEylemi}
           bosMesaji="Henüz kayıt girmediniz."
           sahip={kazanimSahibi}
+          tipler={ogrenci ? BILISIM_YOLCULUGU_TIPLERI : undefined}
+          {...belgeEylemleri}
         />
       </Kart>
 
-      <Kart>
+      {/*
+        "Rotam" — istekteki profil sırasının SONUNCUSU ("… GençTek Yolculuğum,
+        Bilişim Yolculuğu, Rotam"). Yolculuk kartlarından sonra gelmesi
+        anlamlı: yukarısı yapılanlar, burası yapılacaklar.
+      */}
+      {ogrenci && (
+        <RotamKarti
+          hedefler={hedefler}
+          ekleEylemi={hedefEkleEylemi}
+          durumEylemi={hedefDurumuEylemi}
+          silmeEylemi={hedefSilEylemi}
+        />
+      )}
+
+      {/* `id`: Panelim'deki "katkı girişi" bağlantısı doğrudan buraya iner. */}
+      <Kart className="scroll-mt-6" id="kayit-ekle">
         <KartBasligi baslik="Yeni kayıt ekle" Ikon={Plus} />
 
         <nav className="mb-5 flex flex-wrap gap-2" aria-label="Kayıt türü">
@@ -658,6 +792,16 @@ export default async function ProfilSayfasi({
               />
             </label>
 
+            {/*
+              "Belirtmek istemiyorum" KALDIRILDI ve alan zorunlu oldu. Boş
+              seçenek yerine seçilemez bir yer tutucu duruyor: `required` tek
+              başına, ilk seçenek geçerli bir değer olduğunda hiçbir şey
+              yapmazdı.
+
+              Eski kayıtlar bundan etkilenmez; sütun NULL kabul etmeye devam
+              ediyor ve geriye dönük doldurma YAPILMADI (bkz.
+              lib/kazanim/kurallar.ts · katılım biçimi).
+            */}
             {seciliTanim.katilimBicimiVarMi && (
               <label className="block">
                 <span className="text-sm font-medium text-metin">
@@ -665,10 +809,13 @@ export default async function ProfilSayfasi({
                 </span>
                 <select
                   name="katilimBicimi"
+                  required
                   defaultValue=""
                   className={SINIF_GIRDI}
                 >
-                  <option value="">Belirtmek istemiyorum</option>
+                  <option value="" disabled>
+                    Seçiniz
+                  </option>
                   {KATILIM_BICIMLERI.map((bicim) => (
                     <option key={bicim} value={bicim}>
                       {KATILIM_BICIMI_ETIKETLERI[bicim]}
@@ -705,6 +852,106 @@ export default async function ProfilSayfasi({
                   className={SINIF_GIRDI}
                 />
               </label>
+            )}
+
+            {/*
+              ÜRÜNE ÖZGÜ ALANLAR (D5 · 6 Ağustos 2026). İstekteki form:
+              Ürün Adı · Geliştiren Ekip · Açıklamalar · Destekleyici Görseller
+              · Linkler. Ad ve açıklama zaten ortak alanlar; görseller
+              "Destekleyici belgeler" alanından yükleniyor (kazanim_ek).
+
+              PROGRAM DOSYASI YÜKLENMİYOR — istek "şimdilik sadece tanıtım
+              yapsınlar" diyor. Yükleme açılırsa zararlı yazılım taraması ve
+              dağıtım sorumluluğu ayrıca konuşulmalı.
+            */}
+            {seciliTanim.urunAlanlariVarMi && (
+              <>
+                <label className="block">
+                  <span className="text-sm font-medium text-metin">
+                    Geliştiren ekip{" "}
+                    <span className="font-normal text-metin-yumusak">
+                      (isteğe bağlı)
+                    </span>
+                  </span>
+                  <input
+                    type="text"
+                    name="gelistirenEkip"
+                    maxLength={250}
+                    placeholder="Kendim · ya da ekip arkadaşlarının adları"
+                    className={SINIF_GIRDI}
+                  />
+                </label>
+
+                <label className="flex items-start gap-2 sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    name="markettePaylasilsin"
+                    value="evet"
+                    className="mt-1 h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+                  />
+                  <span className="text-sm text-metin">
+                    <span className="font-medium">Bu ürünü markette paylaş</span>
+                    {/*
+                      Metin 6 Ağustos 2026'da güncellendi: market ekranı açıldı
+                      (I). Eski metin "Market ekranı henüz açılmadı" diyordu ve
+                      artık yanlıştı.
+                    */}
+                    <span className="mt-0.5 block text-metin-yumusak">
+                      İşaretlerseniz ürününüz{" "}
+                      <Link
+                        href="/panel/urunler"
+                        className="text-vurgu-metin underline underline-offset-2"
+                      >
+                        GençTek Market
+                      </Link>
+                      &apos;te listelenir ve GençTek&apos;e girmiş herkes
+                      görebilir. İşaretlemezseniz ürün yalnızca sizde kalır;
+                      paylaşımı sonradan ürün sayfasından açıp kapatabilirsiniz.
+                    </span>
+                  </span>
+                </label>
+
+                <fieldset className="sm:col-span-2">
+                  <legend className="text-sm font-medium text-metin">
+                    Bağlantılar{" "}
+                    <span className="font-normal text-metin-yumusak">
+                      (isteğe bağlı)
+                    </span>
+                  </legend>
+                  <p className="mt-1 mb-2 text-sm text-metin-yumusak">
+                    Ürünün deposu, canlı sürümü ve tanıtım videosu ayrı ayrı
+                    yazılabilir. Boş satırlar yok sayılır.
+                  </p>
+                  {/*
+                    Sabit üç satır: JavaScript olmadan "satır ekle" düğmesi
+                    yapılamıyor ve sunucuya gidip gelmek formu sıfırlardı. Üç,
+                    istekteki kullanım için yeterli; kural katmanı ona da
+                    üst sınır koyuyor.
+                  */}
+                  <div className="space-y-2">
+                    {[0, 1, 2].map((sira) => (
+                      <div key={sira} className="grid gap-2 sm:grid-cols-3">
+                        <input
+                          type="url"
+                          name="baglantiAdres"
+                          maxLength={500}
+                          placeholder="https://"
+                          className={`${SINIF_GIRDI} sm:col-span-2`}
+                          aria-label={`${sira + 1}. bağlantı adresi`}
+                        />
+                        <input
+                          type="text"
+                          name="baglantiEtiket"
+                          maxLength={100}
+                          placeholder="kaynak kod"
+                          className={SINIF_GIRDI}
+                          aria-label={`${sira + 1}. bağlantı etiketi`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </fieldset>
+              </>
             )}
 
             {seciliTanim.dereceVarMi && (
@@ -751,6 +998,32 @@ export default async function ProfilSayfasi({
                 className={SINIF_GIRDI}
               />
             </label>
+
+            {/*
+              Destekleyici belgeler. Kayıt oluşturulduktan SONRA yazılır; dosya
+              reddedilirse kayıt geri alınmaz, uyarı gösterilir ve dosya
+              sonradan eklenebilir (bkz. kazanimEkleEylemi).
+            */}
+            <label className="block sm:col-span-2">
+              <span className="text-sm font-medium text-metin">
+                Destekleyici belgeler (isteğe bağlı)
+              </span>
+              <input
+                type="file"
+                name="belgeler"
+                multiple
+                accept={izinliBelgeTipleri.join(",")}
+                className="mt-1 block w-full text-sm text-metin file:mr-3 file:rounded-md file:border file:border-cizgi file:bg-kart file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-metin"
+              />
+              <span className="mt-1 block text-sm text-metin-yumusak">
+                Etkinliğe dair fotoğraf ve belge ekleyebilirsiniz. Görsel için
+                en fazla{" "}
+                {(belgeSinirlari.gorselMaksBayt / (1024 * 1024)).toFixed(0)} MB,
+                belge için{" "}
+                {(belgeSinirlari.belgeMaksBayt / (1024 * 1024)).toFixed(0)} MB.
+                Yüklediğiniz belgeleri danışmanınız ve koordinatörünüz de görür.
+              </span>
+            </label>
           </div>
 
           <button type="submit" className={SINIF_BIRINCIL_BUTON}>
@@ -759,6 +1032,18 @@ export default async function ProfilSayfasi({
           </button>
         </form>
       </Kart>
+
+      {/*
+        EN ALTTA duruyor ve `id="kvkk"` taşıyor: şerit ile eski /panel/kvkk
+        adresi buraya çapa ile geliyor. Yukarı taşınırsa o iki bağlantı da
+        yanlış yere düşer.
+      */}
+      <div id="kvkk" className="scroll-mt-6">
+        <OnayBelgeleriBolumu
+          durumlar={belgeDurumlari}
+          onaylaEylemi={belgeOnaylaEylemi}
+        />
+      </div>
     </div>
   );
 }

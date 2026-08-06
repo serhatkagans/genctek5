@@ -105,3 +105,49 @@ export function devirKarariVer(
 export function yeniDanismanGeldigindeDevredilirMi(): false {
   return false;
 }
+
+/** Tekil bırakma gerekçesinin alt ve üst sınırı. */
+const BIRAKMA_GEREKCESI_ENAZ = 10;
+const BIRAKMA_GEREKCESI_ENFAZLA = 500;
+
+export type BirakmaKarari =
+  | { olurMu: true; gerekce: string }
+  | { olurMu: false; neden: string };
+
+/**
+ * Öğretmenin TEK bir öğrencinin danışmanlığını bırakma gerekçesi.
+ *
+ * GEREKÇE ZORUNLUDUR ve bu bir biçim kaygısı değil: burada açık bir kötüye
+ * kullanım kapısı var — "zor" bulunan öğrencinin sessizce bırakılması. Gerekçe
+ * yazılmak zorunda olduğunda ve erişim kaydına geçtiğinde, karar sahibi
+ * hesap verebilir hâle gelir. İl koordinatörüne de bildirim gider (istek:
+ * "koordinatöre bilgi gitsin gerekçe şart").
+ *
+ * Alt sınır var çünkü tek harflik bir gerekçe, gerekçe zorunluluğunu biçimsel
+ * olarak karşılayıp anlamını boşaltırdı.
+ */
+export function birakmaGerekcesiniCoz(ham: string): BirakmaKarari {
+  const gerekce = ham.trim().replace(/\s+/g, " ");
+
+  if (!gerekce) {
+    return {
+      olurMu: false,
+      neden:
+        "Danışmanlığı bırakma gerekçesi zorunludur; gerekçe il koordinatörüne iletilir ve erişim kaydına yazılır.",
+    };
+  }
+  if (gerekce.length < BIRAKMA_GEREKCESI_ENAZ) {
+    return {
+      olurMu: false,
+      neden: `Gerekçe en az ${BIRAKMA_GEREKCESI_ENAZ} karakter olmalıdır.`,
+    };
+  }
+  if (gerekce.length > BIRAKMA_GEREKCESI_ENFAZLA) {
+    return {
+      olurMu: false,
+      neden: `Gerekçe en fazla ${BIRAKMA_GEREKCESI_ENFAZLA} karakter olabilir.`,
+    };
+  }
+
+  return { olurMu: true, gerekce };
+}

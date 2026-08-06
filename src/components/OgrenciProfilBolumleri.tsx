@@ -2,7 +2,10 @@ import {
   Award,
   CalendarCheck,
   ExternalLink,
+  Lock,
+  Store,
   Package,
+  Paperclip,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
@@ -10,6 +13,8 @@ import type { KatilimBicimi, KazanimTipi } from "@/generated/prisma/enums";
 import { KapsamRozeti, KategoriRozeti } from "@/components/FaaliyetRozetleri";
 import { Kart, KartBasligi } from "@/components/ui";
 import type { KazanimSonucu } from "@/lib/kazanim/getir";
+import type { RozetDurumu, SeferDurumu } from "@/lib/kazanim/rozetler";
+import { uygulamaYolu } from "@/lib/ortam";
 import {
   KATILIM_BICIMI_ETIKETLERI,
   type KazanimSahibi,
@@ -46,6 +51,17 @@ export function SaltOkunurAlan({
   );
 }
 
+export interface KazanimEkSatiri {
+  id: number;
+  dosyaAdi: string;
+}
+
+export interface KazanimBaglantiSatiri {
+  id: number;
+  adres: string;
+  etiket: string | null;
+}
+
 export interface KazanimSatiri {
   id: number;
   tip: KazanimTipi;
@@ -57,16 +73,37 @@ export interface KazanimSatiri {
   duzenleyen: string | null;
   katilimBicimi: KatilimBicimi | null;
   hedefKitle: string | null;
+  /**
+   * Destekleyici belgeler. Kaydı yalnızca GÖRÜNTÜLEYEN ekranlar bu alanı
+   * doldurmayabilir; o zaman bölüm hiç basılmaz.
+   */
+  ekler?: KazanimEkSatiri[];
+  /** Ürüne özgü alanlar (D5); diğer tiplerde boş kalır. */
+  gelistirenEkip?: string | null;
+  markettePaylasilsin?: boolean;
+  baglantilar?: KazanimBaglantiSatiri[];
+}
+
+/** Kazanım satırının düzenleme yetenekleri — hepsi isteğe bağlı. */
+export interface KazanimEylemleri {
+  silmeEylemi?: (veri: FormData) => Promise<void>;
+  belgeEkleEylemi?: (veri: FormData) => Promise<void>;
+  belgeSilEylemi?: (veri: FormData) => Promise<void>;
+  /** Yükleme alanının `accept` değeri; sınırlar sistem ayarından gelir. */
+  izinliBelgeTipleri?: string[];
 }
 
 function KazanimSatiriGosterimi({
   kazanim,
   silmeEylemi,
+  belgeEkleEylemi,
+  belgeSilEylemi,
+  izinliBelgeTipleri,
 }: {
   kazanim: KazanimSatiri;
-  silmeEylemi?: (veri: FormData) => Promise<void>;
-}) {
+} & KazanimEylemleri) {
   const altBilgiler = [
+    kazanim.gelistirenEkip ? `Ekip: ${kazanim.gelistirenEkip}` : null,
     kazanim.duzenleyen,
     kazanim.katilimBicimi
       ? KATILIM_BICIMI_ETIKETLERI[kazanim.katilimBicimi]
@@ -83,6 +120,17 @@ function KazanimSatiriGosterimi({
           {kazanim.derece && (
             <span className="rounded-full bg-olumlu-zemin px-2 py-0.5 text-xs font-semibold text-olumlu-metin">
               {kazanim.derece}
+            </span>
+          )}
+          {/*
+            Markette paylaşım işareti ROZET olarak gösteriliyor: kullanıcı
+            hangi ürününü vitrine koyduğunu listeye bakarak görebilmeli,
+            düzenleme ekranını açmadan.
+          */}
+          {kazanim.markettePaylasilsin && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-vurgu-zemin px-2 py-0.5 text-xs font-medium text-vurgu-metin">
+              <Store size={12} aria-hidden />
+              Markette
             </span>
           )}
         </p>
@@ -113,6 +161,92 @@ function KazanimSatiriGosterimi({
             Bağlantıyı aç
           </a>
         )}
+
+        {kazanim.baglantilar && kazanim.baglantilar.length > 0 && (
+          <ul className="mt-1.5 flex flex-wrap gap-3">
+            {kazanim.baglantilar.map((baglanti) => (
+              <li key={baglanti.id}>
+                <a
+                  /* Protokol kontrolü kayıt sırasında yapıldı; yine de dış
+                     siteye çıkıldığı için noopener/noreferrer zorunlu. */
+                  href={baglanti.adres}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-vurgu-metin underline underline-offset-2"
+                >
+                  <ExternalLink size={14} aria-hidden />
+                  {baglanti.etiket ?? "Bağlantıyı aç"}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/*
+          Destekleyici belgeler. Dosyalar public dizinden servis EDİLMEZ;
+          bağlantı, kapsam kontrolünden geçen bir rotaya gider
+          (panel/kazanim-ekleri/[ekId]).
+        */}
+        {kazanim.ekler && kazanim.ekler.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {kazanim.ekler.map((ek) => (
+              <li
+                key={ek.id}
+                className="inline-flex items-center gap-1.5 rounded-full border border-cizgi px-3 py-1 text-sm"
+              >
+                <Paperclip size={13} className="text-metin-yumusak" aria-hidden />
+                <a
+                  /*
+                   * `<a>` HAM özniteliktir: <Link>'in aksine basePath'i kendisi
+                   * eklemez, alt dizin kurulumunda uygulamanın dışına çıkardı.
+                   * `target="_blank"` gerektiği için Link kullanılmıyor —
+                   * belge yeni sekmede açılmalı ki kullanıcı profilden düşmesin.
+                   */
+                  href={uygulamaYolu(`/panel/kazanim-ekleri/${ek.id}`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-vurgu-metin underline underline-offset-2"
+                >
+                  {ek.dosyaAdi}
+                </a>
+                {belgeSilEylemi && (
+                  <form action={belgeSilEylemi}>
+                    <input type="hidden" name="ekId" value={ek.id} />
+                    <button
+                      type="submit"
+                      className="text-metin-yumusak transition hover:text-hata-metin"
+                      aria-label={`${ek.dosyaAdi} belgesini kaldır`}
+                    >
+                      <Trash2 size={13} aria-hidden />
+                    </button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {belgeEkleEylemi && (
+          <form action={belgeEkleEylemi} className="mt-2 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="kazanimId" value={kazanim.id} />
+            <input
+              type="file"
+              name="belgeler"
+              multiple
+              required
+              accept={izinliBelgeTipleri?.join(",")}
+              className="max-w-full text-sm text-metin file:mr-2 file:rounded-md file:border file:border-cizgi file:bg-kart file:px-2.5 file:py-1 file:text-sm file:font-medium file:text-metin"
+              aria-label={`${kazanim.baslik} kaydına destekleyici belge ekle`}
+            />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-md border border-cizgi px-2.5 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin"
+            >
+              <Paperclip size={14} aria-hidden />
+              Belge ekle
+            </button>
+          </form>
+        )}
       </div>
       {silmeEylemi && (
         <form action={silmeEylemi}>
@@ -132,25 +266,60 @@ function KazanimSatiriGosterimi({
 }
 
 /**
- * Kazanım kayıtları, türlerine göre dört bölümde.
+ * Kayıt listesi — başlıksız.
+ *
+ * Başlığını çağıranın verdiği yerlerde kullanılır (ör. "GençTek Yolculuğum"
+ * kartının akran eğitimi bölümü): `KazanimBolumleri` orada tür başlığını ikinci
+ * kez basardı.
+ */
+export function KazanimListesi({
+  kazanimlar,
+  ...eylemler
+}: {
+  kazanimlar: KazanimSatiri[];
+} & KazanimEylemleri) {
+  return (
+    <ul className="divide-y divide-cizgi">
+      {kazanimlar.map((kazanim) => (
+        <KazanimSatiriGosterimi
+          key={kazanim.id}
+          kazanim={kazanim}
+          {...eylemler}
+        />
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Kazanım kayıtları, türlerine göre bölümlenmiş hâlde.
  *
  * Boş türler de başlıklarıyla görünür: bakan kişi "bu kişi ürün girmemiş" ile
  * "ürün bölümü diye bir şey yok" arasındaki farkı görebilmeli.
+ *
+ * `tipler` verilirse yalnızca o türler basılır. Profil iki yolculuk bölümüne
+ * ayrıldığı için gerekli (bkz. lib/kazanim/kurallar.ts · *_YOLCULUGU_TIPLERI);
+ * verilmezse tüm türler listelenir ve eski davranış korunur.
  */
 export function KazanimBolumleri({
   kazanimlar,
-  silmeEylemi,
   bosMesaji,
   sahip = "OGRENCI",
+  tipler,
+  ...eylemler
 }: {
   kazanimlar: KazanimSatiri[];
-  silmeEylemi?: (veri: FormData) => Promise<void>;
   bosMesaji: string;
   sahip?: KazanimSahibi;
-}) {
+  tipler?: readonly KazanimTipi[];
+} & KazanimEylemleri) {
+  const gosterilecekler = tipler
+    ? kazanimTipleri(sahip).filter((tanim) => tipler.includes(tanim.tip))
+    : kazanimTipleri(sahip);
+
   return (
     <div className="space-y-6">
-      {kazanimTipleri(sahip).map((tanim) => {
+      {gosterilecekler.map((tanim) => {
         const kayitlar = kazanimlar.filter((kazanim) => kazanim.tip === tanim.tip);
         return (
           <div key={tanim.tip}>
@@ -168,7 +337,7 @@ export function KazanimBolumleri({
                   <KazanimSatiriGosterimi
                     key={kazanim.id}
                     kazanim={kazanim}
-                    silmeEylemi={silmeEylemi}
+                    {...eylemler}
                   />
                 ))}
               </ul>
@@ -324,7 +493,7 @@ export function KatildigiEtkinlikler({
         <li key={katilim.faaliyetId} className="py-3 first:pt-0 last:pb-0">
           {baglantiVerilsinMi ? (
             <Link
-              href={`/panel/faaliyetler/${katilim.faaliyetId}`}
+              href={`/panel/etkinlikler/${katilim.faaliyetId}`}
               className="font-medium text-metin transition hover:text-vurgu-metin"
             >
               {katilim.ad}
@@ -392,6 +561,141 @@ export function KatilimKarti({
         kazanim={kazanim}
         baglantiVerilsinMi={baglantiVerilsinMi}
       />
+    </Kart>
+  );
+}
+
+/**
+ * "Seferlerim" — eski adıyla katkı nişanları (D7 · 6 Ağustos 2026).
+ *
+ * PROFİLE TAŞINDI ve Katkılarım ekranında da duruyor: ikisi de aynı bileşenden
+ * basılıyor, ayrı yazılsalardı biri ötekinden ayrışırdı.
+ *
+ * Nişanlar HESAPLANIR, tabloda tutulmaz: başvuru ve etkinlik kayıtlarından
+ * türetilir. Bu bilinçli bir karardı — beyanla nişan kazanılamaz.
+ *
+ * SEVİYE SİSTEMİ HENÜZ YOK. İstek "usta/kalfa/çırak" ve "keşfeden/üreten/
+ * paylaşan/lider/elçi" diye İKİ ayrı liste veriyor ve hangisinin geçerli
+ * olduğu ile seviye atlama ölçütleri belirsiz (→ S15). Seviye, ekranın
+ * gösterdiği bir etiket değil bir HESAPLAMA KURALIDIR; ölçüt gelmeden
+ * eklenirse öğrenciye yanlış bir derece gösterilir ve geri alınması gerekir.
+ */
+export function SeferlerimKarti({
+  rozetler,
+  seferler = [],
+  bosMesaji,
+}: {
+  rozetler: RozetDurumu[];
+  /** Seviyeler; öğretmende boş gelir ve bölüm hiç basılmaz. */
+  seferler?: SeferDurumu[];
+  bosMesaji: string;
+}) {
+  const kazanilan = rozetler.filter((rozet) => rozet.kazanildiMi);
+  const bekleyen = rozetler.filter((rozet) => !rozet.kazanildiMi);
+
+  return (
+    <Kart>
+      <KartBasligi
+        baslik="Seferlerim"
+        aciklama="Katılım ve düzenleme geçmişinden otomatik hesaplanır; başvuru gerektirmez."
+        Ikon={Award}
+      />
+
+      {/*
+        SEVİYELER (D7). Merdiven DEĞİL, kazanılan niteliklerdir: "üreten" ile
+        "paylaşan" biri öbürünün üstü değil. Kazanılmayanlar da soluk olarak
+        gösteriliyor — hangi yolların açık olduğunu görmek, yalnızca
+        kazanılanları görmekten daha çok şey anlatıyor.
+      */}
+      {seferler.length > 0 && (
+        <div className="mb-6">
+          <ul className="flex flex-wrap gap-2">
+            {seferler.map((sefer) => (
+              <li
+                key={sefer.kod}
+                title={sefer.aciklama}
+                className={
+                  sefer.kazanildiMi
+                    ? "inline-flex items-center gap-1.5 rounded-full bg-olumlu-zemin px-3 py-1.5 text-sm font-semibold text-olumlu-metin"
+                    : "inline-flex items-center gap-1.5 rounded-full border border-dashed border-cizgi px-3 py-1.5 text-sm text-metin-yumusak"
+                }
+              >
+                {sefer.kazanildiMi ? (
+                  <Award size={14} aria-hidden />
+                ) : (
+                  <Lock size={13} aria-hidden />
+                )}
+                {sefer.ad}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-sm text-metin-yumusak">
+            Seviyeler bir sıra değildir; her biri ayrı bir yolla kazanılır ve
+            kazanıldıktan sonra düşmez. Üzerine gelerek ölçütünü görebilirsin.
+          </p>
+        </div>
+      )}
+
+      {kazanilan.length === 0 ? (
+        <p className="text-metin-yumusak">{bosMesaji}</p>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {kazanilan.map((rozet) => (
+            <li
+              key={rozet.kod}
+              className="rounded-kart border border-olumlu-cizgi bg-olumlu-zemin p-4"
+            >
+              <p className="flex items-center gap-2 font-semibold text-olumlu-metin">
+                <Award size={16} aria-hidden />
+                {rozet.ad}
+              </p>
+              <p className="mt-1 text-sm text-olumlu-metin">{rozet.aciklama}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {bekleyen.length > 0 && (
+        <>
+          <h3 className="mt-6 mb-3 text-sm font-semibold text-baslik">
+            Yolda olanlar
+          </h3>
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {bekleyen.map((rozet) => (
+              <li
+                key={rozet.kod}
+                className="rounded-kart border border-cizgi bg-zemin p-4"
+              >
+                <p className="flex items-center gap-2 font-medium text-metin">
+                  <Lock size={15} aria-hidden />
+                  {rozet.ad}
+                </p>
+                <p className="mt-1 text-sm text-metin-yumusak">
+                  {rozet.aciklama}
+                </p>
+                <div
+                  className="mt-3 h-1.5 overflow-hidden rounded-full bg-cizgi"
+                  role="progressbar"
+                  aria-valuenow={rozet.ilerleme}
+                  aria-valuemin={0}
+                  aria-valuemax={rozet.hedef}
+                  aria-label={`${rozet.ad} ilerlemesi`}
+                >
+                  <div
+                    className="h-full rounded-full bg-[var(--renk-birincil)]"
+                    style={{
+                      width: `${(rozet.ilerleme / rozet.hedef) * 100}%`,
+                    }}
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-metin-yumusak">
+                  {rozet.ilerleme} / {rozet.hedef}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </Kart>
   );
 }

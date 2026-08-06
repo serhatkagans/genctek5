@@ -16,7 +16,7 @@ const sayfa = await tarayici.newPage({ viewport: { width: 1280, height: 720 } })
 
 await mkdir(DIZIN, { recursive: true });
 
-for (const tema of ["d", "a", "b", "c"]) {
+for (const tema of ["d", "b"]) {
   await sayfa.context().addCookies([
     { name: "genctek_tema", value: tema, url: ADRES },
   ]);

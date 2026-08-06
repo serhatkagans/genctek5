@@ -1,4 +1,4 @@
-import type { OnayDurumu } from "@/generated/prisma/enums";
+import type { OnayDurumu, TalepTuru } from "@/generated/prisma/enums";
 
 /**
  * İletişim modülü kuralları — analiz isteği Bölüm 6.
@@ -29,14 +29,51 @@ export function talepAktifMi(talep: {
   return talep.sonGecerlilik >= talep.simdi;
 }
 
+/**
+ * Talep türleri — istek listesindeki dört başlık.
+ *
+ * SABİT LİSTE, çalışma grupları gibi yönetim ekranından büyütülebilir değil:
+ * dördü de panonun ne işe yaradığını tanımlıyor ve her biri ekranda ayrı bir
+ * anlam taşıyor (sponsor ilanı ile ekip arkadaşı ilanı aynı kitleye bakmıyor).
+ * Beşinci bir tür gerekirse enum'a eklenir — bu bir migration'dır ve öyle
+ * olmalı: tür listesi büyüdüğünde kimin ne göreceği yeniden düşünülmeli.
+ */
+export const TALEP_TURLERI: TalepTuru[] = [
+  "EKIP_ARKADASI",
+  "TEKNIK_DESTEK",
+  "SPONSOR",
+  "DUYURU",
+];
+
+export const TALEP_TURU_ETIKETLERI: Record<TalepTuru, string> = {
+  EKIP_ARKADASI: "Ekip arkadaşı",
+  TEKNIK_DESTEK: "Teknik destek",
+  SPONSOR: "Sponsor",
+  DUYURU: "Duyuru (tanıtım/yaygınlaştırma)",
+};
+
+/** Türü olmayan eski ilanlar için filtre ve rozet etiketi. */
+export const TALEP_TURU_BELIRTILMEMIS = "Tür belirtilmemiş";
+
+export function talepTuruGecerliMi(deger: string): deger is TalepTuru {
+  return (TALEP_TURLERI as string[]).includes(deger);
+}
+
 export interface TalepGirdisi {
   baslik: string;
   icerik: string;
   sonGecerlilik: Date | null;
+  tur: string | null;
 }
 
 export type TalepKarari =
-  | { olurMu: true; baslik: string; icerik: string; sonGecerlilik: Date }
+  | {
+      olurMu: true;
+      baslik: string;
+      icerik: string;
+      sonGecerlilik: Date;
+      tur: TalepTuru;
+    }
   | { olurMu: false; neden: string };
 
 /** Panoya ilan açarken en fazla ileri gidilebilecek gün sayısı. */
@@ -45,6 +82,19 @@ export const TALEP_AZAMI_GUN = 180;
 export function talebiCoz(girdi: TalepGirdisi, simdi: Date): TalepKarari {
   const baslik = girdi.baslik.trim();
   const icerik = girdi.icerik.trim();
+
+  /*
+   * TÜR YENİ İLANLARDA ZORUNLU (6 Ağustos 2026). Sütun NULL kabul etmeye devam
+   * ediyor ve eski ilanlar geriye dönük DOLDURULMADI: türü bilinmeyen bir ilana
+   * "duyuru" demek, filtrelenen listeyi sessizce yanlışlardı. Kural yalnızca bu
+   * kapıdan geçen yeni ilana uygulanır.
+   */
+  const ham = (girdi.tur ?? "").trim();
+  if (!ham) return { olurMu: false, neden: "Talep türü seçilmelidir." };
+  if (!talepTuruGecerliMi(ham)) {
+    return { olurMu: false, neden: "Talep türü anlaşılamadı." };
+  }
+  const tur: TalepTuru = ham;
 
   if (!baslik) return { olurMu: false, neden: "İlan başlığı boş bırakılamaz." };
   if (baslik.length > TALEP_BASLIK_MAKS) {
@@ -83,7 +133,13 @@ export function talebiCoz(girdi: TalepGirdisi, simdi: Date): TalepKarari {
     };
   }
 
-  return { olurMu: true, baslik, icerik, sonGecerlilik: girdi.sonGecerlilik };
+  return {
+    olurMu: true,
+    baslik,
+    icerik,
+    sonGecerlilik: girdi.sonGecerlilik,
+    tur,
+  };
 }
 
 /**

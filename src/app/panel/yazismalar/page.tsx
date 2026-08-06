@@ -44,17 +44,17 @@ export default async function YazismalarSayfasi() {
   return (
     <div className="space-y-6">
       <SayfaBasligi
-        baslik="Yazışmalar"
-        aciklama={`Onaylanmış bağlantıların konuşmaları · ${yazismalar.length} yazışma`}
+        baslik="Bağlantılarım"
+        aciklama={`Onaylanmış bağlantıların mesajları · ${yazismalar.length} konuşma`}
       />
 
       <BilgiKutusu cesit="uyari">{GIZLILIK_UYARISI}</BilgiKutusu>
 
       <Kart>
-        <KartBasligi baslik="Yazışmalar" Ikon={MessagesSquare} />
+        <KartBasligi baslik="Mesajlar" Ikon={MessagesSquare} />
         {yazismalar.length === 0 ? (
           <p className="text-metin-yumusak">
-            Görüntüleyebileceğiniz yazışma yok. Talep panosundan bağlantı isteği
+            Görüntüleyebileceğiniz mesaj yok. Panodan bağlantı isteği
             gönderebilirsiniz.
           </p>
         ) : (

@@ -8,12 +8,31 @@ import { ogrenciMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { YetkiHatasi } from "@/lib/yetki/tipler";
 
+/**
+ * Kaydettikten sonra dönülecek adres.
+ *
+ * Form iki yerden gönderiliyor (Panelim'deki bölüm ve `/panel/calisma-gruplari`
+ * sayfası). Değer FORMDAN geldiği için serbest bırakılamaz — açık yönlendirme
+ * (open redirect) açığı doğar; yalnızca bilinen iki yol kabul edilir.
+ */
+const IZINLI_DONUS_YOLLARI = ["/panel", "/panel/calisma-gruplari"] as const;
+
+function donusYolunuCoz(veri: FormData): string {
+  const istenen = String(veri.get("donusYolu") ?? "");
+  return (IZINLI_DONUS_YOLLARI as readonly string[]).includes(istenen)
+    ? istenen
+    : "/panel/calisma-gruplari";
+}
+
 export async function calismaGrubuKaydetEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
 
   if (!ogrenciMi(kullanici)) {
     throw new YetkiHatasi("Çalışma grubu seçimi yalnızca öğrenciler içindir.");
   }
+
+  const donusYolu = donusYolunuCoz(veri);
+  const capa = donusYolu === "/panel" ? "#calisma-gruplarim" : "";
 
   const secilenler = veri
     .getAll("grupId")
@@ -82,8 +101,9 @@ export async function calismaGrubuKaydetEylemi(veri: FormData): Promise<void> {
   });
 
   revalidatePath("/panel/calisma-gruplari");
+  revalidatePath("/panel");
   revalidatePath("/panel/profil");
   // Danışman/koordinatörün gördüğü tekil profil de aynı listeyi gösteriyor.
   revalidatePath(`/panel/ogrenciler/${kullanici.id}`);
-  redirect("/panel/calisma-gruplari?durum=kaydedildi");
+  redirect(`${donusYolu}?durum=kaydedildi${capa}`);
 }

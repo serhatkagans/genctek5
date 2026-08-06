@@ -78,7 +78,7 @@ export default async function BelgelerGirisSayfasi() {
     >
       <div className="min-w-0">
         <Link
-          href={`/panel/faaliyetler/${f.id}/belgeler`}
+          href={`/panel/etkinlikler/${f.id}/belgeler`}
           className="font-medium text-vurgu-metin underline underline-offset-2"
         >
           {f.ad}
@@ -99,7 +99,7 @@ export default async function BelgelerGirisSayfasi() {
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Belge oluştur"
-        aciklama="Katılım ve teşekkür belgesi vermek istediğiniz faaliyeti seçin."
+        aciklama="Katılım ve teşekkür belgesi vermek istediğiniz etkinliği seçin."
       />
 
       <BilgiKutusu cesit="uyari">
@@ -110,19 +110,19 @@ export default async function BelgelerGirisSayfasi() {
 
       {faaliyetler.length === 0 ? (
         <Kart className="text-metin-yumusak">
-          Belge üretebileceğiniz faaliyet yok. Kendi açtığınız faaliyetler ve —
-          koordinatörseniz — ilinizdeki faaliyetler burada listelenir.
+          Belge üretebileceğiniz etkinlik yok. Kendi açtığınız etkinlikler ve —
+          koordinatörseniz — ilinizdeki etkinlikler burada listelenir.
         </Kart>
       ) : (
         <>
           <Kart>
             <KartBasligi
-              baslik="Biten faaliyetler"
+              baslik="Biten etkinlikler"
               aciklama="Belge ihtiyacı çoğunlukla burada doğar."
               Ikon={Award}
             />
             {bitenler.length === 0 ? (
-              <p className="text-metin-yumusak">Bitmiş faaliyet yok.</p>
+              <p className="text-metin-yumusak">Bitmiş etkinlik yok.</p>
             ) : (
               <ul className="divide-y divide-cizgi">{bitenler.map(satir)}</ul>
             )}
@@ -131,7 +131,7 @@ export default async function BelgelerGirisSayfasi() {
           {yaklasanlar.length > 0 && (
             <Kart>
               <KartBasligi
-                baslik="Süren ve yaklaşan faaliyetler"
+                baslik="Süren ve yaklaşan etkinlikler"
                 aciklama="Belge etkinliğin hemen ardından da verilebilir."
                 Ikon={CalendarCheck}
               />

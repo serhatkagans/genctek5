@@ -91,6 +91,39 @@ export function projeYoneticisiYap(
   };
 }
 
+/**
+ * EBA dışı kullanıcılar. İkisinin de kurum kodu YOKTUR ama ili vardır —
+ * kapsam filtrelerinde tam olarak bu ikili onları yanlışlıkla içeri alabilir
+ * (bkz. paydasKapsamFiltresi), o yüzden üreticiler bilerek böyle.
+ */
+export function mezunYap(
+  ozellikler: Partial<OturumKullanicisi> = {},
+): OturumKullanicisi {
+  return {
+    ...TEMEL,
+    id: 500,
+    authProviderId: "dis-1",
+    kurumKodu: null,
+    ilKodu: "34",
+    roller: [{ rolKodu: "MEZUN", ilKodu: null, kurumKodu: null }],
+    ...ozellikler,
+  };
+}
+
+export function paydasTemsilcisiYap(
+  ozellikler: Partial<OturumKullanicisi> = {},
+): OturumKullanicisi {
+  return {
+    ...TEMEL,
+    id: 600,
+    authProviderId: "dis-2",
+    kurumKodu: null,
+    ilKodu: "34",
+    roller: [{ rolKodu: "PAYDAS_TEMSILCISI", ilKodu: null, kurumKodu: null }],
+    ...ozellikler,
+  };
+}
+
 export function faaliyetYap(
   ozellikler: Partial<FaaliyetKapsami> = {},
 ): FaaliyetKapsami {

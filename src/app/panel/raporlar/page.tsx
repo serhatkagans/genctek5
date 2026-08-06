@@ -36,8 +36,8 @@ export default async function RaporlarSayfasi() {
     return (
       <Kart>
         <KartBasligi
-          baslik="Faaliyet raporları"
-          aciklama="Bu ekran faaliyet düzenleyen rollere açıktır."
+          baslik="Etkinlik raporları"
+          aciklama="Bu ekran etkinlik düzenleyen rollere açıktır."
         />
       </Kart>
     );
@@ -88,13 +88,13 @@ export default async function RaporlarSayfasi() {
   return (
     <div className="space-y-6">
       <SayfaBasligi
-        baslik="Faaliyet raporları"
-        aciklama={`Biten faaliyetler ve rapor durumları · ${eksikler.length} rapor bekliyor`}
+        baslik="Etkinlik raporları"
+        aciklama={`Biten etkinlikler ve rapor durumları · ${eksikler.length} rapor bekliyor`}
       />
 
       {bitmisler.length === 0 ? (
         <Kart className="text-metin-yumusak">
-          Kapsamınızda henüz bitmiş bir faaliyet yok. Faaliyet bitiş tarihini
+          Kapsamınızda henüz bitmiş bir etkinlik yok. Etkinlik bitiş tarihini
           geçtiğinde burada listelenir.
         </Kart>
       ) : (
@@ -102,12 +102,12 @@ export default async function RaporlarSayfasi() {
           <Kart>
             <KartBasligi
               baslik="Raporu bekleyenler"
-              aciklama="Biten ama raporu yazılmamış faaliyetler."
+              aciklama="Biten ama raporu yazılmamış etkinlikler."
               Ikon={CircleAlert}
             />
             {eksikler.length === 0 ? (
               <BilgiKutusu cesit="olumlu">
-                Biten tüm faaliyetlerin raporu yazılmış.
+                Biten tüm etkinliklerin raporu yazılmış.
               </BilgiKutusu>
             ) : (
               <ul className="divide-y divide-cizgi">
@@ -118,7 +118,7 @@ export default async function RaporlarSayfasi() {
                   >
                     <div className="min-w-0">
                       <Link
-                        href={`/panel/faaliyetler/${faaliyet.id}/rapor`}
+                        href={`/panel/etkinlikler/${faaliyet.id}/rapor`}
                         className="font-medium text-vurgu-metin underline underline-offset-2"
                       >
                         {faaliyet.ad}
@@ -157,7 +157,7 @@ export default async function RaporlarSayfasi() {
                   >
                     <div className="min-w-0">
                       <Link
-                        href={`/panel/faaliyetler/${faaliyet.id}/rapor`}
+                        href={`/panel/etkinlikler/${faaliyet.id}/rapor`}
                         className="inline-flex items-center gap-1.5 font-medium text-metin underline underline-offset-2"
                       >
                         <FileText size={15} aria-hidden />

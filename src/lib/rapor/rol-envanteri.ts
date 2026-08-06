@@ -228,11 +228,26 @@ export async function koordinatorAdaylari(
       ilKodu,
       aktif: true,
       ogretmenProfil: { isNot: null },
-      // Öğrenciye koordinatörlük verilmez; başka ilin koordinatörü de aday olamaz.
+      /*
+       * Öğrenciye koordinatörlük verilmez; başka ilin koordinatörü de aday
+       * olamaz.
+       *
+       * MEZUN ve PAYDAS_TEMSILCISI de elenir: ikisinin de iletişim bilgisi
+       * ogretmen_profil'de tutuluyor (tablonun adı tarihsel, içeriği "öğrenci
+       * olmayanın iletişim bilgisi") ve ilKodu'ları var — koşul buna
+       * bakmasaydı bir mezun, ilinin koordinatör aday listesinde çıkardı.
+       */
       roller: {
         none: {
           bitisTarihi: null,
-          rolKodu: { in: ["OGRENCI", "IL_KOORDINATOR"] },
+          rolKodu: {
+            in: [
+              "OGRENCI",
+              "IL_KOORDINATOR",
+              "MEZUN",
+              "PAYDAS_TEMSILCISI",
+            ],
+          },
         },
       },
     },

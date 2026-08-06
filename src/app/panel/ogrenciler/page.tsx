@@ -7,8 +7,19 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { Kart, KartBasligi, SayfaBasligi, SINIF_BIRINCIL_BUTON } from "@/components/ui";
+import {
+  BilgiKutusu,
+  Kart,
+  KartBasligi,
+  SayfaBasligi,
+  SINIF_BIRINCIL_BUTON,
+} from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import {
+  gorevRoluAtaEylemi,
+  gorevRoluKaldirEylemi,
+} from "@/app/panel/gorev-rolleri/eylemler";
+import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import { prisma } from "@/lib/db";
 import {
   egitimOgretimYillariGetir,
@@ -21,6 +32,7 @@ import {
   ilKoordinatoruMu,
   koordinatorIlKodu,
   ogrenciMi,
+  okulTemsilcisiAtayabilirMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
@@ -56,6 +68,68 @@ const SAYFA_BOYUTU = 50;
 const SINIF_SAYFA_BUTON =
   "inline-flex items-center gap-1 rounded-md border border-cizgi px-3 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin";
 
+/**
+ * Satır başına Okul Temsilcisi düğmesi.
+ *
+ * Yalnızca ÖĞRENCİNİN KENDİ OKULUNDA yetkisi olan kişiye basılır: koordinatör
+ * ilin tamamını görüyor ama her okulun temsilcisini o atamıyor. Yetki kontrolü
+ * eylemin içinde bir kez daha yapılıyor — buradaki kontrol yalnızca
+ * gösterilmeyecek bir düğmeyi göstermemek için.
+ */
+function OkulTemsilcisiHucresi({
+  ogrenci,
+  kullanici,
+  donusYolu,
+}: {
+  ogrenci: {
+    id: number;
+    kurumKodu: number | null;
+    gorevRolleri: { id: number; rolKodu: string }[];
+  };
+  kullanici: OturumKullanicisi;
+  donusYolu: string;
+}) {
+  const yetkili =
+    ogrenci.kurumKodu !== null &&
+    okulTemsilcisiAtayabilirMi(kullanici, ogrenci.kurumKodu);
+  if (!yetkili) {
+    return <span className="text-metin-yumusak">—</span>;
+  }
+
+  const mevcut = ogrenci.gorevRolleri.find(
+    (gorev) => gorev.rolKodu === "OKUL_TEMSILCISI",
+  );
+
+  if (mevcut) {
+    return (
+      <form action={gorevRoluKaldirEylemi}>
+        <input type="hidden" name="gorevId" value={mevcut.id} />
+        <input type="hidden" name="donusYolu" value={donusYolu} />
+        <button
+          type="submit"
+          className="rounded-md border border-cizgi px-2.5 py-1.5 text-sm font-medium text-metin-yumusak transition hover:bg-zemin hover:text-hata-metin"
+        >
+          Görevi kaldır
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <form action={gorevRoluAtaEylemi}>
+      <input type="hidden" name="ogrenciId" value={ogrenci.id} />
+      <input type="hidden" name="rolKodu" value="OKUL_TEMSILCISI" />
+      <input type="hidden" name="donusYolu" value={donusYolu} />
+      <button
+        type="submit"
+        className="rounded-md border border-cizgi px-2.5 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin"
+      >
+        Okul Temsilcisi yap
+      </button>
+    </form>
+  );
+}
+
 /** Sayfa bağlantısı üretirken mevcut filtreler korunur. */
 function sayfaBaglantisi(
   parametreler: SorguParametreleri,
@@ -88,6 +162,30 @@ export default async function OgrencilerSayfasi({
   const parametreler = await searchParams;
   const filtreler = ogrenciFiltreleriniCoz(parametreler);
   const filtreVar = filtreVarMi(filtreler);
+
+  /*
+   * Okul Temsilcisi sütunu, atama yetkisi OLABİLECEK kişilere basılır: danışman
+   * öğretmen (kendi okulu) ve proje yöneticisi. İl koordinatörü bu sütunu
+   * görmez — o, il ve ilçe temsilcisini Görev Rolleri ekranından atıyor ve
+   * ilindeki her okulun temsilcisini belirlemek onun işi değil.
+   *
+   * Satır bazında yetki ayrıca sorulur (bkz. OkulTemsilcisiHucresi).
+   */
+  const okulTemsilcisiYonetebilir =
+    danismanMi(kullanici) || projeYoneticisiMi(kullanici);
+
+  /*
+   * Atama sonrası bu ekrana, FİLTRELER KORUNARAK dönülür: 400 kişilik bir
+   * listede filtreleyip atama yapan öğretmen, işlem sonrası baştan filtrelemek
+   * zorunda kalmamalı. Durum/hata parametreleri eylemde ekleniyor.
+   */
+  const mevcutSorgu = sorguMetni(parametreler, ["durum", "hata"]);
+  const donusYolu = mevcutSorgu
+    ? `/panel/ogrenciler?${mevcutSorgu}`
+    : "/panel/ogrenciler";
+
+  const gorevDurumu = tekil(parametreler.durum);
+  const gorevHatasi = tekil(parametreler.hata);
 
   // Filtre seçenekleri de kapsamla sınırlıdır: proje yöneticisi tüm illeri,
   // il koordinatörü yalnızca kendi ilinin okullarını, danışman öğretmen ise
@@ -175,9 +273,13 @@ export default async function OgrencilerSayfasi({
        * sorusunun cevabını tek tek profillere girmeden alabilmeli. Yalnızca
        * içinde bulunulan dönem — geçmiş görevler profilin katkı kartında.
        */
+      // Okul Temsilcisi ataması bu ekrana taşındı (J2); kaldırma formu görev
+      // kaydının kimliğini istiyor, bu yüzden `id` de seçiliyor.
+      kurumKodu: true,
       gorevRolleri: {
         where: { egitimOgretimYili: kullanici.egitimOgretimYili },
         select: {
+          id: true,
           rolKodu: true,
           il: { select: { ad: true } },
           ilce: { select: { ad: true } },
@@ -230,6 +332,22 @@ export default async function OgrencilerSayfasi({
             : `Görüntüleme kapsamı: ${kapsamAciklamasi} · ${toplam} kayıt`
         }
       />
+
+      {gorevDurumu === "atandi" && (
+        <BilgiKutusu cesit="olumlu">Okul Temsilcisi görevi atandı.</BilgiKutusu>
+      )}
+      {gorevDurumu === "kaldirildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Okul Temsilcisi görevi kaldırıldı.
+        </BilgiKutusu>
+      )}
+      {gorevDurumu === "danismanlik-birakildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Danışmanlık bırakıldı. Gerekçe il koordinatörünüze iletildi ve erişim
+          kaydına yazıldı; öğrenci yeni danışmanına bağlandı.
+        </BilgiKutusu>
+      )}
+      {gorevHatasi && <BilgiKutusu cesit="hata">{gorevHatasi}</BilgiKutusu>}
 
       <form
         method="get"
@@ -503,6 +621,9 @@ export default async function OgrencilerSayfasi({
                 <th className="px-4 py-3 font-medium">Danışman</th>
                 <th className="px-4 py-3 font-medium">Temsilcilik</th>
                 <th className="px-4 py-3 font-medium">Çalışma grupları</th>
+                {okulTemsilcisiYonetebilir && (
+                  <th className="px-4 py-3 font-medium">Okul Temsilcisi</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -569,6 +690,26 @@ export default async function OgrencilerSayfasi({
                             .map((secim) => secim.calismaGrubu.ad)
                             .join(", ")}
                     </td>
+                    {/*
+                      OKUL TEMSİLCİSİ ATAMASI (J2 · 5 Ağustos 2026). Görev
+                      Rolleri sekmesi danışman öğretmenin menüsünden kalktı;
+                      atama artık burada. İl ve ilçe temsilciliği BURADA YOK —
+                      onları il koordinatörü kendi ekranından atıyor, çünkü
+                      koordinatörün listesi ilin tamamı ve ilçe bazlı atamayı
+                      burada yapmak filtre kurmayı zorunlu kılardı.
+
+                      Yetki iki kez sorulur: burada (düğmeyi hiç basmamak için)
+                      ve eylemin içinde (form kurcalanabilir).
+                    */}
+                    {okulTemsilcisiYonetebilir && (
+                      <td className="px-4 py-3">
+                        <OkulTemsilcisiHucresi
+                          ogrenci={ogrenci}
+                          kullanici={kullanici}
+                          donusYolu={donusYolu}
+                        />
+                      </td>
+                    )}
                   </tr>
                 );
               })}

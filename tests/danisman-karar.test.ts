@@ -1,4 +1,5 @@
 import {
+  birakmaGerekcesiniCoz,
   type DanismanAdayi,
   devirKarariVer,
   ilkAtamaKarariVer,
@@ -105,5 +106,38 @@ describe("okula sonradan danışman gelmesi", () => {
   it("il koordinatörüne bağlı öğrenciler otomatik devredilmez", () => {
     // Devri koordinatör onaylar; sistem kendiliğinden taşımaz.
     expect(yeniDanismanGeldigindeDevredilirMi()).toBe(false);
+  });
+});
+
+/*
+ * TEKİL DANIŞMANLIK BIRAKMA GEREKÇESİ (J1 · 6 Ağustos 2026).
+ *
+ * Gerekçe zorunluluğu biçimsel bir kural değil: burada açık bir kötüye kullanım
+ * kapısı var — "zor" bulunan öğrencinin sessizce bırakılması. Gerekçe yazılmak
+ * zorunda olduğunda, il koordinatörüne bildirim gittiğinde ve erişim kaydına
+ * geçtiğinde karar sahibi hesap verebilir hâle gelir.
+ */
+describe("danışmanlık bırakma gerekçesi", () => {
+  it("boş gerekçeyi reddeder", () => {
+    const karar = birakmaGerekcesiniCoz("   ");
+    expect(karar.olurMu).toBe(false);
+    if (!karar.olurMu) expect(karar.neden).toContain("zorunludur");
+  });
+
+  it("çok kısa gerekçeyi reddeder", () => {
+    // Tek harf, zorunluluğu biçimsel olarak karşılayıp anlamını boşaltırdı.
+    expect(birakmaGerekcesiniCoz("yok").olurMu).toBe(false);
+  });
+
+  it("çok uzun gerekçeyi reddeder", () => {
+    expect(birakmaGerekcesiniCoz("a".repeat(501)).olurMu).toBe(false);
+  });
+
+  it("geçerli gerekçeyi kırpar ve iç boşlukları tekler", () => {
+    const karar = birakmaGerekcesiniCoz("  Branşı   daha uygun bir öğretmen var.  ");
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) {
+      expect(karar.gerekce).toBe("Branşı daha uygun bir öğretmen var.");
+    }
   });
 });

@@ -53,6 +53,9 @@ export const OGRENCI_PROFIL_ICERIGI = {
     select: {
       atamaTipi: true,
       baslangicTarihi: true,
+      // Tekil danışmanlık bırakma (J1) "bu öğrencinin danışmanı BEN miyim"
+      // sorusunu soruyor; ad yetmez, kimlik gerekiyor.
+      danismanKullaniciId: true,
       danisman: {
         select: {
           ad: true,

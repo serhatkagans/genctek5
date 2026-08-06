@@ -1,5 +1,18 @@
-import { BadgeCheck, CalendarPlus, Layers, Sparkles } from "lucide-react";
+import {
+  BadgeCheck,
+  CalendarCheck,
+  CalendarPlus,
+  GraduationCap,
+  Layers,
+  Sparkles,
+} from "lucide-react";
 import Link from "next/link";
+import {
+  KatildigiEtkinlikler,
+  type KazanimEylemleri,
+  KazanimListesi,
+  type KazanimSatiri,
+} from "@/components/OgrenciProfilBolumleri";
 import { Kart, KartBasligi } from "@/components/ui";
 import type {
   FaaliyetDurumu,
@@ -7,19 +20,25 @@ import type {
   OnayDurumu,
 } from "@/generated/prisma/enums";
 import { ONAY_DURUMU_ETIKETLERI } from "@/lib/faaliyet/kurallar";
+import type { KazanimSonucu } from "@/lib/kazanim/getir";
 import { tarihYaz } from "@/lib/tarih";
 import { gorevRolAdi } from "@/lib/yetki/etiketler";
 
 /**
- * Öğrencinin ekosisteme koyduğu emeğin TEK kartta toplanmış hâli:
- * temsilcilikleri, çalışma grupları ve düzenlediği faaliyetler.
+ * "GençTek Yolculuğum" — kişinin GençTek İÇİNDEKİ geçmişi tek kartta:
+ * temsilcilikleri, çalışma grupları, düzenlediği etkinlikler, katıldığı
+ * etkinlikler ve verdiği akran eğitimleri.
  *
- * Üçü ayrı kartlarda dururken hiçbiri tek başına "bu öğrenci ne yapıyor"
+ * Bunlar ayrı kartlarda dururken hiçbiri tek başına "bu öğrenci ne yapıyor"
  * sorusunu cevaplamıyordu; temsilcilik danışman kartının dibinde, gruplar
- * bambaşka bir kartta, düzenlediği faaliyetler ise hiç görünmüyordu. Kart aynı
+ * bambaşka bir kartta, düzenlediği etkinlikler ise hiç görünmüyordu. Kart aynı
  * bileşenden hem öğrencinin kendi ekranına hem danışman/koordinatörün gördüğü
  * profile basılır — iki ekran ayrı yazılsaydı birine eklenen bölüm ötekinde
  * eksik kalırdı.
+ *
+ * Katılım ve akran eğitimi bölümleri İSTEĞE BAĞLIDIR: veri verilmediğinde hiç
+ * basılmazlar. Katkılarım ekranı bu iki listeyi kendi kartlarında gösteriyor,
+ * ikisini birden basmak aynı listeyi aynı sayfada iki kez göstermek olurdu.
  */
 
 export interface KatkiGorevi {
@@ -72,6 +91,9 @@ export function KatkiKarti({
   gruplar,
   faaliyetler,
   egitimOgretimYili,
+  katilim = null,
+  kazanimlar,
+  ...kazanimEylemleri
 }: {
   /** Metinler "sen" ve "o" arasında bu bayrakla ayrılır. */
   kendiMi: boolean;
@@ -80,15 +102,33 @@ export function KatkiKarti({
   faaliyetler: KatkiFaaliyeti[];
   /** İçinde bulunulan dönem; geçmiş dönem görevleri ayrıca işaretlenir. */
   egitimOgretimYili: string;
-}) {
+  /**
+   * Katıldığı GençTek etkinlikleri — başvuru geçmişinden TÜRETİLİR, beyan
+   * değildir. Verilmezse bölüm hiç basılmaz.
+   */
+  katilim?: KazanimSonucu | null;
+  /**
+   * Kişinin beyan ettiği kazanım kayıtları. Bunlardan yalnızca GençTek
+   * tarafındakiler (GENCTEK_ETKINLIGI, AKRAN_EGITIMI) burada gösterilir;
+   * gerisi "Bilişim Yolculuğum" bölümüne aittir.
+   */
+  kazanimlar?: KazanimSatiri[];
+} & KazanimEylemleri) {
+  const akranEgitimleri = (kazanimlar ?? []).filter(
+    (kazanim) => kazanim.tip === "AKRAN_EGITIMI",
+  );
+  const beyanEdilenEtkinlikler = (kazanimlar ?? []).filter(
+    (kazanim) => kazanim.tip === "GENCTEK_ETKINLIGI",
+  );
+
   return (
     <Kart>
       <KartBasligi
-        baslik={kendiMi ? "Katkı kartım" : "Katkı kartı"}
+        baslik={kendiMi ? "GençTek Yolculuğum" : "GençTek yolculuğu"}
         aciklama={
           kendiMi
-            ? "Temsilciliklerin, çalışma grupların ve düzenlediğin faaliyetler. Temsilcilikleri koordinatörün ya da danışmanın verir; grup seçimini sen yaparsın."
-            : "Öğrencinin temsilcilikleri, çalışma grupları ve düzenlediği faaliyetler."
+            ? "GençTek içindeki geçmişin: temsilciliklerin, çalışma grupların, düzenlediğin ve katıldığın etkinlikler. Temsilcilikleri koordinatörün ya da danışmanın verir; grup seçimini sen yaparsın."
+            : "Öğrencinin GençTek içindeki geçmişi: temsilcilikleri, çalışma grupları, düzenlediği ve katıldığı etkinlikler."
         }
         Ikon={Sparkles}
       />
@@ -178,21 +218,21 @@ export function KatkiKarti({
         <div>
           <BolumBasligi
             Ikon={CalendarPlus}
-            baslik="Düzenlediği faaliyetler"
+            baslik="Düzenlediği etkinlikler"
             adet={faaliyetler.length}
           />
           {faaliyetler.length === 0 ? (
             <p className="mt-1.5 text-sm text-metin-yumusak">
               {kendiMi
-                ? "Henüz faaliyet önermedin. Bir etkinlik kurmak istersen önerin il koordinatörüne ve YEĞİTEK'e onaya gider."
-                : "Öğrenci henüz faaliyet önermedi."}
+                ? "Henüz etkinlik önermedin. Bir etkinlik kurmak istersen önerin il koordinatörüne ve YEĞİTEK'e onaya gider."
+                : "Öğrenci henüz etkinlik önermedi."}
             </p>
           ) : (
             <ul className="mt-2 divide-y divide-cizgi">
               {faaliyetler.map((faaliyet) => (
                 <li key={faaliyet.id} className="py-2.5 first:pt-0 last:pb-0">
                   <Link
-                    href={`/panel/faaliyetler/${faaliyet.id}`}
+                    href={`/panel/etkinlikler/${faaliyet.id}`}
                     className="font-medium text-metin transition hover:text-vurgu-metin"
                   >
                     {faaliyet.ad}
@@ -209,13 +249,76 @@ export function KatkiKarti({
           )}
           {kendiMi && (
             <Link
-              href="/panel/faaliyetler/yeni"
+              href="/panel/etkinlikler/yeni"
               className="mt-2 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
             >
-              Yeni faaliyet öner
+              Yeni etkinlik öner
             </Link>
           )}
         </div>
+
+        {/*
+          Katıldığı etkinlikler TÜRETİLMİŞ listedir (seçildiği ve tarihi geçmiş
+          etkinlikler); altındaki beyan listesi ise kişinin elle girdiği eski
+          kayıtlardır. İkisi ayrı başlıkta duruyor çünkü biri kanıtlı, öbürü
+          beyan — tek listede toplamak ikisini de "sistemin doğruladığı kayıt"
+          gibi gösterirdi.
+        */}
+        {katilim && (
+          <div>
+            <BolumBasligi
+              Ikon={CalendarCheck}
+              baslik="Katıldığı GençTek etkinlikleri"
+              adet={katilim.katilimlar.length}
+            />
+            <div className="mt-2">
+              <KatildigiEtkinlikler kazanim={katilim} />
+            </div>
+          </div>
+        )}
+
+        {kazanimlar && beyanEdilenEtkinlikler.length > 0 && (
+          <div>
+            <BolumBasligi
+              Ikon={CalendarCheck}
+              baslik="Beyan ettiği GençTek etkinlikleri"
+              adet={beyanEdilenEtkinlikler.length}
+            />
+            <p className="mt-1 text-sm text-metin-yumusak">
+              Sisteme girilmemiş eski etkinlikler; kişinin kendi beyanıdır.
+            </p>
+            <div className="mt-2">
+              <KazanimListesi
+                kazanimlar={beyanEdilenEtkinlikler}
+                {...kazanimEylemleri}
+              />
+            </div>
+          </div>
+        )}
+
+        {kazanimlar && (
+          <div>
+            <BolumBasligi
+              Ikon={GraduationCap}
+              baslik={kendiMi ? "Verdiğim akran eğitimleri" : "Verdiği akran eğitimleri"}
+              adet={akranEgitimleri.length}
+            />
+            {akranEgitimleri.length === 0 ? (
+              <p className="mt-1.5 text-sm text-metin-yumusak">
+                {kendiMi
+                  ? "Henüz akran eğitimi kaydı girmedin."
+                  : "Akran eğitimi kaydı girilmemiş."}
+              </p>
+            ) : (
+              <div className="mt-2">
+                <KazanimListesi
+                  kazanimlar={akranEgitimleri}
+                  {...kazanimEylemleri}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Kart>
   );

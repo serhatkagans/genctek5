@@ -6,7 +6,7 @@
  * kanıtlaması: her senaryonun öğrenci listesinde kimlerin göründüğü rapor
  * edilir, öğrencinin listeye hiç erişemediği doğrulanır.
  *
- * Kullanım:  node scripts/senaryo-goruntuleri.mjs [--tema=d|a|b|c]
+ * Kullanım:  node scripts/senaryo-goruntuleri.mjs [--tema=d|b]
  * Ön koşul:  npm run dev çalışıyor olmalı.
  */
 
@@ -47,9 +47,51 @@ async function girisYap(kisiAdi) {
     .first()
     .getByRole("button")
     .click();
+  await sayfa.waitForURL(/\/(panel|onay)/, { timeout: 20000 });
+  await sayfa.waitForLoadState("networkidle");
+  const ilkGirisKapisi = await ilkGirisKapisiniGec(sayfa);
+  return { baglam, sayfa, ilkGirisKapisi };
+}
+
+/**
+ * İlk giriş onay kapısı — hiç onay vermemiş kullanıcı panele giremez
+ * (bkz. src/app/onay/page.tsx). Senaryo gezisi kapının ARKASINI ölçtüğü için
+ * burada onay verilir; kapının kendi görüntüsü ayrıca alınır.
+ *
+ * Kapının çıkıp çıkmadığı DÖNDÜRÜLÜR: örnek envanterde onaylar boş olduğu için
+ * ilk gezide herkes buradan geçer, ikinci gezide kimse geçmez. İkisi de
+ * doğrudur; rapor hangisinin olduğunu yazsın diye bilgi taşınıyor.
+ */
+async function ilkGirisKapisiniGec(sayfa) {
+  /*
+   * Kapı, giriş sonrası HEDEF SAYFADA açılıyor: `girisYap` kişiyi /panel ya da
+   * /panel/profil'e yolluyor, panel düzeni de onaysız kullanıcıyı /onay'a
+   * çeviriyor. `waitForURL(/(panel|onay)/)` bu zincirin ORTASINDA, henüz
+   * /panel'deyken eşleşebiliyor; o an url'ye bakıp "kapı yok" demek yanlış
+   * sonuç veriyordu ve sonraki her gezinme sessizce /onay'a düşüyordu.
+   *
+   * Bu yüzden karar url'nin anlık hâline değil, /panel'e YAPILAN BİR GEZİNMENİN
+   * nerede bittiğine bakılarak veriliyor.
+   */
+  if (!sayfa.url().includes("/onay")) {
+    await sayfa.goto(`${kok}/panel`, { waitUntil: "networkidle" });
+    if (!sayfa.url().includes("/onay")) return false;
+  }
+
+  await sayfa.screenshot({
+    path: `${dizin}/0-ilk-giris-onayi-tema-${tema}.png`,
+    fullPage: true,
+  });
+
+  const kutular = sayfa.locator('input[name="belge"]');
+  const adet = await kutular.count();
+  for (let i = 0; i < adet; i += 1) {
+    await kutular.nth(i).check();
+  }
+  await sayfa.getByRole("button", { name: /Onaylıyorum/ }).click();
   await sayfa.waitForURL(/\/panel/, { timeout: 20000 });
   await sayfa.waitForLoadState("networkidle");
-  return { baglam, sayfa };
+  return true;
 }
 
 async function cek(sayfa, dosya, yol) {
@@ -85,7 +127,7 @@ async function ogrenciListesi(sayfa) {
 
 /** Faaliyet listesinde görünen başlıklar. */
 async function faaliyetListesi(sayfa, sorgu = "") {
-  await sayfa.goto(`${kok}/panel/faaliyetler${sorgu}`, {
+  await sayfa.goto(`${kok}/panel/etkinlikler${sorgu}`, {
     waitUntil: "networkidle",
   });
   return sayfa.locator("main ul li h3").allInnerTexts();
@@ -109,7 +151,7 @@ function bugunArti(gunSayisi) {
  */
 async function faaliyeteGir(sayfa, ad) {
   await sayfa.getByRole("link", { name: ad }).first().click();
-  await sayfa.waitForURL(/\/panel\/faaliyetler\/\d+/, { timeout: 20000 });
+  await sayfa.waitForURL(/\/panel\/etkinlikler\/\d+/, { timeout: 20000 });
   await sayfa.waitForLoadState("networkidle");
   return new URL(sayfa.url()).pathname;
 }
@@ -141,7 +183,7 @@ async function faaliyetAc(sayfa, { ad, aciklama, kapsam, kontenjan, kapak }) {
     return { yol: await faaliyeteGir(sayfa, ad), yeniMi: false };
   }
 
-  await sayfa.goto(`${kok}/panel/faaliyetler/yeni`, {
+  await sayfa.goto(`${kok}/panel/etkinlikler/yeni`, {
     waitUntil: "networkidle",
   });
   await sayfa.fill('input[name="ad"]', ad);
@@ -154,8 +196,8 @@ async function faaliyetAc(sayfa, { ad, aciklama, kapsam, kontenjan, kapak }) {
   if (kapak) {
     await sayfa.locator('input[name="kapakGorseli"]').setInputFiles(kapak);
   }
-  await sayfa.getByRole("button", { name: "Faaliyeti oluştur" }).click();
-  await sayfa.waitForURL(/\/panel\/faaliyetler\/\d+/, { timeout: 20000 });
+  await sayfa.getByRole("button", { name: "Etkinliği oluştur" }).click();
+  await sayfa.waitForURL(/\/panel\/etkinlikler\/\d+/, { timeout: 20000 });
   return { yol: new URL(sayfa.url()).pathname, yeniMi: true };
 }
 
@@ -308,11 +350,20 @@ let ulusalFaaliyetYolu;
  *  anlamlıdır; önceki çalıştırmadan onaylı kalan faaliyette yanlış alarm verir. */
 let ulusalFaaliyetYeniMi = false;
 
+/**
+ * Danışman öğretmenin açtığı okul içi etkinlik de ONAY BEKLER
+ * (bkz. lib/yetki/izinler.ts · faaliyetOnayGerekiyorMu): ilin koordinatörü
+ * görmeden yayına girmez ve öğrenciye görünmez. Senaryo bu adımı atlarsa
+ * öğrenci etkinliği hiç göremez — betik uzun süre burada takıldı.
+ */
+let okulFaaliyetYolu;
+let okulFaaliyetYeniMi = false;
+
 {
   // Okul koordinatörü okul içi faaliyet açar.
   const { baglam, sayfa } = await girisYap("Ahmet Öztürk");
   const kapsamlar = await sayfa
-    .goto(`${kok}/panel/faaliyetler/yeni`, { waitUntil: "networkidle" })
+    .goto(`${kok}/panel/etkinlikler/yeni`, { waitUntil: "networkidle" })
     .then(() => sayfa.locator("select[name='kapsam'] option").allInnerTexts());
   await cek(sayfa, "5-okul-koordinatoru-yeni-faaliyet");
 
@@ -324,6 +375,8 @@ let ulusalFaaliyetYeniMi = false;
     kontenjan: 2,
     kapak: ORNEK_GORSEL,
   });
+  okulFaaliyetYolu = sonuc.yol;
+  okulFaaliyetYeniMi = sonuc.yeniMi;
 
   // Tanıtıcı görsel faaliyet açılırken yüklendi mi?
   const kapakRozeti = await sayfa.getByText("Tanıtıcı görsel").count();
@@ -341,7 +394,7 @@ let ulusalFaaliyetYeniMi = false;
 {
   // İl koordinatörünün ulusal faaliyeti onay bekler.
   const { baglam, sayfa } = await girisYap("Selim Koç");
-  await sayfa.goto(`${kok}/panel/faaliyetler/yeni`, {
+  await sayfa.goto(`${kok}/panel/etkinlikler/yeni`, {
     waitUntil: "networkidle",
   });
   const kapsamlar = await sayfa
@@ -384,11 +437,43 @@ if (ulusalFaaliyetYeniMi) {
       dogrudan.status() === 404 ? "(beklenen)" : "*** SIZDI ***"
     }`,
   );
+  /*
+   * Aynı kontrol OKUL İÇİ etkinlik için de yapılıyor: öğretmenin açtığı
+   * etkinlik de koordinatör onayına kadar öğrenciye kapalıdır. İki kapsam ayrı
+   * ayrı sınanmalı — biri sızdırırken öbürü sızdırmayabilir.
+   */
+  if (okulFaaliyetYeniMi) {
+    rapor.push(
+      `         · onay bekleyen OKUL İÇİ etkinliğin listede görünmesi: ${
+        oncesi.includes(OKUL_FAALIYETI) ? "*** SIZDI ***" : "yok (beklenen)"
+      }`,
+    );
+  }
   await baglam.close();
 } else {
   rapor.push(
     "Öğrenci  · onay ÖNCESİ sızıntı kontrolü ATLANDI: ulusal faaliyet önceki çalıştırmadan kalma ve zaten onaylı. Kontrolü görmek için veritabanını sıfırlayın (npm run db:seed).",
   );
+}
+
+{
+  /*
+   * İl koordinatörü, danışman öğretmenin açtığı OKUL İÇİ etkinliği onaylar.
+   * Merkez değil il onaylıyor: bir okulun kendi içindeki etkinlik YEĞİTEK
+   * sırası gelene kadar beklerse pratikte ölür (bkz. faaliyetOnaylayabilirMi).
+   */
+  const { baglam, sayfa } = await girisYap("Selim Koç");
+  await sayfa.goto(`${kok}${okulFaaliyetYolu}`, { waitUntil: "networkidle" });
+  const onayDugmesi = sayfa.getByRole("button", { name: /Onayla ve yayına al/ });
+  if (await onayDugmesi.count()) {
+    await cek(sayfa, "5-il-koordinatoru-okul-faaliyet-onayi");
+    await onayDugmesi.click();
+    await sayfa.waitForURL(/durum=onaylandi/, { timeout: 20000 });
+    rapor.push("İl koord. · öğretmenin okul içi etkinliğini onayladı");
+  } else {
+    rapor.push("İl koord. · okul içi etkinlik zaten sonuçlandırılmıştı");
+  }
+  await baglam.close();
 }
 
 {
@@ -603,19 +688,31 @@ let ekAdresi;
 
 // --- 6. Görev rolleri -------------------------------------------------------
 {
+  /*
+   * OKUL TEMSİLCİSİ ATAMASI ÖĞRENCİLERİM EKRANINDA (J2 · 5 Ağustos 2026);
+   * Görev Rolleri sekmesi danışman öğretmenin menüsünden kalktı ve o ekran
+   * yalnızca il/ilçe temsilciliği için kaldı. Kontrol bu yüzden yer değiştirdi:
+   * eski hâli "atanabilecek öğrenci yok" diyordu ve bu, taşımanın işlediğini
+   * değil kontrolün yanlış ekrana baktığını gösteriyordu.
+   */
   const { baglam, sayfa } = await girisYap("Ahmet Öztürk");
-  await sayfa.goto(`${kok}/panel/gorev-rolleri`, { waitUntil: "networkidle" });
-  const adaylar = await sayfa.locator("main ul li p.font-medium").allInnerTexts();
+  await sayfa.goto(`${kok}/panel/ogrenciler`, { waitUntil: "networkidle" });
   const atamaDugmesi = sayfa.getByRole("button", {
     name: /Okul Temsilcisi yap/,
   });
-  if (await atamaDugmesi.count()) {
+  const atanabilir = await atamaDugmesi.count();
+  if (atanabilir) {
     await atamaDugmesi.first().click();
     await sayfa.waitForURL(/durum=(atandi|hata)/, { timeout: 20000 });
   }
-  await cek(sayfa, "6-okul-koordinatoru-gorev-rolleri", "/panel/gorev-rolleri");
+  const gorevKaldir = await sayfa
+    .getByRole("button", { name: /Görevi kaldır/ })
+    .count();
+  await cek(sayfa, "6-okul-koordinatoru-gorev-rolleri", "/panel/ogrenciler");
   rapor.push(
-    `Görev rolü · okul koordinatörünün atayabildiği öğrenciler: ${adaylar.join(" | ") || "(yok)"}`,
+    `Görev rolü · Öğrencilerim'de "Okul Temsilcisi yap" düğmesi: ${
+      atanabilir > 0 ? `${atanabilir} öğrencide` : "(yok)"
+    } · atama sonrası "Görevi kaldır": ${gorevKaldir > 0 ? "var" : "yok"}`,
   );
   await baglam.close();
 }
@@ -623,9 +720,8 @@ let ekAdresi;
 {
   const { baglam, sayfa } = await girisYap("Yusuf Demir");
   await sayfa.goto(`${kok}/panel/gorev-rolleri`, { waitUntil: "networkidle" });
-  const engellendi = await sayfa
-    .getByText("Görev rolü atama yetkiniz yok")
-    .count();
+  // Metin J2 ile değişti; kontrol sabit kalan kısma bakıyor.
+  const engellendi = await sayfa.getByText("yetkiniz yok").count();
   rapor.push(
     `           · öğrenci bu ekranda: ${engellendi > 0 ? "engellendi (beklenen)" : "*** ERİŞTİ ***"}`,
   );
@@ -656,34 +752,31 @@ let ekAdresi;
   await baglam.close();
 }
 
-// --- 8. KVKK, erişim kayıtları ve yönetim ----------------------------------
+// --- 8. Onay belgeleri, erişim kayıtları ve yönetim -------------------------
 {
-  // Öğrenci aydınlatma metnini görür ve onaylar; onay tarihi profiline yazılır.
-  const { baglam, sayfa } = await girisYap("Yusuf Demir");
+  /*
+   * Öğrenci ilk girişte aydınlatma metnini ve açık rıza metnini onaylar; bunu
+   * yapmadan panele giremez (kapıyı girisYap geçiyor). Burada kapının gerçekten
+   * çıktığı ve arkasında onayların işlendiği doğrulanıyor — belgeleri ekranda
+   * göstermek yetmez, onayın kaydedildiği görülmeli.
+   */
+  const { baglam, sayfa, ilkGirisKapisi } = await girisYap("Yusuf Demir");
 
-  await sayfa.goto(`${kok}/panel`, { waitUntil: "networkidle" });
-  const seritVarMi = await sayfa
-    .getByText("aydınlatma metnini henüz okumadınız")
-    .count();
+  // Belge bölümü profilin en altında; menüden kaldırıldı (5 Ağustos 2026).
+  await sayfa.goto(`${kok}/panel/profil#kvkk`, { waitUntil: "networkidle" });
+  await cek(sayfa, "8-ogrenci-onay-belgeleri", "/panel/profil#kvkk");
 
-  await cek(sayfa, "8-ogrenci-kvkk-uyari-seridi", "/panel");
-  await sayfa.goto(`${kok}/panel/kvkk`, { waitUntil: "networkidle" });
-  await cek(sayfa, "8-ogrenci-kvkk-metni", "/panel/kvkk");
+  const onayliBelge = await sayfa.getByText("tarihinde onayladınız").count();
+  const bekleyenBelge = await sayfa.getByText("henüz onaylamadınız").count();
 
-  const onayDugmesi = sayfa.getByRole("button", { name: /Okudum/i });
-  const onaylanabilirMi = await onayDugmesi.count();
-  if (onaylanabilirMi > 0) {
-    await onayDugmesi.first().click();
-    // Eylem, onay sonrası kendi sayfasına yönlendiriyor; yükleme durumu tek
-    // başına yeterli değil çünkü ilk yanıt yönlendirmenin kendisi.
-    await sayfa.waitForURL(/durum=onaylandi/, { timeout: 20000 });
-    await sayfa.waitForLoadState("networkidle");
-  }
-  const onaySonrasi = await sayfa.getByText("tarihinde onayladınız").count();
+  // Öğrenciden istenen belgeler: aydınlatma + açık rıza. Koordinatör
+  // belgelerinin öğrenciye SIZMADIĞI da ölçülüyor.
+  const koordinatorBelgesi = await sayfa.getByText("Taahhütnamesi").count();
 
   rapor.push(
-    `KVKK · öğrenci uyarı şeridi: ${seritVarMi > 0 ? "gösterildi" : "yok (onay zaten verilmiş)"}` +
-      ` · onay sonrası tarih görünüyor: ${onaySonrasi > 0 ? "evet" : "hayır"}`,
+    `Onay belgeleri · öğrenci: ilk giriş kapısı ${ilkGirisKapisi ? "çıktı" : "çıkmadı (onay zaten verilmiş)"}` +
+      ` · onaylı belge: ${onayliBelge} · bekleyen: ${bekleyenBelge}` +
+      ` · koordinatör belgesi sızdı mı: ${koordinatorBelgesi > 0 ? "*** EVET ***" : "hayır"}`,
   );
   await baglam.close();
 }
@@ -749,7 +842,13 @@ let ekAdresi;
       await epostaAlani.fill(adres);
       await telefonAlani.fill("05001112233");
       await sayfa.getByRole("button", { name: "Kaydet" }).first().click();
-      await sayfa.waitForLoadState("networkidle");
+      /*
+       * Sunucu eyleminin YÖNLENDİRMESİ beklenir, "networkidle" değil: eylem
+       * tamamlanmadan da ağ boşta görünebiliyor ve kontrol kaydı okumadan
+       * "kaydedilmedi" diyordu. Kararsız sonuç veren bir kontrol, hatalı
+       * kontrolden daha kötüdür — güvenilmez hâle gelir.
+       */
+      await sayfa.waitForURL(/durum=iletisim-kaydedildi/, { timeout: 20000 });
       await sayfa.reload({ waitUntil: "networkidle" });
       kaydedildi =
         (await epostaAlani.inputValue()) === adres
@@ -797,16 +896,24 @@ let ekAdresi;
 }
 
 {
-  // Öğrenci kazanım ekranında yalnızca kendi verisini görür; ekran başka bir
-  // öğrenciye bakmanın yolunu sunmaz, roldeki kişi de buraya giremez.
+  /*
+   * Katkılarım ekranı YALNIZCA KİŞİNİN KENDİ verisini gösterir; başka birine
+   * bakmanın yolu yoktur. Ekran öğretmene ve koordinatöre de açıktır ve onlara
+   * KENDİ katkı kartlarını basar (bkz. kazanimlarim/page.tsx) — eski kontrol
+   * "koordinatör buraya hiç giremez" varsayıyordu ve bu doğru değildi;
+   * kalıcı bir *** üretip raporu güvenilmez kılıyordu.
+   *
+   * Doğru soru şu: koordinatör burada BAŞKASININ verisini görüyor mu?
+   */
   const { baglam, sayfa } = await girisYap("Selim Koç");
   await sayfa.goto(`${kok}/panel/kazanimlarim`, { waitUntil: "networkidle" });
-  const engellendi = await sayfa
-    .getByText("öğrencilerin katılım geçmişini gösterir")
-    .count();
+  const govde = (await sayfa.locator("main").innerText()).toLocaleLowerCase("tr");
+  const baskasininAdi = ["yusuf demir", "elif yılmaz", "zeynep kaya"].filter(
+    (ad) => govde.includes(ad),
+  );
   rapor.push(
-    `           · il koordinatörü bu ekranda: ${
-      engellendi > 0 ? "içerik yok (beklenen)" : "*** VERİ GÖRDÜ ***"
+    `           · il koordinatörü bu ekranda kendi kartını görür · başkasının verisi: ${
+      baskasininAdi.length === 0 ? "yok (beklenen)" : `*** SIZDI: ${baskasininAdi.join(", ")} ***`
     }`,
   );
   await baglam.close();

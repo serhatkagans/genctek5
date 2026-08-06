@@ -53,7 +53,7 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "grup-pasif": "Çalışma grubu pasife alındı; geçmiş seçimler korunuyor.",
   "grup-aktif": "Çalışma grubu yeniden aktifleştirildi.",
   "program-eklendi": "Etkinlik programı eklendi.",
-  "program-pasif": "Etkinlik programı pasife alındı; geçmiş faaliyetler korunuyor.",
+  "program-pasif": "Etkinlik programı pasife alındı; geçmiş etkinlikler korunuyor.",
   "program-aktif": "Etkinlik programı yeniden aktifleştirildi.",
   "sablon-kaydedildi": "Bildirim şablonu kaydedildi.",
 };
@@ -443,7 +443,7 @@ export default async function AyarlarSayfasi({
       <Kart>
         <KartBasligi
           baslik="Etkinlik programları"
-          aciklama="Temel Etkinlik ve Çalışma Grubu Etkinliği kategorilerinde faaliyetin adı bu listeden seçilir. İl Etkinliği'nin sabit listesi yoktur."
+          aciklama="Temel Etkinlik ve Çalışma Grubu Etkinliği kategorilerinde etkinliğin adı bu listeden seçilir. İl Etkinliği'nin sabit listesi yoktur."
           Ikon={CalendarRange}
         />
 

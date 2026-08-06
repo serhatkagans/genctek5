@@ -44,7 +44,7 @@ const SINIF_ETIKET = "text-sm font-medium text-metin-yumusak";
 const DURUM_MESAJLARI: Record<string, string> = {
   eklendi: "Paydaş kaydı eklendi.",
   guncellendi: "Paydaş kaydı güncellendi.",
-  pasif: "Paydaş pasife alındı; geçmiş faaliyet bağlantıları korunuyor.",
+  pasif: "Paydaş pasife alındı; geçmiş etkinlik bağlantıları korunuyor.",
   aktif: "Paydaş yeniden aktifleştirildi.",
 };
 
@@ -165,8 +165,8 @@ export default async function PaydasDetaySayfasi({
             )}
           </dl>
           <BilgiKutusu className="mt-5">
-            Kaydı ilin koordinatörü yönetir. Faaliyetinizin paydaş bilgisini
-            faaliyet detay ekranından ekleyebilirsiniz.
+            Kaydı ilin koordinatörü yönetir. Etkinliğinizin paydaş bilgisini
+            etkinlik detay ekranından ekleyebilirsiniz.
           </BilgiKutusu>
         </Kart>
       )}
@@ -293,7 +293,7 @@ export default async function PaydasDetaySayfasi({
           <div className="mt-6 border-t border-cizgi pt-5">
             <p className="mb-3 text-sm text-metin-yumusak">
               Paydaş kayıtları silinmez. İş birliği sona erdiyse kaydı pasife
-              alın: listede görünmez ama geçmiş faaliyet bağlantıları korunur.
+              alın: listede görünmez ama geçmiş etkinlik bağlantıları korunur.
             </p>
             <form action={paydasDurumEylemi}>
               <input type="hidden" name="paydasId" value={paydas.id} />
@@ -313,20 +313,20 @@ export default async function PaydasDetaySayfasi({
 
       <Kart>
         <KartBasligi
-          baslik="İş birliği yapılan faaliyetler"
-          aciklama="Bu paydaşın destek verdiği faaliyetler (faaliyet sonuç alanı)."
+          baslik="İş birliği yapılan etkinlikler"
+          aciklama="Bu paydaşın destek verdiği etkinlikler (etkinlik sonuç alanı)."
           Ikon={CalendarDays}
         />
         {paydas.faaliyetler.length === 0 ? (
           <p className="text-sm text-metin-yumusak">
-            Bu paydaş henüz bir faaliyete bağlanmamış.
+            Bu paydaş henüz bir etkinliğe bağlanmamış.
           </p>
         ) : (
           <ul className="divide-y divide-cizgi">
             {paydas.faaliyetler.map((bag) => (
               <li key={bag.faaliyet.id} className="py-2.5">
                 <Link
-                  href={`/panel/faaliyetler/${bag.faaliyet.id}`}
+                  href={`/panel/etkinlikler/${bag.faaliyet.id}`}
                   className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
                 >
                   {bag.faaliyet.ad}

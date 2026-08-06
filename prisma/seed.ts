@@ -94,12 +94,12 @@ const SISTEM_AYARLARI = [
   {
     anahtar: "GORSEL_MAKS_BAYT",
     deger: String(5 * 1024 * 1024),
-    aciklama: "Faaliyete eklenecek görsel başına üst sınır (varsayım: 5 MB).",
+    aciklama: "Etkinliğe eklenecek görsel başına üst sınır (varsayım: 5 MB).",
   },
   {
     anahtar: "BELGE_MAKS_BAYT",
     deger: String(10 * 1024 * 1024),
-    aciklama: "Faaliyete eklenecek belge başına üst sınır (varsayım: 10 MB).",
+    aciklama: "Etkinliğe eklenecek belge başına üst sınır (varsayım: 10 MB).",
   },
   {
     anahtar: "IZINLI_GORSEL_TIPLERI",
@@ -164,7 +164,7 @@ const BILDIRIM_SABLONLARI = [
     kod: "BASVURU_SONUCU",
     konu: "{{faaliyetAdi}} başvurunuz sonuçlandı",
     govdeSablonu:
-      "Merhaba {{ogrenciAdSoyad}},\n\n{{faaliyetAdi}} faaliyetine yaptığınız başvurunun sonucu: {{sonuc}}.\n\nGençTek",
+      "Merhaba {{ogrenciAdSoyad}},\n\n{{faaliyetAdi}} etkinliğine yaptığınız başvurunun sonucu: {{sonuc}}.\n\nGençTek",
   },
   {
     kod: "DANISMAN_DEGISTI",
@@ -179,6 +179,12 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\nDanışman öğretmeniniz okulunuzdan ayrıldı. Okulunuzda birden fazla danışman öğretmen bulunduğu için yeni danışmanınızı sizin seçmeniz gerekiyor. Seçim yapana kadar il koordinatörünüze bağlı görünürsünüz.\n\nGençTek",
   },
   {
+    kod: "DANISMANLIK_TEKIL_BIRAKILDI",
+    konu: "{{ogrenciAdSoyad}} öğrencisinin danışmanlığı bırakıldı",
+    govdeSablonu:
+      "Merhaba,\n\n{{okulAdi}} okulundan {{danismanAdSoyad}}, {{ogrenciAdSoyad}} adlı öğrencinin danışmanlığını bıraktı.\n\nGerekçe: {{gerekce}}\n\nÖğrencinin yeni durumu: {{yeniDurum}}\n\nGençTek",
+  },
+  {
     kod: "KOORDINATOR_DEVREDILEBILIR_OGRENCI",
     konu: "{{okulAdi}} için devredilebilir öğrenci var",
     govdeSablonu:
@@ -186,21 +192,21 @@ const BILDIRIM_SABLONLARI = [
   },
   {
     kod: "ONAY_BEKLEYEN_ULUSAL_FAALIYET",
-    konu: "Onay bekleyen ulusal faaliyet: {{faaliyetAdi}}",
+    konu: "Onay bekleyen ulusal etkinlik: {{faaliyetAdi}}",
     govdeSablonu:
-      "Merhaba,\n\n{{duzenleyenAdSoyad}} tarafından {{faaliyetAdi}} adlı ulusal faaliyet oluşturuldu ve onayınızı bekliyor.\n\nGençTek",
+      "Merhaba,\n\n{{duzenleyenAdSoyad}} tarafından {{faaliyetAdi}} adlı ulusal etkinlik oluşturuldu ve onayınızı bekliyor.\n\nGençTek",
   },
   {
     kod: "ONAY_BEKLEYEN_OGRENCI_FAALIYETI",
-    konu: "Öğrenci faaliyeti onayınızı bekliyor: {{faaliyetAdi}}",
+    konu: "Öğrenci etkinliği onayınızı bekliyor: {{faaliyetAdi}}",
     govdeSablonu:
-      "Merhaba,\n\n{{okulAdi}} okulundan {{duzenleyenAdSoyad}}, {{kapsam}} kapsamında {{faaliyetAdi}} adlı faaliyeti önerdi ve onay bekliyor.\n\nBu öneriyi hem siz hem de YEĞİTEK proje yöneticileri onaylayabilir; ilk verilen karar geçerlidir. Faaliyet, onaylanana kadar öğrencilere görünmez.\n\nGençTek",
+      "Merhaba,\n\n{{okulAdi}} okulundan {{duzenleyenAdSoyad}}, {{kapsam}} kapsamında {{faaliyetAdi}} adlı etkinliği önerdi ve onay bekliyor.\n\nBu öneriyi hem siz hem de YEĞİTEK proje yöneticileri onaylayabilir; ilk verilen karar geçerlidir. Etkinlik, onaylanana kadar öğrencilere görünmez.\n\nGençTek",
   },
   {
     kod: "ONAY_BEKLEYEN_OGRETMEN_FAALIYETI",
-    konu: "Öğretmen faaliyeti onayınızı bekliyor: {{faaliyetAdi}}",
+    konu: "Öğretmen etkinliği onayınızı bekliyor: {{faaliyetAdi}}",
     govdeSablonu:
-      "Merhaba,\n\n{{okulAdi}} okulundan {{duzenleyenAdSoyad}}, {{kapsam}} kapsamında {{faaliyetAdi}} adlı faaliyeti açtı ve onayınızı bekliyor.\n\nFaaliyet, onaylanana kadar öğrencilere görünmez ve başvuru almaz.\n\nGençTek",
+      "Merhaba,\n\n{{okulAdi}} okulundan {{duzenleyenAdSoyad}}, {{kapsam}} kapsamında {{faaliyetAdi}} adlı etkinliği açtı ve onayınızı bekliyor.\n\nEtkinlik, onaylanana kadar öğrencilere görünmez ve başvuru almaz.\n\nGençTek",
   },
   {
     kod: "IL_DISI_BASVURU_KARARI",
@@ -233,21 +239,21 @@ const BILDIRIM_SABLONLARI = [
   },
   {
     kod: "FAALIYET_ONAY_SONUCU",
-    konu: "{{faaliyetAdi}} faaliyetiniz {{sonuc}}",
+    konu: "{{faaliyetAdi}} etkinliğiniz {{sonuc}}",
     govdeSablonu:
-      "Merhaba,\n\nOnaya sunduğunuz {{faaliyetAdi}} adlı faaliyet {{kararVerenAdSoyad}} tarafından {{sonuc}}.\n\nFaaliyetin güncel durumunu panelinizden görebilirsiniz.\n\nGençTek",
+      "Merhaba,\n\nOnaya sunduğunuz {{faaliyetAdi}} adlı etkinlik {{kararVerenAdSoyad}} tarafından {{sonuc}}.\n\nEtkinliğin güncel durumunu panelinizden görebilirsiniz.\n\nGençTek",
   },
   {
     kod: "DANISMANA_KOPYA_ULUSAL_BASVURU",
-    konu: "Öğrenciniz bir ulusal faaliyete başvurdu",
+    konu: "Öğrenciniz bir ulusal etkinliğe başvurdu",
     govdeSablonu:
-      "Merhaba,\n\nDanışmanlığını yaptığınız {{ogrenciAdSoyad}}, {{faaliyetAdi}} adlı ulusal faaliyete başvurdu. Bu bildirim yalnızca bilgilendirme amaçlıdır; onayınız gerekmez.\n\nGençTek",
+      "Merhaba,\n\nDanışmanlığını yaptığınız {{ogrenciAdSoyad}}, {{faaliyetAdi}} adlı ulusal etkinliğe başvurdu. Bu bildirim yalnızca bilgilendirme amaçlıdır; onayınız gerekmez.\n\nGençTek",
   },
   {
     kod: "FAALIYET_IPTAL_EDILDI",
     konu: "{{faaliyetAdi}} iptal edildi",
     govdeSablonu:
-      "Merhaba,\n\nBaşvurduğunuz {{faaliyetAdi}} adlı faaliyet iptal edildi; başvurunuz bu nedenle kapatıldı.\n\nGerekçe: {{gerekce}}\n\nGençTek",
+      "Merhaba,\n\nBaşvurduğunuz {{faaliyetAdi}} adlı etkinlik iptal edildi; başvurunuz bu nedenle kapatıldı.\n\nGerekçe: {{gerekce}}\n\nGençTek",
   },
   {
     kod: "OGRENCI_ATANAMADI",
@@ -259,7 +265,7 @@ const BILDIRIM_SABLONLARI = [
     kod: "ADINA_BASVURU_YAPILDI",
     konu: "{{faaliyetAdi}} için adınıza başvuru yapıldı",
     govdeSablonu:
-      "Merhaba {{ogrenciAdSoyad}},\n\n{{basvuranAdSoyad}}, {{faaliyetAdi}} adlı faaliyete sizin adınıza başvuru yaptı. Katılmak istemiyorsanız başvurunuzu panelinizden geri çekebilirsiniz.\n\nGençTek",
+      "Merhaba {{ogrenciAdSoyad}},\n\n{{basvuranAdSoyad}}, {{faaliyetAdi}} adlı etkinliğe sizin adınıza başvuru yaptı. Katılmak istemiyorsanız başvurunuzu panelinizden geri çekebilirsiniz.\n\nGençTek",
   },
   {
     kod: "ADINA_BASVURU_GERI_CEKILDI",
@@ -268,10 +274,22 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba {{ogrenciAdSoyad}},\n\n{{basvuranAdSoyad}}, sizin adınıza yaptığı başvuruyu geri çekti.\n\nGençTek",
   },
   {
+    kod: "KONTENJANDA_YER_ACILDI",
+    konu: "{{faaliyetAdi}} etkinliğinde yer açıldı",
+    govdeSablonu:
+      "Merhaba,\n\n{{katilimciAdSoyad}}, {{faaliyetAdi}} etkinliğine seçilmiş başvurusunu geri çekti. Kontenjanda {{kalanYer}} yer boş; yedek listesinde {{yedekSayisi}} başvuru bekliyor.\n\nYedekten katılımcı çağırmak için etkinliğin başvuru listesini açabilirsiniz.\n\nGençTek",
+  },
+  {
     kod: "ADINA_BASVURU_SONUCU",
     konu: "{{ogrenciAdSoyad}} · {{faaliyetAdi}} başvuru sonucu",
     govdeSablonu:
-      "Merhaba,\n\nAdına başvuru yaptığınız {{ogrenciAdSoyad}} için {{faaliyetAdi}} faaliyetinin sonucu: {{sonuc}}.\n\nGençTek",
+      "Merhaba,\n\nAdına başvuru yaptığınız {{ogrenciAdSoyad}} için {{faaliyetAdi}} etkinliğinin sonucu: {{sonuc}}.\n\nGençTek",
+  },
+  {
+    kod: "ONAY_BEKLEYEN_DIS_BASVURU",
+    konu: "Onay bekleyen giriş başvurusu · {{basvuranAdSoyad}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{basvuranAdSoyad}} ({{tur}} · {{ilAdi}}) sisteme giriş başvurusu yaptı ve onayınızı bekliyor.\n\nBaşvuruyu Dış Başvurular ekranından değerlendirebilirsiniz.\n\nGençTek",
   },
 ];
 

@@ -26,6 +26,8 @@ import {
   KartBasligi,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
+  SINIF_GIRDI,
+  SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { cvTipAdlari } from "@/lib/ogrenci/cv-kurallar";
@@ -40,6 +42,7 @@ import { gorevRolAdi } from "@/lib/yetki/etiketler";
 import { ogrenciCalismaGrubuYonetebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import {
+  danismanligiBirakEylemi,
   ogrenciyeGrupEkleEylemi,
   ogrenciyiGruptanCikarEylemi,
 } from "./eylemler";
@@ -245,6 +248,47 @@ export default async function OgrenciProfilSayfasi({
           <p className="mt-1 text-sm text-metin-yumusak">
             {tarihYaz(atama.baslangicTarihi)} tarihinden beri
           </p>
+        )}
+
+        {/*
+          TEKİL DANIŞMANLIK BIRAKMA (J1 · 6 Ağustos 2026). Yalnızca öğrencinin
+          KENDİ danışmanına gösterilir: koordinatör ya da merkez, başkasının
+          danışmanlığını buradan bırakamaz — o bir devir işlemidir, farklı bir
+          karardır.
+
+          Katlı duruyor: bu, ekranın asıl işi değil ve düğmeyi açıkta tutmak
+          yanlışlıkla tıklanmasını kolaylaştırırdı.
+        */}
+        {atama?.danismanKullaniciId === kullanici.id && (
+          <details className="mt-5 border-t border-cizgi pt-4">
+            <summary className="cursor-pointer text-sm font-medium text-metin-yumusak">
+              Bu öğrencinin danışmanlığını bırak
+            </summary>
+            <form action={danismanligiBirakEylemi} className="mt-3 space-y-3">
+              <input type="hidden" name="ogrenciId" value={ogrenci.id} />
+              <BilgiKutusu cesit="uyari">
+                Gerekçe <strong>zorunludur</strong>: il koordinatörünüze bildirim
+                olarak iletilir ve erişim kaydına yazılır. Öğrenci boşta kalmaz —
+                okulunuzda başka danışman öğretmen varsa ona devredilir, yoksa il
+                koordinatörüne bağlanır.
+              </BilgiKutusu>
+              <label className="block">
+                <span className="text-sm font-medium text-metin">Gerekçe</span>
+                <textarea
+                  name="gerekce"
+                  required
+                  minLength={10}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Öğrencinin ilgi alanı başka bir öğretmenin branşına daha yakın."
+                  className={SINIF_GIRDI}
+                />
+              </label>
+              <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                Danışmanlığı bırak
+              </button>
+            </form>
+          </details>
         )}
 
         {gorevRolleri.length > 0 && (

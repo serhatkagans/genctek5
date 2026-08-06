@@ -32,12 +32,37 @@ const GOREV_ROLLERI: GorevRolKodu[] = [
   "OKUL_TEMSILCISI",
 ];
 
-function hataylaDon(mesaj: string): never {
-  redirect(`${YOL}?hata=${encodeURIComponent(mesaj)}`);
+/**
+ * İşlem sonrası dönülecek adres.
+ *
+ * Okul Temsilcisi ataması Öğrencilerim ekranına taşındı (J2 · 5 Ağustos 2026)
+ * ama il ve ilçe ataması Görev Rolleri ekranında kaldı; aynı eylem iki yerden
+ * çağrılıyor. Değer FORMDAN geldiği için serbest bırakılamaz — açık yönlendirme
+ * açığı doğar. Öğrencilerim'e dönerken filtreler korunsun diye sorgu dizesi de
+ * taşınıyor, ama YALNIZCA bilinen önek doğrulandıktan sonra.
+ */
+function donusYolunuCoz(veri: FormData): string {
+  const istenen = String(veri.get("donusYolu") ?? "");
+  if (istenen === YOL) return YOL;
+  if (istenen === "/panel/ogrenciler" || istenen.startsWith("/panel/ogrenciler?")) {
+    return istenen;
+  }
+  return YOL;
+}
+
+/** Adrese durum/hata parametresi ekler; mevcut sorgu dizesini bozmadan. */
+function parametreEkle(yol: string, anahtar: string, deger: string): string {
+  const ayrac = yol.includes("?") ? "&" : "?";
+  return `${yol}${ayrac}${anahtar}=${encodeURIComponent(deger)}`;
+}
+
+function hataylaDon(yol: string, mesaj: string): never {
+  redirect(parametreEkle(yol, "hata", mesaj));
 }
 
 export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
+  const donusYolu = donusYolunuCoz(veri);
 
   const ogrenciId = Number.parseInt(String(veri.get("ogrenciId") ?? ""), 10);
   const rolKodu = String(veri.get("rolKodu") ?? "") as GorevRolKodu;
@@ -117,6 +142,7 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
 
   if (mevcut) {
     hataylaDon(
+      donusYolu,
       `Bu dönem için ${GOREV_ROL_ETIKETLERI[rolKodu]} görevi zaten ${mevcut.ogrenci.ad} ${mevcut.ogrenci.soyad} üzerinde. Önce mevcut görevi kaldırın.`,
     );
   }
@@ -142,12 +168,14 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
   });
 
   revalidatePath(YOL);
+  revalidatePath("/panel/ogrenciler");
   revalidatePath("/panel/profil");
-  redirect(`${YOL}?durum=atandi`);
+  redirect(parametreEkle(donusYolu, "durum", "atandi"));
 }
 
 export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
+  const donusYolu = donusYolunuCoz(veri);
 
   const gorevId = Number.parseInt(String(veri.get("gorevId") ?? ""), 10);
   if (!Number.isFinite(gorevId)) throw new BulunamadiHatasi();
@@ -195,6 +223,7 @@ export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
   });
 
   revalidatePath(YOL);
+  revalidatePath("/panel/ogrenciler");
   revalidatePath("/panel/profil");
-  redirect(`${YOL}?durum=kaldirildi`);
+  redirect(parametreEkle(donusYolu, "durum", "kaldirildi"));
 }

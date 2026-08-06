@@ -12,7 +12,6 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { GOREV_ROL_ETIKETLERI } from "@/lib/yetki/etiketler";
 import {
-  danismanKurumKodu,
   ilceTemsilcisiAtayabilirMi,
   ilTemsilcisiAtayabilirMi,
   koordinatorIlKodu,
@@ -39,6 +38,9 @@ export const dynamic = "force-dynamic";
 const SINIF_ATA_BUTON =
   "rounded-md border border-cizgi px-3 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin";
 
+/** Eylemler bu ekrandan çağrıldığında buraya geri döner. */
+const YOL = "/panel/gorev-rolleri";
+
 export default async function GorevRolleriSayfasi({
   searchParams,
 }: {
@@ -48,21 +50,27 @@ export default async function GorevRolleriSayfasi({
   const kullanici = await oturumKullanicisiZorunlu();
 
   const ilKodu = koordinatorIlKodu(kullanici);
-  const kurumKodu = danismanKurumKodu(kullanici);
   const merkezMi = projeYoneticisiMi(kullanici);
 
+  /*
+   * OKUL TEMSİLCİSİ ATAMASI BU EKRANDAN ÇIKTI (J2 · 5 Ağustos 2026): danışman
+   * öğretmen artık Öğrencilerim ekranından atıyor ve bu sekmeyi menüsünde
+   * görmüyor. Ekran il ve ilçe temsilciliği için kaldı; onları il koordinatörü
+   * (ve merkez) atıyor.
+   *
+   * Merkezde okul temsilciliği DE gösterilmeye devam ediyor: proje yöneticisi
+   * ülke genelinde tek yetkili ve okulda danışman kalmadığında düzeltmeyi
+   * yapabilecek tek kişi o.
+   */
   const ilTemsilcisiAtayabilir =
     merkezMi || (ilKodu !== null && ilTemsilcisiAtayabilirMi(kullanici, ilKodu));
-  const okulTemsilcisiAtayabilir =
-    merkezMi ||
-    (kurumKodu !== null && okulTemsilcisiAtayabilirMi(kullanici, kurumKodu));
 
-  if (!ilTemsilcisiAtayabilir && !okulTemsilcisiAtayabilir) {
+  if (!ilTemsilcisiAtayabilir) {
     return (
       <Kart>
         <KartBasligi
           baslik="Görev rolleri"
-          aciklama="Görev rolü atama yetkiniz yok."
+          aciklama="Bu ekran il ve ilçe temsilcisi atamasınadır; yetkiniz yok. Okul Temsilcisi görevini Öğrencilerim ekranından verebilirsiniz."
         />
       </Kart>
     );
@@ -125,8 +133,21 @@ export default async function GorevRolleriSayfasi({
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Görev rolleri"
-        aciklama={`${kullanici.egitimOgretimYili} dönemi · ${ogrenciler.length} öğrenci`}
+        aciklama={`İl ve İlçe Temsilcisi atamaları · ${kullanici.egitimOgretimYili} dönemi · ${ogrenciler.length} öğrenci`}
       />
+
+      {!merkezMi && (
+        <BilgiKutusu>
+          <strong>Okul Temsilcisi</strong> görevini danışman öğretmenler{" "}
+          <Link
+            href="/panel/ogrenciler"
+            className="font-semibold underline underline-offset-2"
+          >
+            Öğrencilerim
+          </Link>{" "}
+          ekranından veriyor; bu ekran il ve ilçe temsilciliği içindir.
+        </BilgiKutusu>
+      )}
 
       {durum === "atandi" && (
         <BilgiKutusu cesit="olumlu">Görev rolü atandı.</BilgiKutusu>
@@ -206,14 +227,22 @@ export default async function GorevRolleriSayfasi({
                         value={ogrenci.id}
                       />
                       <input type="hidden" name="rolKodu" value={rolKodu} />
+                      <input type="hidden" name="donusYolu" value={YOL} />
                       <button type="submit" className={SINIF_ATA_BUTON}>
                         {GOREV_ROL_ETIKETLERI[rolKodu]} yap
                       </button>
                     </form>
                   ))}
+                  {/*
+                    Okul Temsilcisi görevinin KALDIRILMASI burada da duruyor:
+                    atama Öğrencilerim'e taşındı ama koordinatör/merkez, okulda
+                    danışman kalmadığında yanlış bir görevi düzeltebilmeli.
+                    Yetki eylemin içinde ayrıca sorgulanıyor.
+                  */}
                   {ogrenci.gorevRolleri.map((gorev) => (
                     <form key={gorev.id} action={gorevRoluKaldirEylemi}>
                       <input type="hidden" name="gorevId" value={gorev.id} />
+                      <input type="hidden" name="donusYolu" value={YOL} />
                       <button type="submit" className={SINIF_IKINCIL_BUTON}>
                         {GOREV_ROL_ETIKETLERI[gorev.rolKodu]} görevini kaldır
                       </button>

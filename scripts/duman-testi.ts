@@ -15,7 +15,10 @@ import { prisma } from "../src/lib/db";
 import { kullaniciSagla } from "../src/lib/kullanici/sagla";
 import { saklamaSuresiTemizligi } from "../src/lib/kvkk/saklama";
 import { danismanlikDurumunuDegistir } from "../src/lib/ogretmen/danismanlik";
-import { ogrenciKapsamFiltresi } from "../src/lib/yetki/kapsam";
+import {
+  faaliyetKapsamFiltresi,
+  ogrenciKapsamFiltresi,
+} from "../src/lib/yetki/kapsam";
 import type { OturumKullanicisi } from "../src/lib/yetki/tipler";
 
 /**
@@ -108,7 +111,20 @@ async function testVerisiniTemizle() {
       OR: [{ ogrenciId: { in: idler } }, { atayanKullaniciId: { in: idler } }],
     },
   });
+  /*
+   * Kazanım ekleri kazanıma CASCADE bağlı; kazanım silinince kendiliğinden
+   * gidiyorlar, ayrıca silinmeleri gerekmiyor (bkz. kazanim_ek migration'ı).
+   */
   await prisma.kullaniciKazanim.deleteMany({
+    where: { kullaniciId: { in: idler } },
+  });
+  /*
+   * Onay kayıtları (kullanici_onayi) kullanıcıya RESTRICT ile bağlı: onay bir
+   * KVKK kanıtıdır, kullanıcı silinince sessizce kaybolmamalı. Bu yüzden test
+   * temizliğinde açıkça siliniyor — tablo 5 Ağustos 2026'da eklendi ve buraya
+   * eklenmediği için temizlik yabancı anahtar hatasıyla düşüyordu.
+   */
+  await prisma.kullaniciOnayi.deleteMany({
     where: { kullaniciId: { in: idler } },
   });
   await prisma.danismanAtama.deleteMany({
@@ -353,6 +369,56 @@ async function main() {
     koordinatorunGorduğu.length > 0 &&
       koordinatorunGorduğu.every((k) => k.ilKodu === "34"),
   );
+
+  /*
+   * ONAYLAYACAK KİŞİ ONAYLAYACAĞI ŞEYİ GÖRMELİ.
+   *
+   * Bu kontrol gerçek bir arızadan doğdu: `faaliyetOnayGerekiyorMu`
+   * genişletilip danışman öğretmenin açtığı faaliyet de onaya tabi kılındı ama
+   * `faaliyetKapsamFiltresi` yalnızca ÖĞRENCİ faaliyetlerini koordinatöre
+   * gösteriyordu. Sonuç sessizdi: öğretmenin faaliyeti BEKLIYOR'da kalıyor,
+   * koordinatör onu ne listede ne adresinde görebiliyordu (404) ve öğrenciye
+   * hiç görünmüyordu. Hiçbir yerde hata çıkmadığı için birim testler de
+   * yakalamadı — yetki kararı DOĞRUYDU, veritabanı filtresi onunla
+   * çelişiyordu. Bu yüzden kontrol gerçek sorguyla yapılıyor.
+   */
+  const onayBekleyen = await prisma.faaliyet.create({
+    data: {
+      ad: "Duman testi · öğretmen faaliyeti",
+      aciklama: "Koordinatör onayı kontrolü.",
+      kapsam: "OKUL",
+      etkinlikKategorisi: "IL_ETKINLIGI",
+      kurumKodu: 750001,
+      kontenjan: 5,
+      duzenleyenKullaniciId: ogretmen1,
+      duzenleyenBirim: "Duman testi",
+      onayDurumu: "BEKLIYOR",
+      tarih: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      basvuruBaslangic: new Date(),
+      basvuruBitis: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    },
+    select: { id: true },
+  });
+
+  const koordinatorunGorduguFaaliyetler = await prisma.faaliyet.findMany({
+    where: faaliyetKapsamFiltresi(koordinatorOturumu),
+    select: { id: true },
+  });
+  kontrol(
+    "il koordinatörü, öğretmenin onay bekleyen faaliyetini görür",
+    koordinatorunGorduguFaaliyetler.some((f) => f.id === onayBekleyen.id),
+  );
+
+  const ogrencininGorduguFaaliyetler = await prisma.faaliyet.findMany({
+    where: faaliyetKapsamFiltresi(ogrenciOturumu),
+    select: { id: true },
+  });
+  kontrol(
+    "öğrenci onay bekleyen faaliyeti GÖRMEZ",
+    !ogrencininGorduguFaaliyetler.some((f) => f.id === onayBekleyen.id),
+  );
+
+  await prisma.faaliyet.delete({ where: { id: onayBekleyen.id } });
 
   console.log("\n9. Veritabanı değişmezleri");
   let ikinciAtamaReddedildi = false;

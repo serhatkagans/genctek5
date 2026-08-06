@@ -6,11 +6,20 @@ import { ROL_ETIKETLERI } from "@/lib/yetki/etiketler";
  * bakıldığı her ekranda anında okunur. Renkler temaya göre değişir.
  */
 
+/*
+ * Dört çekirdek rolün her birinin kendi rengi var. Mezun ve paydaş temsilcisi
+ * ORTAK vurgu rengini kullanır ve bu bilinçli: ikisi de "EBA dışı" ailesinden
+ * ve okul hiyerarşisinde bir yerde durmuyorlar. Her birine ayrı renk açmak,
+ * beş temada on yeni değişken tanımlamak demekti — kazandıracağı ayrım ise
+ * etiketin metninde zaten yazılı.
+ */
 const ROL_SINIFLARI: Record<RolKodu, string> = {
   OGRENCI: "bg-rol-ogrenci-zemin text-rol-ogrenci-metin",
   DANISMAN: "bg-rol-danisman-zemin text-rol-danisman-metin",
   IL_KOORDINATOR: "bg-rol-koordinator-zemin text-rol-koordinator-metin",
   PROJE_YONETICISI: "bg-rol-yonetici-zemin text-rol-yonetici-metin",
+  MEZUN: "bg-vurgu-zemin text-vurgu-metin",
+  PAYDAS_TEMSILCISI: "bg-vurgu-zemin text-vurgu-metin",
 };
 
 export function RolEtiketi({

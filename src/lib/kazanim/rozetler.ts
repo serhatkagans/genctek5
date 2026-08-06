@@ -63,21 +63,21 @@ export const ROZETLER: RozetTanimi[] = [
   {
     kod: "ILK_ADIM",
     ad: "İlk Adım",
-    aciklama: "İlk GençTek faaliyetine katıldın.",
+    aciklama: "İlk GençTek etkinliğine katıldın.",
     hedef: 1,
     ilerleme: (girdi) => girdi.katilimlar.length,
   },
   {
     kod: "DUZENLI_KATILIM",
     ad: "Düzenli Katılım",
-    aciklama: "Üç faaliyete katıldın.",
+    aciklama: "Üç etkinliğe katıldın.",
     hedef: 3,
     ilerleme: (girdi) => girdi.katilimlar.length,
   },
   {
     kod: "GENCTEK_GONULLUSU",
     ad: "GençTek Gönüllüsü",
-    aciklama: "On faaliyete katıldın.",
+    aciklama: "On etkinliğe katıldın.",
     hedef: 10,
     ilerleme: (girdi) => girdi.katilimlar.length,
   },
@@ -92,7 +92,7 @@ export const ROZETLER: RozetTanimi[] = [
   {
     kod: "IL_SAHNESI",
     ad: "İl Sahnesi",
-    aciklama: "İl geneli bir faaliyete katıldın.",
+    aciklama: "İl geneli bir etkinliğe katıldın.",
     hedef: 1,
     ilerleme: (girdi) =>
       girdi.katilimlar.filter((k) => k.kapsam === "IL").length,
@@ -100,7 +100,7 @@ export const ROZETLER: RozetTanimi[] = [
   {
     kod: "TURKIYE_SAHNESI",
     ad: "Türkiye Sahnesi",
-    aciklama: "Ulusal bir faaliyete katıldın.",
+    aciklama: "Ulusal bir etkinliğe katıldın.",
     hedef: 1,
     ilerleme: (girdi) =>
       girdi.katilimlar.filter((k) => k.kapsam === "ULUSAL").length,
@@ -140,15 +140,15 @@ export const ROZETLER: RozetTanimi[] = [
 export const OGRETMEN_ROZETLERI: RozetTanimi<OgretmenKatkiGirdisi>[] = [
   {
     kod: "ILK_FAALIYET",
-    ad: "İlk Faaliyet",
-    aciklama: "İlk GençTek faaliyetinizi düzenlediniz.",
+    ad: "İlk Etkinlik",
+    aciklama: "İlk GençTek etkinliğinizi düzenlediniz.",
     hedef: 1,
     ilerleme: (girdi) => girdi.duzenledigiFaaliyetSayisi,
   },
   {
     kod: "SUREKLI_DUZENLEYICI",
     ad: "Sürekli Düzenleyici",
-    aciklama: "Beş faaliyet düzenlediniz.",
+    aciklama: "Beş etkinlik düzenlediniz.",
     hedef: 5,
     ilerleme: (girdi) => girdi.duzenledigiFaaliyetSayisi,
   },
@@ -176,7 +176,7 @@ export const OGRETMEN_ROZETLERI: RozetTanimi<OgretmenKatkiGirdisi>[] = [
   {
     kod: "IS_BIRLIGI",
     ad: "İş Birliği",
-    aciklama: "Faaliyetinize bir paydaş kurumu dahil ettiniz.",
+    aciklama: "Etkinliğinize bir paydaş kurumu dahil ettiniz.",
     hedef: 1,
     ilerleme: (girdi) => girdi.paydasliFaaliyetSayisi,
   },
@@ -244,4 +244,111 @@ export function katilimOzeti(katilimlar: KatilimKaydi[]): KatilimOzeti {
     kapsamaGore,
     kategoriyeGore,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Seferler — seviye sistemi (D7 · 6 Ağustos 2026)
+// ---------------------------------------------------------------------------
+
+/**
+ * SEVİYELER BİR MERDİVEN DEĞİL, KAZANILAN NİTELİKLERDİR.
+ *
+ * İstek iki liste veriyordu ("usta/kalfa/çırak" ve "keşfeden/üreten/paylaşan/
+ * lider/elçi"); ikincisi seçildi (→ S15). Ama ikisi aynı türden değil: usta
+ * kalfanın üstüdür, oysa "üreten" ile "paylaşan" biri öbürünün üstü DEĞİL —
+ * farklı davranışlar. Bu yüzden sıralı bir merdiven değil, her biri kendi
+ * ölçütüyle kazanılan beş nitelik olarak kuruldu. Sıralı kurulsaydı ürün
+ * eklemeyen bir öğrenci, akran eğitimi verse bile "paylaşan" olamazdı.
+ *
+ * ÖLÇÜTLER GEÇMİŞTEN TÜRETİLİR (istek: "etkinlikler, verdiği eğitimler vs.")
+ * ve nişanlarla aynı desendedir: elle verilmez, tabloda tutulmaz.
+ *
+ * SEVİYE DÜŞMEZ (istek: "düşmesin"). Ölçütlerin hepsi geçmişe bakan sayımlar
+ * olduğu için kazanılan seviye kendiliğinden geri alınmaz. Tek istisna, bir
+ * yetkilinin görev rolünü SİLMESİDİR (kaldırma gerçek silmedir); "Lider" o
+ * durumda düşebilir. Düzenlenen etkinlik de aynı seviyeyi verdiği için pratikte
+ * bu yol açık kalıyor.
+ *
+ * DÖNEM SIFIRLAMASI YOK: "seneye için bakarız" dendi. Bugün seviyeler tüm
+ * geçmişe bakar; dönem bazlı istenirse ölçütlere yıl süzgeci eklenir ve bu,
+ * seviyenin düşebileceği anlamına gelir — o zaman yeniden konuşulmalı.
+ */
+export interface SeferGirdisi {
+  katilimlar: KatilimKaydi[];
+  /** `kullanici_kazanim` · tip=URUN */
+  urunSayisi: number;
+  /** `kullanici_kazanim` · tip=AKRAN_EGITIMI */
+  verdigiEgitimSayisi: number;
+  /** Dönem fark etmeksizin üstlendiği temsilcilikler. */
+  gorevRolSayisi: number;
+  /** Öğrencinin önerip onaylanan etkinlikleri. */
+  duzenledigiEtkinlikSayisi: number;
+}
+
+export interface SeferTanimi {
+  kod: string;
+  ad: string;
+  aciklama: string;
+  /** Seviyeyi kazandıran ölçüt; sayı olarak döner, 1 ve üzeri kazanmış demek. */
+  ilerleme: (girdi: SeferGirdisi) => number;
+}
+
+export const SEFERLER: SeferTanimi[] = [
+  {
+    kod: "KESFEDEN",
+    ad: "Keşfeden",
+    aciklama: "Bir GençTek etkinliğine katıldın.",
+    ilerleme: (girdi) => girdi.katilimlar.length,
+  },
+  {
+    kod: "URETEN",
+    ad: "Üreten",
+    aciklama: "Kendi ürününü profiline ekledin.",
+    ilerleme: (girdi) => girdi.urunSayisi,
+  },
+  {
+    kod: "PAYLASAN",
+    ad: "Paylaşan",
+    aciklama: "Akranlarına eğitim verdin.",
+    ilerleme: (girdi) => girdi.verdigiEgitimSayisi,
+  },
+  {
+    /*
+     * İki yoldan kazanılır: temsilcilik ya da etkinlik önermek. Tek yola
+     * bağlansaydı, okulunda temsilcilik boşalmayan ama etkinlik düzenleyen
+     * öğrenci hiçbir zaman lider sayılmazdı.
+     */
+    kod: "LIDER",
+    ad: "Lider",
+    aciklama: "Temsilcilik üstlendin ya da bir etkinlik önerdin.",
+    ilerleme: (girdi) => girdi.gorevRolSayisi + girdi.duzenledigiEtkinlikSayisi,
+  },
+  {
+    /*
+     * "Elçi" okulun DIŞINI temsil etmektir: il geneli ya da ulusal bir
+     * etkinliğe katılmak. Okul içi katılım burada sayılmaz, yoksa Keşfeden'den
+     * farkı kalmazdı.
+     */
+    kod: "ELCI",
+    ad: "Elçi",
+    aciklama: "İl geneli ya da ulusal bir etkinlikte GençTek'i temsil ettin.",
+    ilerleme: (girdi) =>
+      girdi.katilimlar.filter((k) => k.kapsam !== "OKUL").length,
+  },
+];
+
+export interface SeferDurumu {
+  kod: string;
+  ad: string;
+  aciklama: string;
+  kazanildiMi: boolean;
+}
+
+export function seferDurumlari(girdi: SeferGirdisi): SeferDurumu[] {
+  return SEFERLER.map((sefer) => ({
+    kod: sefer.kod,
+    ad: sefer.ad,
+    aciklama: sefer.aciklama,
+    kazanildiMi: sefer.ilerleme(girdi) >= 1,
+  }));
 }

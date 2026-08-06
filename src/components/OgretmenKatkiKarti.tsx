@@ -81,8 +81,8 @@ export function OgretmenKatkiKarti({
         baslik={kendiMi ? "Katkı kartım" : "Katkı kartı"}
         aciklama={
           kendiMi
-            ? "Üstlendiğiniz görevler, danışmanlığınız ve düzenlediğiniz faaliyetler. Biten görevler de kalır; geçmiş emek silinmez."
-            : "Öğretmenin görevleri, danışmanlığı ve düzenlediği faaliyetler."
+            ? "Üstlendiğiniz görevler, danışmanlığınız ve düzenlediğiniz etkinlikler. Biten görevler de kalır; geçmiş emek silinmez."
+            : "Öğretmenin görevleri, danışmanlığı ve düzenlediği etkinlikler."
         }
         Ikon={Sparkles}
       />
@@ -154,21 +154,21 @@ export function OgretmenKatkiKarti({
         <div>
           <BolumBasligi
             Ikon={CalendarPlus}
-            baslik="Düzenlediği faaliyetler"
+            baslik="Düzenlediği etkinlikler"
             adet={faaliyetler.length}
           />
           {faaliyetler.length === 0 ? (
             <p className="mt-1.5 text-sm text-metin-yumusak">
               {kendiMi
-                ? "Henüz faaliyet açmadınız."
-                : "Henüz faaliyet açılmamış."}
+                ? "Henüz etkinlik açmadınız."
+                : "Henüz etkinlik açılmamış."}
             </p>
           ) : (
             <ul className="mt-2 divide-y divide-cizgi">
               {faaliyetler.map((faaliyet) => (
                 <li key={faaliyet.id} className="py-2.5 first:pt-0 last:pb-0">
                   <Link
-                    href={`/panel/faaliyetler/${faaliyet.id}`}
+                    href={`/panel/etkinlikler/${faaliyet.id}`}
                     className="font-medium text-metin transition hover:text-vurgu-metin"
                   >
                     {faaliyet.ad}
@@ -186,10 +186,10 @@ export function OgretmenKatkiKarti({
           )}
           {kendiMi && (
             <Link
-              href="/panel/faaliyetler/yeni"
+              href="/panel/etkinlikler/yeni"
               className="mt-2 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
             >
-              Yeni faaliyet aç
+              Yeni etkinlik aç
             </Link>
           )}
         </div>

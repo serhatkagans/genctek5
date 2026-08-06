@@ -101,6 +101,6 @@ export async function kaynakIlKarariEylemi(veri: FormData): Promise<void> {
   });
 
   revalidatePath(YOL);
-  revalidatePath(`/panel/faaliyetler/${basvuru.faaliyet.id}`);
+  revalidatePath(`/panel/etkinlikler/${basvuru.faaliyet.id}`);
   redirect(`${YOL}?durum=${karar.durum === "ONAYLANDI" ? "onaylandi" : "reddedildi"}`);
 }

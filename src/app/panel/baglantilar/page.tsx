@@ -53,7 +53,7 @@ export default async function BaglantilarSayfasi({
     return (
       <Kart>
         <KartBasligi
-          baslik="Bağlantı istekleri"
+          baslik="İletişim onayları"
           aciklama="Bu ekran danışman öğretmen, il koordinatörü ve proje yöneticisine açıktır."
         />
       </Kart>
@@ -109,7 +109,7 @@ export default async function BaglantilarSayfasi({
   return (
     <div className="space-y-6">
       <SayfaBasligi
-        baslik="Bağlantı istekleri"
+        baslik="İletişim onayları"
         aciklama={`Öğrencilerinizin iletişim talepleri · ${bekleyenler.length} karar bekliyor`}
       />
 
@@ -200,7 +200,7 @@ export default async function BaglantilarSayfasi({
         <Kart>
           <KartBasligi
             baslik="Karara bağlananlar"
-            aciklama="Onaylanan bağlantıların yazışmalarını Yazışmalar ekranından okuyabilirsiniz."
+            aciklama="Onaylanan bağlantıların yazışmalarını Bağlantılarım ekranından okuyabilirsiniz."
           />
           <div className="overflow-x-auto">
             <table className="w-full min-w-[40rem] text-left text-sm">
@@ -244,7 +244,7 @@ export default async function BaglantilarSayfasi({
             href="/panel/yazismalar"
             className="mt-4 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
           >
-            Yazışmaları görüntüle →
+            Bağlantılarım&apos;da aç →
           </Link>
         </Kart>
       )}

@@ -245,6 +245,42 @@ describe("kontenjan", () => {
     expect(durum.doluMu).toBe(true);
     expect(durum.kalanYer).toBe(0);
   });
+
+  /*
+   * Yerin asıl açıldığı an: seçilmiş biri vazgeçtiğinde. Bekleyen başvurunun
+   * geri çekilmesi zaten yukarıda kapsanıyor; buradaki senaryo, dolu bir
+   * etkinlikte SEÇİLEN katılımcının çekilmesiyle yeni başvurunun mümkün hale
+   * gelmesidir (bkz. etkinlikler/eylemler.ts · basvuruGeriCekEylemi).
+   */
+  it("seçilmiş başvuru geri çekilince dolu kontenjanda yer açılır", () => {
+    const dolu = kontenjanDurumu(
+      [{ durum: "SECILDI" }, { durum: "SECILDI" }],
+      2,
+    );
+    expect(dolu.doluMu).toBe(true);
+    expect(
+      basvuruYapilabilirMi({
+        pencere: "ACIK",
+        onayDurumu: "ONAYLANDI",
+        kontenjanDoluMu: dolu.doluMu,
+      }).olurMu,
+    ).toBe(false);
+
+    const cekilmeSonrasi = kontenjanDurumu(
+      [{ durum: "SECILDI" }, { durum: "GERI_CEKILDI" }],
+      2,
+    );
+    expect(cekilmeSonrasi.secilen).toBe(1);
+    expect(cekilmeSonrasi.kalanYer).toBe(1);
+    expect(cekilmeSonrasi.doluMu).toBe(false);
+    expect(
+      basvuruYapilabilirMi({
+        pencere: "ACIK",
+        onayDurumu: "ONAYLANDI",
+        kontenjanDoluMu: cekilmeSonrasi.doluMu,
+      }).olurMu,
+    ).toBe(true);
+  });
 });
 
 describe("kontenjan değişikliği", () => {
@@ -629,7 +665,7 @@ describe("faaliyet süresi", () => {
       new Date("2026-02-28T10:00:00+03:00"),
     );
     expect(karar.olurMu).toBe(false);
-    expect(karar.neden).toBe("Faaliyet bitişi başlangıcından önce olamaz.");
+    expect(karar.neden).toBe("Etkinlik bitişi başlangıcından önce olamaz.");
   });
 
   it("aynı gün başlayıp biten faaliyet 1 gündür", () => {

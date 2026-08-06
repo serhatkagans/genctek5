@@ -61,7 +61,7 @@ const SINIF_SECIM =
 const DURUM_MESAJLARI: Record<string, string> = {
   eklendi: "Paydaş kaydı eklendi.",
   guncellendi: "Paydaş kaydı güncellendi.",
-  pasif: "Paydaş pasife alındı; geçmiş faaliyet bağlantıları korunuyor.",
+  pasif: "Paydaş pasife alındı; geçmiş etkinlik bağlantıları korunuyor.",
   aktif: "Paydaş yeniden aktifleştirildi.",
 };
 
@@ -289,7 +289,7 @@ export default async function PaydaslarSayfasi({
                 <th className="px-4 py-3 font-medium">İl</th>
                 <th className="px-4 py-3 font-medium">İletişim</th>
                 <th className="px-4 py-3 font-medium">İş birliği alanı</th>
-                <th className="px-4 py-3 font-medium">Faaliyet</th>
+                <th className="px-4 py-3 font-medium">Etkinlik</th>
               </tr>
             </thead>
             <tbody>
@@ -487,8 +487,8 @@ export default async function PaydaslarSayfasi({
         <BilgiKutusu>
           <span className="inline-flex items-center gap-2">
             <Building2 size={15} aria-hidden />
-            Paydaş kayıtlarını il koordinatörünüz yönetir. Faaliyetinizin paydaş
-            bilgisini faaliyet detay ekranından bu listeden seçerek
+            Paydaş kayıtlarını il koordinatörünüz yönetir. Etkinliğinizin paydaş
+            bilgisini etkinlik detay ekranından bu listeden seçerek
             ekleyebilirsiniz.
           </span>
         </BilgiKutusu>

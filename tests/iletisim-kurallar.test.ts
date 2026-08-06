@@ -5,6 +5,8 @@ import {
   mesajMetniniCoz,
   mesajYazilabilirMi,
   TALEP_AZAMI_GUN,
+  TALEP_TURLERI,
+  TALEP_TURU_ETIKETLERI,
   talebiCoz,
   talepAktifMi,
 } from "@/lib/iletisim/kurallar";
@@ -40,7 +42,12 @@ describe("talepAktifMi", () => {
 });
 
 describe("talebiCoz", () => {
-  const gecerli = { baslik: "Takım arkadaşı", icerik: "Robotik için", sonGecerlilik: gun(30) };
+  const gecerli = {
+    baslik: "Takım arkadaşı",
+    icerik: "Robotik için",
+    sonGecerlilik: gun(30),
+    tur: "EKIP_ARKADASI",
+  };
 
   it("geçerli ilanı kabul eder ve kırpar", () => {
     const sonuc = talebiCoz({ ...gecerli, baslik: "  A  " }, SIMDI);
@@ -72,6 +79,46 @@ describe("talebiCoz", () => {
 
   it("tarih seçilmediyse reddeder", () => {
     expect(talebiCoz({ ...gecerli, sonGecerlilik: null }, SIMDI).olurMu).toBe(false);
+  });
+
+  /*
+   * Tür 6 Ağustos 2026'da eklendi ve YENİ ilanlarda zorunlu. Sütun NULL kabul
+   * etmeye devam ediyor: eski ilanların türü bilinmiyor ve geriye dönük
+   * doldurulmadı — türü bilinmeyen bir ilana "duyuru" demek, panoda o türle
+   * filtreleyen kişiye yanlış liste gösterirdi.
+   */
+  it("tür seçilmediyse reddeder", () => {
+    const sonuc = talebiCoz({ ...gecerli, tur: "" }, SIMDI);
+    expect(sonuc.olurMu).toBe(false);
+    if (!sonuc.olurMu) expect(sonuc.neden).toBe("Talep türü seçilmelidir.");
+  });
+
+  it("tanımsız türü reddeder", () => {
+    // İstek elle kurcalanmadıkça gelmez; sessizce yutulursa ilan türsüz yazılır.
+    const sonuc = talebiCoz({ ...gecerli, tur: "BAGIS" }, SIMDI);
+    expect(sonuc.olurMu).toBe(false);
+    if (!sonuc.olurMu) expect(sonuc.neden).toBe("Talep türü anlaşılamadı.");
+  });
+
+  it("geçerli türü olduğu gibi taşır", () => {
+    const sonuc = talebiCoz({ ...gecerli, tur: "SPONSOR" }, SIMDI);
+    expect(sonuc.olurMu).toBe(true);
+    if (sonuc.olurMu) expect(sonuc.tur).toBe("SPONSOR");
+  });
+
+  it("dört türü kapsar", () => {
+    expect([...TALEP_TURLERI].sort()).toEqual([
+      "DUYURU",
+      "EKIP_ARKADASI",
+      "SPONSOR",
+      "TEKNIK_DESTEK",
+    ]);
+  });
+
+  it("her türün ekran etiketi vardır", () => {
+    for (const tur of TALEP_TURLERI) {
+      expect(TALEP_TURU_ETIKETLERI[tur]?.trim()).toBeTruthy();
+    }
   });
 });
 

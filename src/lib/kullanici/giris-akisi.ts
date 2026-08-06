@@ -20,6 +20,12 @@ export type GirisSonucu =
       kullaniciId: number;
       /** Öğrencinin danışman seçmesi gerekiyorsa seçim ekranına yönlendirilir. */
       danismanSecimiGerekli: boolean;
+      /**
+       * Giriş yapan kişi öğrenci mi? Yönlendirme kararında kullanılır (öğrenci
+       * girişte profiline düşer). Bilgi KİMLİKTEN okunur, roller sorgusundan
+       * değil: rol kaydı bu akış içinde daha yeni açılmış olabilir.
+       */
+      ogrenciMi: boolean;
     };
 
 export async function girisYap(kimlikBilgisi: string): Promise<GirisSonucu> {
@@ -67,6 +73,7 @@ export async function girisYap(kimlikBilgisi: string): Promise<GirisSonucu> {
     durum: "BASARILI",
     kullaniciId: saglama.kullaniciId,
     danismanSecimiGerekli,
+    ogrenciMi: kimlik.tip === "OGRENCI",
   };
 }
 

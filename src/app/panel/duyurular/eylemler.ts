@@ -42,6 +42,11 @@ export async function duyuruGonderEylemi(veri: FormData): Promise<void> {
    * Alıcılar ROLDEN okunur, kullanıcı tipinden değil: "öğretmen" diye bir rol
    * yok, öğretmen olmak öğrenci OLMAMAKtır (danışman, koordinatör, personel).
    * Pasif kullanıcıya duyuru gitmez.
+   *
+   * DIŞ KULLANICILAR (mezun, paydaş temsilcisi) "öğretmen" kümesinden AÇIKÇA
+   * çıkarılır: koşul yalnızca "öğrenci değil" deseydi okul kadrosuna giden bir
+   * duyuru mezunlara da giderdi. "Tümü" seçildiğinde ise alırlar — orada kasıt
+   * zaten herkestir.
    */
   const ogrenciKosulu = {
     aktif: true,
@@ -49,7 +54,14 @@ export async function duyuruGonderEylemi(veri: FormData): Promise<void> {
   };
   const ogretmenKosulu = {
     aktif: true,
-    roller: { none: { rolKodu: "OGRENCI" as const, bitisTarihi: null } },
+    roller: {
+      none: {
+        rolKodu: {
+          in: ["OGRENCI" as const, "MEZUN" as const, "PAYDAS_TEMSILCISI" as const],
+        },
+        bitisTarihi: null,
+      },
+    },
   };
 
   const nerede =

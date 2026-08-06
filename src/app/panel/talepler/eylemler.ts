@@ -4,18 +4,22 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
-import { talebiCoz } from "@/lib/iletisim/kurallar";
+import { TALEP_TURU_ETIKETLERI, talebiCoz } from "@/lib/iletisim/kurallar";
 import { gunSonu } from "@/lib/tarih";
-import { basvuruYapabilirMi } from "@/lib/yetki/izinler";
+import { talepPanosuGorebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
 
 /**
- * Talep panosu eylemleri.
+ * Pano (eski adıyla Talep Panosu) eylemleri.
  *
- * İlan açma yetkisi `basvuruYapabilirMi` ile aynı: faaliyete başvurabilen
- * herkes (öğrenci ve öğretmen) ilan da açabilir. Merkez personeli dışarıda —
- * YEĞİTEK'in takım arkadaşı araması diye bir durum yok, duyuru kanalı ayrı.
+ * İlan açma yetkisi `talepPanosuGorebilirMi`: öğrenci, öğretmen ve dış
+ * kullanıcılar (mezun, paydaş temsilcisi) ilan açabilir. Merkez personeli
+ * dışarıda — YEĞİTEK'in takım arkadaşı araması diye bir durum yok, duyuru
+ * kanalı ayrı.
+ *
+ * Kapı faaliyete BAŞVURU yetkisinden ayrıdır: pano bir ilan tahtasıdır,
+ * başvuruyla ilgisi yok (bkz. lib/yetki/izinler.ts).
  */
 
 const YOL = "/panel/talepler";
@@ -26,7 +30,7 @@ function hataylaDon(mesaj: string): never {
 
 export async function talepAcEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
-  if (!basvuruYapabilirMi(kullanici)) {
+  if (!talepPanosuGorebilirMi(kullanici)) {
     throw new YetkiHatasi("İlan açma yetkiniz yok.");
   }
 
@@ -36,6 +40,7 @@ export async function talepAcEylemi(veri: FormData): Promise<void> {
       icerik: String(veri.get("icerik") ?? ""),
       // Gün sonu alınır: seçilen günün tamamı geçerli sayılmalı.
       sonGecerlilik: gunSonu(String(veri.get("sonGecerlilik") ?? "") || null),
+      tur: String(veri.get("tur") ?? ""),
     },
     new Date(),
   );
@@ -57,6 +62,7 @@ export async function talepAcEylemi(veri: FormData): Promise<void> {
     data: {
       acanKullaniciId: kullanici.id,
       calismaGrubuId: grup?.id ?? null,
+      tur: karar.tur,
       baslik: karar.baslik,
       icerik: karar.icerik,
       sonGecerlilik: karar.sonGecerlilik,
@@ -69,7 +75,7 @@ export async function talepAcEylemi(veri: FormData): Promise<void> {
     islem: "DEGISIKLIK",
     hedefTip: "PROFIL",
     hedefId: kullanici.id,
-    detay: `Talep ilanı açıldı: ${karar.baslik}`,
+    detay: `Pano ilanı açıldı (${TALEP_TURU_ETIKETLERI[karar.tur]}): ${karar.baslik}`,
   });
 
   revalidatePath(YOL);
@@ -104,7 +110,7 @@ export async function talepKapatEylemi(veri: FormData): Promise<void> {
     islem: "DEGISIKLIK",
     hedefTip: "PROFIL",
     hedefId: kullanici.id,
-    detay: `Talep ilanı kapatıldı: ${talep.baslik}`,
+    detay: `Pano ilanı kapatıldı: ${talep.baslik}`,
   });
 
   revalidatePath(YOL);

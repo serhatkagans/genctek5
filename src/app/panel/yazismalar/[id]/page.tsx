@@ -117,7 +117,7 @@ export default async function YazismaSayfasi({
         href="/panel/yazismalar"
         className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
       >
-        ← Yazışmalar
+        ← Bağlantılarım
       </Link>
 
       <SayfaBasligi

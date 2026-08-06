@@ -1,4 +1,6 @@
 import {
+  imzaBilgisiniCoz,
+  imzaUnvaniOner,
   aliciAdiniCoz,
   BELGE_TURU_ETIKETLERI,
   belgeMetniUret,
@@ -19,7 +21,7 @@ describe("belgeMetniUret", () => {
   it("katılım belgesi OLGU cümlesi kurar", () => {
     const metin = belgeMetniUret({ ...TEMEL, tur: "KATILIM" });
     expect(metin.baslik).toBe("Katılım Belgesi");
-    expect(metin.govde).toBe("Robotik Atölyesi adlı faaliyete katılmıştır.");
+    expect(metin.govde).toBe("Robotik Atölyesi adlı etkinliğe katılmıştır.");
   });
 
   it("teşekkür belgesi DEĞERLENDİRME cümlesi kurar", () => {
@@ -106,5 +108,78 @@ describe("aliciAdiniCoz", () => {
     // Teşekkür belgesi dışarıdan gelen konuşmacıya da yazılır; alıcının
     // sistemde kullanıcı kaydı olması ZORUNLU DEĞİL.
     expect(aliciAdiniCoz("Prof. Dr. Mehmet Kaya").olurMu).toBe(true);
+  });
+});
+
+/*
+ * İMZA MAKAMI (J5 · 6 Ağustos 2026).
+ *
+ * Eskiden imza OTURUM KİŞİSİNDEN geliyordu: belgeyi kim ürettiyse adı imzaya
+ * yazılıyordu. Bu yanlıştı — belgeyi hazırlayan öğretmen ile imzalayan makam
+ * aynı kişi değil. Unvan artık kapsamdan türetiliyor, ad ise elle giriliyor
+ * (sistemde okul müdürünün adı TUTULMUYOR ve e-Okul'dan da gelmiyor).
+ */
+describe("imza makamı", () => {
+  it("okul kapsamında okul müdürünü önerir", () => {
+    expect(imzaUnvaniOner("OKUL")).toBe("Okul Müdürü");
+  });
+
+  it("il kapsamında il millî eğitim müdürünü önerir", () => {
+    expect(imzaUnvaniOner("IL")).toBe("İl Millî Eğitim Müdürü");
+  });
+
+  it("ulusal kapsamda öneri ÜRETMEZ", () => {
+    // İstekte belirtilmedi; uydurmak resmî belgeye olmayan bir makam yazmak
+    // olurdu. Çağıran, düzenleyen birimi kullanır.
+    expect(imzaUnvaniOner("ULUSAL")).toBeNull();
+  });
+
+  it("adı zorunlu tutar", () => {
+    const karar = imzaBilgisiniCoz({
+      adSoyad: "   ",
+      unvan: "Okul Müdürü",
+      varsayilanUnvan: "Okul Müdürü",
+    });
+    expect(karar.olurMu).toBe(false);
+    if (!karar.olurMu) expect(karar.neden).toContain("imzalayacak kişinin adı");
+  });
+
+  it("adı kırpar ve iç boşlukları tekler", () => {
+    const karar = imzaBilgisiniCoz({
+      adSoyad: "  Mehmet   Kaya ",
+      unvan: "",
+      varsayilanUnvan: "Okul Müdürü",
+    });
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) expect(karar.adSoyad).toBe("Mehmet Kaya");
+  });
+
+  it("unvan boşsa varsayılana düşer", () => {
+    const karar = imzaBilgisiniCoz({
+      adSoyad: "Mehmet Kaya",
+      unvan: "  ",
+      varsayilanUnvan: "İl Millî Eğitim Müdürü",
+    });
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) expect(karar.unvan).toBe("İl Millî Eğitim Müdürü");
+  });
+
+  it("elle yazılan unvan varsayılanı ezer", () => {
+    const karar = imzaBilgisiniCoz({
+      adSoyad: "Mehmet Kaya",
+      unvan: "Okul Müdür Yardımcısı",
+      varsayilanUnvan: "Okul Müdürü",
+    });
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) expect(karar.unvan).toBe("Okul Müdür Yardımcısı");
+  });
+
+  it("çok uzun adı reddeder", () => {
+    const karar = imzaBilgisiniCoz({
+      adSoyad: "a".repeat(121),
+      unvan: "",
+      varsayilanUnvan: "Okul Müdürü",
+    });
+    expect(karar.olurMu).toBe(false);
   });
 });
