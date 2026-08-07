@@ -34,6 +34,7 @@ import { KapsamRozeti, KategoriRozeti } from "@/components/FaaliyetRozetleri";
 import {
   CvDuzenleme,
   DanismanlikDuzenleme,
+  DestekGruplariDuzenleme,
   FotografDuzenleme,
   IletisimDuzenleme,
   KayitEklemeFormu,
@@ -49,6 +50,7 @@ import { calismaGrubuKaydetEylemi } from "./calisma-gruplari/eylemler";
 import { danismanSecEylemi } from "./danisman-secim/eylemler";
 import {
   danismanlikEylemi,
+  destekGruplariEylemi,
   profilFotoSilEylemi,
   profilFotoYukleEylemi,
   profilGuncelleEylemi,
@@ -182,6 +184,8 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "mentorluk-basvuruldu":
     "Mentörlük başvurunuz alındı ve onaya gönderildi.",
   "mentorluk-birakildi": "Mentörlüğü bıraktınız.",
+  "destek-gruplari-kaydedildi":
+    "Katkı verebileceğiniz çalışma grupları kaydedildi.",
 };
 
 /** Kayıt ekleme formunun varsayılan türü — sekme listesinin ilki. */
@@ -284,6 +288,18 @@ export default async function PanelSayfasi({
             telefon: true,
             cvDosyaAdi: true,
             cvYuklenmeTarihi: true,
+            /*
+             * Dış kullanıcının kendi yazdıkları (7 Ağustos 2026). Öğretmende de
+             * seçiliyor ama formu basılmıyor: alan listesini role göre ikiye
+             * bölmek, aynı sorgunun iki sürümünü doğururdu ve seçilen sütunlar
+             * öğretmende zaten null.
+             */
+            githubUrl: true,
+            kisiselSiteUrl: true,
+            linkedinUrl: true,
+            kurumAdi: true,
+            gorevUnvani: true,
+            aciklama: true,
           },
         },
         kazanimlar: {
@@ -359,6 +375,29 @@ export default async function PanelSayfasi({
         }),
         prisma.mentorlukCalismaGrubu.findMany({
           where: { mentorlukKullaniciId: kullanici.id },
+          select: { calismaGrubuId: true },
+        }),
+      ])
+    : null;
+
+  /*
+   * "ÇALIŞMA GRUPLARI" — dış kullanıcının katkı verebileceği alanlar
+   * (7 Ağustos 2026 · istek: "2. sekme Panel · Foto ekle ·
+   * Mentörlüklerim/desteklerim · Çalışma Grupları").
+   *
+   * Mentörlük verisinden AYRI sorgu ve ayrı tablo: mentörlük onaya tabi bir
+   * görevdir, burası yalnızca bir beyandır. Grup listesi ikisinde de aynı
+   * kaynaktan geliyor — pasife alınmış grup hiçbirinde teklif edilmez.
+   */
+  const destekVerisi = disKullaniciMi(kullanici)
+    ? await Promise.all([
+        prisma.calismaGrubu.findMany({
+          where: { aktif: true },
+          orderBy: { siraNo: "asc" },
+          select: { id: true, ad: true },
+        }),
+        prisma.kullaniciDestekGrubu.findMany({
+          where: { kullaniciId: kullanici.id },
           select: { calismaGrubuId: true },
         }),
       ])
@@ -892,11 +931,18 @@ export default async function PanelSayfasi({
       </KatlanabilirKart>
 
       <KatlanabilirKart
-        baslik="İletişim bilgilerim"
+        baslik={
+          // Dış kullanıcıda bölüm yalnızca iletişim değil kurum, görev ve katkı
+          // açıklamasını da taşıyor; başlık bunu söylemezse kişi profilindeki
+          // alanları burada aramaz.
+          disKullaniciMi(kullanici) ? "Bilgilerim" : "İletişim bilgilerim"
+        }
         aciklama={
           ogrenciMi(kullanici)
             ? "Bu alanları siz düzenleyebilirsiniz; profilinizde görünür."
-            : "Bu alanları siz düzenleyebilirsiniz; kapsamınızdaki kişiler size buradan ulaşır."
+            : disKullaniciMi(kullanici)
+              ? "İletişim bilgileriniz, kurumunuz, göreviniz ve katkı açıklamanız. Hepsi profilinizde görünür."
+              : "Bu alanları siz düzenleyebilirsiniz; kapsamınızdaki kişiler size buradan ulaşır."
         }
         Ikon={Mail}
         capa="iletisim-bilgilerim"
@@ -908,7 +954,19 @@ export default async function PanelSayfasi({
               ? profilKaydi.ogrenciProfil
               : profilKaydi.ogretmenProfil
           }
-          baglantilar={profilKaydi.ogrenciProfil}
+          baglantilar={
+            ogrenciMi(kullanici)
+              ? profilKaydi.ogrenciProfil
+              : profilKaydi.ogretmenProfil
+          }
+          /*
+            Kurum/görev/açıklama YALNIZCA dış kullanıcıda basılır; `null`
+            geçildiğinde bileşen o alanları hiç göstermiyor. Öğretmenin kurumu
+            okuludur ve kimlik bilgilerinden gelir, elle yazılmaz.
+          */
+          kurumBilgileri={
+            disKullaniciMi(kullanici) ? profilKaydi.ogretmenProfil : null
+          }
           ogrenci={ogrenciMi(kullanici)}
           kaydetEylemi={profilGuncelleEylemi}
         />
@@ -958,6 +1016,35 @@ export default async function PanelSayfasi({
             basvurEylemi={mentorlukBasvurEylemi}
             birakEylemi={mentorluguBirakEylemi}
           />
+        </KatlanabilirKart>
+      )}
+
+      {/*
+        ÇALIŞMA GRUPLARI (7 Ağustos 2026 · istek: dış kullanıcı panelinde
+        "Mentörlüklerim/desteklerim · Çalışma Grupları").
+
+        MENTÖRLÜK KARTININ ALTINDA ve ondan AYRI: mentörlük onaya giden bir
+        başvurudur, gönderim onaylı kaydı yeniden onaya düşürür. Burası
+        yalnızca bir beyandır ve kaydetmek onay gerektirmez. Tek forma
+        alınsalardı destek alanını güncellemek isteyen kişi mentörlüğünü de
+        onaya düşürürdü.
+      */}
+      {destekVerisi && (
+        <KatlanabilirKart
+          baslik="Çalışma gruplarım"
+          aciklama="Hangi çalışma gruplarına katkı verebileceğinizi işaretleyin. Seçiminiz profilinizde görünür; onay gerektirmez."
+          Ikon={Layers}
+          capa="katki-alanlarim"
+          baslangictaAcik={acilacakBolum === "katki-alanlarim"}
+        >
+          <DestekGruplariDuzenleme
+            gruplar={destekVerisi[0]}
+            seciliGrupIdleri={destekVerisi[1].map(
+              (satir) => satir.calismaGrubuId,
+            )}
+            kaydetEylemi={destekGruplariEylemi}
+          />
+          <ProfildeGorBaglantisi />
         </KatlanabilirKart>
       )}
 

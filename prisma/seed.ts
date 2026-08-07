@@ -209,6 +209,12 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\n{{okulAdi}} okulundan {{duzenleyenAdSoyad}}, {{kapsam}} kapsamında {{faaliyetAdi}} adlı etkinliği açtı ve onayınızı bekliyor.\n\nEtkinlik, onaylanana kadar öğrencilere görünmez ve başvuru almaz.\n\nGençTek",
   },
   {
+    kod: "ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI",
+    konu: "{{sifat}} etkinliği onayınızı bekliyor: {{faaliyetAdi}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{duzenleyenAdSoyad}} ({{sifat}}), {{kapsam}} kapsamında {{faaliyetAdi}} adlı etkinliği bildirdi ve onay bekliyor.\n\nBu öneriyi hem siz hem de YEĞİTEK proje yöneticileri onaylayabilir; ilk verilen karar geçerlidir. Etkinlik, onaylanana kadar kimseye görünmez ve başvuru almaz.\n\nGençTek",
+  },
+  {
     kod: "IL_DISI_BASVURU_KARARI",
     konu: "{{faaliyetAdi}} başvurunuz iliniz tarafından {{sonuc}}",
     govdeSablonu:

@@ -90,6 +90,36 @@ export default async function PanelDuzeni({
   ];
 
   /*
+   * MEZUN / PAYDAŞ / MENTÖR MENÜSÜ ÜÇ SEKME (7 Ağustos 2026 · istek: "mezun
+   * paydaş mentör sayfasında şu sekmeler olacak" — Profil, Panel, Etkinlikler).
+   *
+   * Aşağıdaki ortak sekmelerden Bağlantılarım, Pano ve Market bu kullanıcılara
+   * BASILMIYOR. Erken dönüş kullanılıyor çünkü kalan blokların hepsi görev
+   * rollerine bakıyor ve dış kullanıcıda zaten hiçbiri açılmıyor; tek tek
+   * "dış kullanıcı değilse" koşulu eklemek aynı kararı beş yerde tekrar
+   * ederdi.
+   *
+   * SAYFALAR SİLİNMEDİ ve YETKİ DARALMADI: `/panel/talepler`, `/panel/urunler`
+   * ve `/panel/yazismalar` adresle çalışmaya devam ediyor, panodaki ilan hakkı
+   * ve onaylı yazışmalar duruyor (bkz. talepPanosuGorebilirMi). Kaldırılan şey
+   * yalnızca menüdeki satır — istek sekme listesini sayıyor, yetki tablosunu
+   * değil.
+   */
+  if (disKullaniciMi(kullanici)) {
+    baglantilar.push({ yol: "/panel/etkinlikler", etiket: "Etkinlikler" });
+    return (
+      <PanelCercevesi
+        kullanici={kullanici}
+        tema={tema}
+        baglantilar={baglantilar}
+        bekleyenBelgeler={bekleyenBelgeler}
+      >
+        {children}
+      </PanelCercevesi>
+    );
+  }
+
+  /*
    * ÖĞRENCİLERİM PANEL'DEN HEMEN SONRA (7 Ağustos 2026 · istek: "sekmeler bu
    * şekilde öğrencininki gibi, farklı olarak öğrencilerim sekmesi olacak").
    *
@@ -301,6 +331,38 @@ export default async function PanelDuzeni({
    * savunulamaz; bu yüzden bölüm kaldırılmadı, taşındı.
    */
 
+  return (
+    <PanelCercevesi
+      kullanici={kullanici}
+      tema={tema}
+      baglantilar={baglantilar}
+      bekleyenBelgeler={bekleyenBelgeler}
+    >
+      {children}
+    </PanelCercevesi>
+  );
+}
+
+/**
+ * Panelin dış çerçevesi: üst bar, rol etiketleri, onay şeridi ve gezinme.
+ *
+ * AYRI BİLEŞEN çünkü düzen iki yerden dönüyor: dış kullanıcı menüsü erken
+ * dönüşle kapanıyor (üç sekme) ve kalan roller aşağıdan. İki kopya JSX,
+ * birinde yapılan bir değişikliğin öbüründe unutulması demek olurdu.
+ */
+function PanelCercevesi({
+  kullanici,
+  tema,
+  baglantilar,
+  bekleyenBelgeler,
+  children,
+}: {
+  kullanici: NonNullable<Awaited<ReturnType<typeof oturumKullanicisi>>>;
+  tema: Awaited<ReturnType<typeof aktifTema>>;
+  baglantilar: GezinmeBaglantisi[];
+  bekleyenBelgeler: Awaited<ReturnType<typeof onayDurumlari>>;
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-h-screen">
       <header className="border-b border-ust-bar-cizgi bg-ust-bar">

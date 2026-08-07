@@ -55,10 +55,12 @@ import {
   basvuruDegerlendirebilirMi,
   basvuruYapabilirMi,
   danismanMi,
+  disKullaniciMi,
   ekYukleyebilirMi,
   faaliyetIptalEdebilirMi,
   faaliyetOnaylayabilirMi,
   koordinatorIlKodu,
+  mezunMu,
   ogrenciMi,
 } from "@/lib/yetki/izinler";
 import {
@@ -340,6 +342,31 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
         degiskenler,
       );
+    } else if (disKullaniciMi(kullanici)) {
+      /*
+       * Mezun / paydaş temsilcisi / mentör etkinliği (7 Ağustos 2026 · "Etkinlik
+       * Bildir"). Öğrencidekiyle AYNI çift gönderim: hem ilin koordinatörü hem
+       * merkez onaylayabilir, ilk karar geçerlidir.
+       *
+       * Şablon ayrı: dış kullanıcının okulu yok, onaylayanın ekranında "hangi
+       * okuldan geldi" yerine kişinin SIFATI yazıyor — karar buna bakılarak
+       * veriliyor.
+       */
+      const degiskenler = {
+        faaliyetAdi: ad,
+        duzenleyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+        kapsam: KAPSAM_ETIKETLERI[kapsam],
+        sifat: mezunMu(kullanici) ? "Mezun" : "Paydaş temsilcisi",
+      };
+      await ilKoordinatorlerineBildir(
+        kullanici.ilKodu,
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI,
+        degiskenler,
+      );
+      await projeYoneticilerineBildir(
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI,
+        degiskenler,
+      );
     } else if (danismanMi(kullanici)) {
       /*
        * Öğretmen faaliyetinde uyarı YALNIZCA ilin koordinatörüne gider; merkez
@@ -541,6 +568,34 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
       );
       await projeYoneticilerineBildir(
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
+        degiskenler,
+      );
+    } else if (kapsam.duzenleyenDisKullaniciMi) {
+      /*
+       * Dış kullanıcının etkinliği düzenlendi ve onay yeniden düştü. Açılıştaki
+       * gönderimin aynısı: koordinatör açılışta gördüğü öneriyi ikinci kez de
+       * görmeli, yoksa değişmiş bir etkinliği eski hâliyle onaylamış olurdu.
+       *
+       * Sıfat düzenleyenin ROLÜNDEN okunuyor, oturumdan değil: etkinliği
+       * düzenleyen kişi koordinatör de olabilir.
+       */
+      const degiskenler = {
+        faaliyetAdi: faaliyet.ad,
+        duzenleyenAdSoyad: `${faaliyet.duzenleyen.ad} ${faaliyet.duzenleyen.soyad}`,
+        kapsam: KAPSAM_ETIKETLERI[faaliyet.kapsam],
+        sifat: faaliyet.duzenleyen.roller.some(
+          (rol) => rol.rolKodu === "MEZUN",
+        )
+          ? "Mezun"
+          : "Paydaş temsilcisi",
+      };
+      await ilKoordinatorlerineBildir(
+        kapsam.kapsamIlKodu ?? null,
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI,
+        degiskenler,
+      );
+      await projeYoneticilerineBildir(
+        BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI,
         degiskenler,
       );
     } else {

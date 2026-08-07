@@ -10,9 +10,11 @@ import type {
 import {
   danismanKurumKodu,
   danismanMi,
+  disKullaniciMi,
   faaliyetOnayGerekiyorMu,
   ilKoordinatoruMu,
   koordinatorIlKodu,
+  mezunMu,
   ogrenciMi,
   projeYoneticisiMi,
 } from "../yetki/izinler";
@@ -189,11 +191,17 @@ export function etkinlikKategorisiDogrula(
  * öğrencinin açtığı faaliyet her durumda onay bekler (bkz. onayDurumuBelirle).
  * Sıralama bilinçli olarak dar kapsamdan geniş kapsama: formda ilk seçenek
  * varsayılan olur ve öğrencinin olağan işi kendi okulundadır.
+ *
+ * MEZUN / PAYDAŞ / MENTÖR: il ve ulusal (7 Ağustos 2026 · "Etkinlik Bildir").
+ * Okul kapsamı yok — kurum kodları olmadığı için "kendi okulu" diye bir yer
+ * yok ve bir okulun içine etkinlik açmak o okulun sorumlusunun işidir.
+ * Onları da onay koruyor: açtıkları hiçbir etkinlik doğrudan yayına girmez.
  */
 export function kapsamSecenekleri(kullanici: OturumKullanicisi): Kapsam[] {
   if (projeYoneticisiMi(kullanici)) return ["IL", "ULUSAL"];
   if (ilKoordinatoruMu(kullanici)) return ["IL", "ULUSAL"];
   if (ogrenciMi(kullanici)) return ["OKUL", "IL", "ULUSAL"];
+  if (disKullaniciMi(kullanici)) return ["IL", "ULUSAL"];
   if (danismanMi(kullanici)) return ["OKUL"];
   return [];
 }
@@ -291,6 +299,18 @@ export function duzenleyenBirimBelirle(
   if (ogrenciMi(kullanici)) {
     const yer = kapsam === "OKUL" ? adlar.okulAdi : adlar.ilAdi;
     return yer ? `${yer} · Öğrenci girişimi` : "Öğrenci girişimi";
+  }
+  /*
+   * DIŞ KULLANICININ ETKİNLİĞİ KOORDİNATÖRLÜĞE MAL EDİLMEZ (7 Ağustos 2026).
+   *
+   * Aşağıdaki kural "il kapsamı + koordinatör değilse İl Koordinatörlüğü"
+   * diyor; bu satır olmasaydı bir paydaşın önerdiği etkinlik kartta "Ankara İl
+   * Koordinatörlüğü" imzasıyla çıkardı. Katılımcı "bunu kim düzenliyor"
+   * sorusunun cevabını burada arıyor — öğrenci girişimindeki gerekçenin aynısı.
+   */
+  if (disKullaniciMi(kullanici)) {
+    const sifat = mezunMu(kullanici) ? "Mezun girişimi" : "Paydaş girişimi";
+    return adlar.ilAdi ? `${adlar.ilAdi} · ${sifat}` : sifat;
   }
   if (kapsam === "OKUL") return adlar.okulAdi ?? "Okul";
   if (ilKoordinatoruMu(kullanici) || (kapsam === "IL" && !projeYoneticisiMi(kullanici))) {

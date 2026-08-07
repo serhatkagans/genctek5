@@ -457,6 +457,9 @@ model Kullanici {
   mentorluk              Mentorluk?  @relation("MentorlukSahibi")
   kararVerdigiMentorluk  Mentorluk[] @relation("MentorlukKararVeren")
 
+  /// Katkı verebileceğini bildirdiği çalışma grupları (mentörlükten ayrı).
+  destekGruplari KullaniciDestekGrubu[] @relation("DestekGrubuSahibi")
+
   ekledigiPaydaslar Paydas[] @relation("PaydasEkleyen")
 
   /// EBA dışı kullanıcının şifreli giriş kimliği. EBA/mock kimlikli
@@ -720,9 +723,65 @@ model OgretmenProfil {
   cvBoyutBayt        BigInt?   @map("cv_boyut_bayt")
   cvYuklenmeTarihi   DateTime? @map("cv_yuklenme_tarihi") @db.Timestamptz(6)
 
+  /// MESLEKİ BAĞLANTILAR (7 Ağustos 2026 · istek: mezun/paydaş/mentör profilinde
+  /// "linkedin github").
+  ///
+  /// `ogrenci_profil`dekiyle AYNI sütunlar, aynı doğrulama (bkz.
+  /// lib/ogrenci/iletisim-kurallar.ts). Ortak tabloya taşınmadı: iki profil
+  /// satırının yaşam döngüsü ayrı — CV alanlarında verilen gerekçenin aynısı.
+  ///
+  /// Bugüne kadar bu alanlar yalnızca öğrencide vardı; dış kullanıcının
+  /// (mezun, paydaş temsilcisi, mentör) ekosisteme ne getirdiğini anlatan
+  /// TEK yer bu adreslerdir — okul/sınıf gibi bir kimliği yok.
+  githubUrl      String? @map("github_url") @db.VarChar(200)
+  kisiselSiteUrl String? @map("kisisel_site_url") @db.VarChar(200)
+  linkedinUrl    String? @map("linkedin_url") @db.VarChar(200)
+
+  /// "Açıklamalar / katkı sağlayabileceğim şeyler" (7 Ağustos 2026 · istek).
+  ///
+  /// Başvurudaki `beyan` alanının YERİNE GEÇMEZ: beyan, onay kararının verildiği
+  /// dondurulmuş belgedir ve değişmez. Bu alan kişinin bugünkü hâlidir ve
+  /// kendisi günceller.
+  aciklama String? @db.Text
+
+  /// Çalıştığı kurum ve oradaki görevi (7 Ağustos 2026 · istek: profilde "kurum
+  /// görevi").
+  ///
+  /// PAYDAŞ ENVANTERİNE BAĞLANMADI ve bu bilinçli: envanter, etkinlikte iş
+  /// birliği yapılan KURUMLARIN kaydıdır ve il koordinatörlerince yönetilir.
+  /// Mezunun çalıştığı şirketin oraya girmesi gerekmiyor. Başvuruda seçilen
+  /// paydaş kurumu ise duruyor; bu alanlar boşken profilde o gösteriliyor
+  /// (bkz. app/panel/profil/page.tsx).
+  kurumAdi    String? @map("kurum_adi") @db.VarChar(150)
+  gorevUnvani String? @map("gorev_unvani") @db.VarChar(150)
+
   kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
 
   @@map("ogretmen_profil")
+}
+
+/// Kişinin "bu alanlarda katkı verebilirim" dediği çalışma grupları.
+///
+/// MENTÖRLÜKTEN AYRI (7 Ağustos 2026 · istek: dış kullanıcı panelinde "Çalışma
+/// Grupları" ayrı bir bölüm). Mentörlük ONAYA TABİ bir görevdir ve öğrenciyle
+/// birebir yazışma hakkı doğurur; buradaki seçim yalnızca bir ilgi/destek
+/// beyanıdır — sponsorluk, mekân, eğitmen desteği de olabilir. İkisini aynı
+/// tabloda tutmak, mentörlüğü bırakan kişinin destek alanlarını da silerdi.
+///
+/// `ogrenci_calisma_grubu`dan da AYRI: o tablo öğrencinin hangi grupta
+/// çalıştığını söyler ve danışman/koordinatör ekranlarının kaynağıdır. Dış
+/// kullanıcıları oraya yazmak, öğrenci listelerine yetişkin karıştırırdı.
+model KullaniciDestekGrubu {
+  kullaniciId    Int      @map("kullanici_id")
+  calismaGrubuId Int      @map("calisma_grubu_id")
+  eklenmeTarihi  DateTime @default(now()) @map("eklenme_tarihi") @db.Timestamptz(6)
+
+  kullanici    Kullanici    @relation("DestekGrubuSahibi", fields: [kullaniciId], references: [id], onDelete: Cascade)
+  calismaGrubu CalismaGrubu @relation(fields: [calismaGrubuId], references: [id])
+
+  @@id([kullaniciId, calismaGrubuId])
+  @@index([calismaGrubuId])
+  @@map("kullanici_destek_grubu")
 }
 
 // ---------------------------------------------------------------------------
@@ -768,6 +827,8 @@ model CalismaGrubu {
   yoneticiGorevleri OgrenciGorevRolu[]
   /// Bu grupta mentörlük yapabilen kişiler.
   mentorlukleri     MentorlukCalismaGrubu[]
+  /// Bu gruba katkı verebileceğini bildiren mezun/paydaş/mentörler.
+  destekBildirenler KullaniciDestekGrubu[]
 
     talepler Talep[]
 

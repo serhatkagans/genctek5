@@ -127,6 +127,19 @@ export function danismanKurumKodu(
  * açtığı faaliyet hiçbir kapsamda kendiliğinden yayına girmez
  * (bkz. faaliyetOnayGerekiyorMu), o yüzden kapsamı ayrıca daraltmak öneriyi
  * baştan kesmekten başka bir şey yapmazdı.
+ *
+ * MEZUN, PAYDAŞ TEMSİLCİSİ VE MENTÖR DE AÇABİLİR (7 Ağustos 2026 · istek:
+ * "3. sekme Etkinlikler · Etkinlik Bildir · Görüntüle"). Öğrencideki mantığın
+ * aynısı: kapsam serbest, güvence onayda — açtıkları hiçbir etkinlik
+ * kendiliğinden yayına girmiyor.
+ *
+ * OKUL KAPSAMI HARİÇ: dış kullanıcının kurum kodu yoktur, "kendi okulu" diye
+ * bir yer yok. Bir okulun içine etkinlik açmak, o okulun sorumlusunun işidir
+ * (bkz. faaliyetYeriBelirle — kurumsuz kullanıcıda zaten hata veriyor).
+ *
+ * DİKKAT: bu, dış kullanıcının etkinliğe KATILIMCI olarak başvurabildiği
+ * anlamına gelmez; o kapı ayrıdır ve kapalı kalmaya devam ediyor
+ * (bkz. basvuruYapabilirMi).
  */
 export function faaliyetAcabilirMi(
   kullanici: OturumKullanicisi,
@@ -135,6 +148,7 @@ export function faaliyetAcabilirMi(
   if (projeYoneticisiMi(kullanici)) return true;
   if (ilKoordinatoruMu(kullanici)) return true;
   if (ogrenciMi(kullanici)) return true;
+  if (disKullaniciMi(kullanici)) return kapsam !== "OKUL";
   if (danismanMi(kullanici)) return kapsam === "OKUL";
   return false;
 }
@@ -156,6 +170,14 @@ export function faaliyetOnayGerekiyorMu(
   if (projeYoneticisiMi(kullanici)) return false;
   if (ogrenciMi(kullanici)) return true;
   /*
+   * Mezun, paydaş temsilcisi ve mentörün açtığı HER etkinlik — kapsamı ne
+   * olursa olsun. Gerekçe öğrencidekinden farklı: yaş değil, EKOSİSTEM DIŞI
+   * kimlik. Bu kişilerin kimliği EBA'dan gelmiyor, bir okul ya da il görevine
+   * bağlı değiller; adlarına ilan edilen bir MEB etkinliğinin sorumlusu
+   * olmadan yayına çıkması olmaz.
+   */
+  if (disKullaniciMi(kullanici)) return true;
+  /*
    * 3. Danışman öğretmenin açtığı faaliyet — ilin koordinatörü görmeden
    *    yayına girmez. Koordinatör ilinde ne yapıldığından sorumludur ve
    *    okullardaki etkinlikleri ancak onaydan geçirirse görebilir.
@@ -170,9 +192,15 @@ export function faaliyetOnayGerekiyorMu(
 /**
  * İl koordinatörü bu faaliyeti onaylayabilir mi?
  *
- * Kapı, faaliyeti KİMİN açtığına bakar: öğrenci ve danışman öğretmen, ilin
- * koordinatörünün sorumluluk alanındadır. Koordinatörün ve merkezin kendi
- * açtığı faaliyet buradan geçmez — kimse kendi işini onaylamaz.
+ * Kapı, faaliyeti KİMİN açtığına bakar: öğrenci, danışman öğretmen ve dış
+ * kullanıcı (mezun/paydaş/mentör) ilin koordinatörünün sorumluluk alanındadır.
+ * Koordinatörün ve merkezin kendi açtığı faaliyet buradan geçmez — kimse kendi
+ * işini onaylamaz.
+ *
+ * DIŞ KULLANICI DA BURADAN GEÇER (7 Ağustos 2026): ilinin koordinatörü, mezunu
+ * ya da paydaş kurumu tanıyan en yakın sorumludur. Kapı yalnızca merkeze
+ * bırakılsaydı, bir paydaşın önerdiği il etkinliği YEĞİTEK sırası gelene kadar
+ * beklerdi.
  *
  * Onay merkeze bırakılsaydı bir okulun kendi içindeki etkinlik YEĞİTEK sırası
  * gelene kadar bekler ve pratikte ölürdü; ilin koordinatörü hem kişiyi hem
@@ -186,7 +214,8 @@ export function ilKoordinatoruOnaylayabilirMi(
 ): boolean {
   const onayaTabi =
     faaliyet.duzenleyenOgrenciMi === true ||
-    faaliyet.duzenleyenDanismanMi === true;
+    faaliyet.duzenleyenDanismanMi === true ||
+    faaliyet.duzenleyenDisKullaniciMi === true;
   if (!onayaTabi) return false;
   if (!ilKoordinatoruMu(kullanici)) return false;
 

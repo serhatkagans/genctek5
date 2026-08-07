@@ -12,8 +12,8 @@
 | Öğrenci CV'si yükleme / kaldırma | ✓ (yalnızca kendisi) | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Öğrenci CV'si indirme | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller | ✗ | ✗ |
 | Okul içi faaliyet açma | ✓ (onaya tabi) | ✓ | ✓ | ✓ | ✗ | ✗ |
-| İl içi faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ | ✓ | ✗ | ✗ |
-| Ulusal faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ (onaya tabi) | ✓ | ✗ | ✗ |
+| İl içi faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ | ✓ | ✓ (onaya tabi) | ✓ (onaya tabi) |
+| Ulusal faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ (onaya tabi) | ✓ | ✓ (onaya tabi) | ✓ (onaya tabi) |
 | Faaliyete dosya/görsel ekleme | ✗ | Kendi açtığı faaliyete | Kendi açtığı faaliyete | Her faaliyete | ✗ | ✗ |
 | Faaliyete yorum yazma | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ | ✗ | ✗ |
 | Kendi yorumunu silme | ✓ | ✓ | ✓ | ✓ | — | — |
@@ -21,6 +21,7 @@
 | Başvuru değerlendirme | ✗ | Kendi faaliyeti | Kendi faaliyeti | Tümü | ✗ | ✗ |
 | Ulusal faaliyet onaylama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 | Öğrenci faaliyeti onaylama | ✗ | ✗ | ✓ (kendi ili) | ✓ | ✗ | ✗ |
+| Mezun/paydaş etkinliği onaylama | ✗ | ✗ | ✓ (kendi ili) | ✓ | ✗ | ✗ |
 | İl koordinatörü atama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 | Okul temsilcisi atama | ✗ | ✓ (kendi okulu) | ✗ | ✓ | ✗ | ✗ |
 | İl temsilcisi atama | ✗ | ✗ | ✓ (kendi ili) | ✓ | ✗ | ✗ |
@@ -41,6 +42,10 @@
 | EBA dışı giriş başvurusunu onaylama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 
 **Rol/atama envanteri**, "Öğrenci/öğretmen verisi görüntüleme" satırından **ayrı** bir yetkidir: o tekil profil erişimi, bu toplu/yönetimsel görünüm. İl koordinatörü kendi ilindeki danışmansız okulları zaten görür; envanter aynı sorguyu **il filtresi olmadan** çalıştırdığı için yalnızca proje yöneticisine açıktır.
+
+**Mezun, paydaş temsilcisi ve mentör de etkinlik bildirir** (7 Ağustos 2026 · istek: "3. sekme Etkinlikler · Etkinlik Bildir · Görüntüle"). Kapsamları **il ve ulusal**; okul kapsamı kapalıdır çünkü kurum kodları yoktur ve bir okulun içine etkinlik açmak o okulun sorumlusunun işidir. Bildirdikleri **her** etkinlik onaya tabidir — gerekçe öğrencidekinden farklı: yaş değil, kimliğin EBA'dan gelmemesi ve bir okul/il görevine bağlı olmaması. Onayı ilin koordinatörü de proje yöneticisi de verebilir; ilk karar geçerlidir. Kartta "Mezun girişimi / Paydaş girişimi" yazar, koordinatörlüğe mal edilmez.
+
+**Etkinliğe katılımcı olarak başvurma kapısı bu değişiklikle açılmadı** ve kapalı kalmaya devam ediyor (bkz. `basvuruYapabilirMi`) — etkinlik bildirmek ile başvurmak ayrı kapılardır.
 
 **Öğrenci de faaliyet açar ve kapsam sınırı yoktur** — sınır kapsamda değil **onayda** kuruldu. Öğrencinin açtığı hiçbir faaliyet kendiliğinden yayına girmez; okul içi öneri bile onay bekler, çünkü 18 yaş altı bir kullanıcının açtığı çağrı sorumlusuz çıkmamalıdır. Onaya kadar faaliyet yalnızca öğrenciye ve onaylayacak kişilere görünür.
 

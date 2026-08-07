@@ -2,6 +2,7 @@ import {
   Camera,
   FileText,
   GraduationCap,
+  Layers,
   Link2,
   Mail,
   Plus,
@@ -35,6 +36,7 @@ import {
   type KazanimTipiTanimi,
   kazanimTipleri,
 } from "@/lib/kazanim/kurallar";
+import { KATKI_ACIKLAMASI_AZAMI } from "@/lib/dis-kimlik/profil-kurallar";
 import {
   type BaglantiAlani,
   BAGLANTI_TANIMLARI,
@@ -192,26 +194,45 @@ export interface IletisimDegerleri {
   telefon: string | null;
 }
 
+/** Dış kullanıcının profil alanları — `ogretmen_profil` sütunlarıyla aynı ad. */
+export interface KurumBilgileri {
+  kurumAdi: string | null;
+  gorevUnvani: string | null;
+  aciklama: string | null;
+}
+
 export function IletisimDuzenleme({
   iletisim,
   baglantilar,
+  kurumBilgileri,
   ogrenci,
   kaydetEylemi,
 }: {
   iletisim: IletisimDegerleri | null;
   /**
-   * Öğrencinin bağlantı adresleri. Yalnızca öğrenciye sorulur: sütunlar
-   * `ogrenci_profil` tablosunda. Öğretmenin GitHub adresi bir eksiklik değil,
-   * sistemin işine yaramayan bir bilgi.
+   * Mesleki bağlantı adresleri.
+   *
+   * ÖĞRENCİ VE DIŞ KULLANICIDA sorulur; sütunlar iki ayrı tabloda ama alan
+   * adları aynı (`ogrenci_profil` / `ogretmen_profil`). Öğretmen ve
+   * koordinatörde sorulmaz: onların GençTek'teki yeri okulları ve görevleriyle
+   * belli, GitHub adresi sistemin işine yaramıyor. Dış kullanıcıda tam tersi.
    *
    * Tip yalnızca BAĞLANTI alanlarını istiyor, tüm profil satırını değil:
    * çağıran satırın tamamını geçebilir (fazla alanlar yok sayılır) ama
    * bileşen başka bir sütuna erişemez.
    */
   baglantilar: Partial<Record<BaglantiAlani, string | null>> | null;
+  /**
+   * Dış kullanıcının kurumu, görevi ve katkı açıklaması (7 Ağustos 2026).
+   * Verilmezse bu alanlar hiç basılmaz — öğrencinin ve öğretmenin kurumu
+   * kimlik bilgilerinden gelir, elle yazılmaz.
+   */
+  kurumBilgileri?: KurumBilgileri | null;
   ogrenci: boolean;
   kaydetEylemi: Eylem;
 }) {
+  const baglantiSorulsun = ogrenci || Boolean(kurumBilgileri);
+
   return (
     <form action={kaydetEylemi} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -235,15 +256,66 @@ export function IletisimDuzenleme({
         </label>
       </div>
 
-      {ogrenci && (
+      {/*
+        KURUM VE GÖREV yalnızca dış kullanıcıda ve SERBEST METİN.
+        Paydaş envanterinden seçtirilmedi: envanter, etkinliklerde iş birliği
+        yapılan kurumların kaydıdır ve il koordinatörlerince yönetilir (S18);
+        mezunun çalıştığı şirketin oraya girmesi gerekmiyor.
+      */}
+      {kurumBilgileri && (
+        <div className="grid gap-4 border-t border-cizgi pt-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-medium text-metin">Kurum</span>
+            <input
+              type="text"
+              name="kurumAdi"
+              maxLength={150}
+              placeholder="Çalıştığınız kurum ya da şirket"
+              defaultValue={kurumBilgileri.kurumAdi ?? ""}
+              className={SINIF_GIRDI}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-metin">Görevi</span>
+            <input
+              type="text"
+              name="gorevUnvani"
+              maxLength={150}
+              placeholder="Yazılım mühendisi, Ar-Ge sorumlusu…"
+              defaultValue={kurumBilgileri.gorevUnvani ?? ""}
+              className={SINIF_GIRDI}
+            />
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="text-sm font-medium text-metin">
+              Açıklamalar · katkı sağlayabileceğim şeyler
+            </span>
+            <textarea
+              name="aciklama"
+              rows={4}
+              maxLength={KATKI_ACIKLAMASI_AZAMI}
+              placeholder="Hangi konularda destek verebilirsiniz? Mekân, eğitmen, staj, sponsorluk, teknik danışmanlık…"
+              defaultValue={kurumBilgileri.aciklama ?? ""}
+              className={SINIF_GIRDI}
+            />
+            <span className="mt-1 block text-sm text-metin-yumusak">
+              Profilinizde görünür; sizinle iletişime geçmek isteyenler burayı
+              okur. En fazla {KATKI_ACIKLAMASI_AZAMI} karakter.
+            </span>
+          </label>
+        </div>
+      )}
+
+      {baglantiSorulsun && (
         <fieldset className="space-y-4 border-t border-cizgi pt-4">
           <legend className="flex items-center gap-2 text-sm font-medium text-metin">
             <Link2 size={15} aria-hidden />
             Bağlantılarım
           </legend>
           <p className="text-sm text-metin-yumusak">
-            İsteğe bağlıdır. Girdiğiniz adresleri danışmanınız, il
-            koordinatörünüz ve proje yöneticisi profilinizde görür.
+            {ogrenci
+              ? "İsteğe bağlıdır. Girdiğiniz adresleri danışmanınız, il koordinatörünüz ve proje yöneticisi profilinizde görür."
+              : "İsteğe bağlıdır. Girdiğiniz adresler profilinizde görünür."}{" "}
             &quot;https://&quot; yazmasanız da olur.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -267,6 +339,62 @@ export function IletisimDuzenleme({
       )}
 
       <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+        Kaydet
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Katkı verebileceği çalışma gruplarının seçimi (7 Ağustos 2026).
+ *
+ * MENTÖRLÜK FORMUNDAN AYRI: orası onaya giden bir başvurudur ve gönderim
+ * mevcut kaydı BEKLIYOR'a düşürür. Burası yalnızca bir beyandır — kaydet,
+ * bitti. İkisi tek forma alınsaydı destek alanını güncellemek isteyen kişi
+ * onaylı mentörlüğünü de yeniden onaya düşürürdü.
+ */
+export function DestekGruplariDuzenleme({
+  gruplar,
+  seciliGrupIdleri,
+  kaydetEylemi,
+}: {
+  gruplar: { id: number; ad: string }[];
+  seciliGrupIdleri: number[];
+  kaydetEylemi: Eylem;
+}) {
+  const secili = new Set(seciliGrupIdleri);
+
+  return (
+    <form action={kaydetEylemi} className="space-y-4">
+      <fieldset>
+        <legend className="text-sm font-medium text-metin">
+          Hangi çalışma gruplarına katkı verebilirsiniz?
+        </legend>
+        <p className="mt-1 mb-2 text-sm text-metin-yumusak">
+          Birden fazla seçebilirsiniz. Seçiminiz profilinizde görünür; kimseye
+          erişim açmaz ve onay gerektirmez.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {gruplar.map((grup) => (
+            <label
+              key={grup.id}
+              className="flex items-center gap-2 rounded-md border border-cizgi px-3 py-2 text-sm text-metin"
+            >
+              <input
+                type="checkbox"
+                name="calismaGrubuId"
+                value={grup.id}
+                defaultChecked={secili.has(grup.id)}
+                className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+              />
+              {grup.ad}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+        <Layers size={15} aria-hidden />
         Kaydet
       </button>
     </form>

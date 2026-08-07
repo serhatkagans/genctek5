@@ -29,6 +29,7 @@ import { paydasKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { girdiTarihi } from "@/lib/tarih";
 import {
   danismanKurumKodu,
+  disKullaniciMi,
   koordinatorIlKodu,
   ogrenciMi,
   projeYoneticisiMi,
@@ -61,7 +62,7 @@ export default async function YeniFaaliyetSayfasi({
       <Kart>
         <KartBasligi
           baslik="Yeni etkinlik"
-          aciklama="Etkinlik açma yetkiniz yok. Öğrenci her kapsamda etkinlik önerebilir, danışman öğretmen okul içi, il koordinatörü il ve ulusal etkinlik açabilir."
+          aciklama="Etkinlik açma yetkiniz yok. Öğrenci her kapsamda etkinlik önerebilir, danışman öğretmen okul içi, il koordinatörü il ve ulusal etkinlik açabilir; mezun, paydaş temsilcisi ve mentör il ve ulusal etkinlik bildirebilir."
         />
         <Link href="/panel/etkinlikler" className={SINIF_IKINCIL_BUTON}>
           Etkinliklere dön
@@ -72,6 +73,9 @@ export default async function YeniFaaliyetSayfasi({
 
   const merkezMi = projeYoneticisiMi(kullanici);
   const ogrenci = ogrenciMi(kullanici);
+  // Mezun / paydaş temsilcisi / mentör: etkinliği "bildirir", açmaz — kapsamı
+  // il ve ulusal, hepsi onaya tabi (bkz. lib/faaliyet/kurallar.ts).
+  const disKullanici = disKullaniciMi(kullanici);
   const kurumKodu = danismanKurumKodu(kullanici) ?? kullanici.kurumKodu;
 
   const [okul, il, iller, ilceler, gruplar] = await Promise.all([
@@ -156,11 +160,19 @@ export default async function YeniFaaliyetSayfasi({
   return (
     <div className="space-y-6">
       <SayfaBasligi
-        baslik={ogrenci ? "Yeni etkinlik önerisi" : "Yeni etkinlik"}
+        baslik={
+          ogrenci
+            ? "Yeni etkinlik önerisi"
+            : disKullanici
+              ? "Etkinlik bildir"
+              : "Yeni etkinlik"
+        }
         aciklama={
           ogrenci
             ? "Etkinliğin yeri okul ve il bilginizden gelir; ayrıca seçmenize gerek yoktur."
-            : "Etkinliğin yeri açtığınız göreve göre belirlenir; ayrıca seçmenize gerek yoktur."
+            : disKullanici
+              ? "Etkinliğin ili kayıtlı ilinizden gelir; ayrıca seçmenize gerek yoktur."
+              : "Etkinliğin yeri açtığınız göreve göre belirlenir; ayrıca seçmenize gerek yoktur."
         }
       />
 
@@ -176,6 +188,17 @@ export default async function YeniFaaliyetSayfasi({
             Önerdiğiniz etkinlik, il koordinatörünüz veya YEĞİTEK onayladıktan
             sonra yayına girer. Onaya kadar yalnızca siz ve onaylayacak kişiler
             görebilir; sonucu bildirim olarak alırsınız.
+          </BilgiKutusu>
+        ) : disKullanici ? (
+          /*
+            Dış kullanıcının HER etkinliği onaya tabi — kapsamı ne olursa olsun
+            (bkz. faaliyetOnayGerekiyorMu). Metin bunu açıkça söylüyor: kişi
+            "ulusal olmasaydı hemen yayınlanırdı" diye düşünmemeli.
+          */
+          <BilgiKutusu cesit="uyari">
+            Bildirdiğiniz etkinlik, ilinizin koordinatörü veya YEĞİTEK
+            onayladıktan sonra yayına girer. Onaya kadar yalnızca siz ve
+            onaylayacak kişiler görebilir; sonucu bildirim olarak alırsınız.
           </BilgiKutusu>
         ) : (
           <BilgiKutusu cesit="uyari">

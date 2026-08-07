@@ -588,11 +588,25 @@ Mentörlük = **çalışma grupları + serbest konular + onay durumu**. Kim olur
 Açılış ekranında iki düğme:
 
 1. **EBA ile Giriş Yap** — öğrenci ve öğretmenlerin tek yolu.
-2. **E-Devlet ile Giriş** — altında "Paydaş/Mentör girişleri için tıklayınız".
+2. **E-Devlet ile Giriş** — altında "Mezun öğrenci/Paydaş/Mentör girişleri için tıklayınız". (7 Ağustos 2026 · istek: "buraya mezun öğrenci de ekleyeceğiz" — üç tür de bu kapıdan geldiği hâlde açıklamada mezun görünmüyordu.)
 
 **Başvuru formu tektir**, içinde "kim olarak başvuruyorsunuz" seçimi var: Mezun · Paydaş temsilcisi · Mentör. Mezun ve paydaş ayrıca "mentörlük yapmak istiyorum" işaretleyebilir; `MENTOR` türünde işaret zorunlu olarak açıktır (o türü seçen kişi zaten mentörlük istiyor).
 
 **`MEZUN` türü korundu.** "Mezunlar da paydaştan girsin" ifadesi giriş KAPISI hakkındadır; tür kaldırılsaydı mevcut mezun kayıtlarının mezuniyet yılı ve okul bağı anlamsızlaşır, A1'in "mezun bağını sürdürsün" gerekçesi zayıflardı. Değişen şey üçünün de aynı düğmeden ve aynı formdan gelmesi.
+
+### Mezun / paydaş / mentör ekranları (7 Ağustos 2026)
+
+İstek sekme sekme geldi ve **menü bu üç sekmeye indi**: Profil · Panel · Etkinlikler. Bağlantılarım, Pano ve Market menüden kalktı — **sayfalar silinmedi, yetki daralmadı**: panoda ilan açma ve onaylı yazışma hakları duruyor, adresler çalışmaya devam ediyor.
+
+**1. Profil** (gösterir): Foto · Bilgiler (il, kurum, görev, e-posta, LinkedIn, GitHub, kişisel site, açıklamalar/katkı sağlayabileceği şeyler) · Özgeçmiş · Katkı Nişanım.
+
+**2. Panel** (düzenler): Fotoğrafım · Bilgilerim · Mentörlüğüm · Çalışma gruplarım · Özgeçmişim. Profil/panel ayrımı C4'teki kuralın aynısıdır.
+
+**3. Etkinlikler**: "Etkinlik bildir" + görüntüleme. Yetki tablosu için bkz. permissions.md.
+
+**KURUM VE GÖREV SERBEST METİNDİR**, paydaş envanterinden seçilmez: envanter, etkinliklerde iş birliği yapılan kurumların kaydıdır ve il koordinatörlerince yönetilir (S18); mezunun çalıştığı şirketin oraya girmesi gerekmiyor. Alanlar boşken profilde **başvurudaki** kurum ve unvan görünür — başvuru dondurulmuş bir belgedir, kişi kendi değerini yazınca o düşüş sona erer.
+
+**ÇALIŞMA GRUBU SEÇİMİ MENTÖRLÜKTEN AYRI TABLODADIR** (`kullanici_destek_grubu`). Mentörlük onaya tabi bir görevdir ve öğrenciyle birebir yazışma hakkı doğurur; buradaki seçim yalnızca bir beyandır (sponsorluk, mekân, eğitmen desteği de olabilir) ve kimseye erişim açmaz. Tek tabloda tutulsalardı mentörlüğü bırakan kişi destek alanlarını da kaybederdi.
 
 **GERÇEK E-DEVLET ENTEGRASYONU HENÜZ YOK.** Düğme bugün mevcut e-posta/şifre ekranına (`/dis-giris`) götürüyor. Entegrasyon için e-Devlet Kapısı kurum başvurusu, test ortamı erişimi ve istemci sertifikası gerekiyor — hiçbiri elde değil; EBA SSO da aynı sebeple bekliyor (SKILL.md · adım 13). Düğmenin adının şimdiden "E-Devlet" olması bilinçli: entegrasyon geldiğinde değişecek tek yer `AuthProvider` uygulamasıdır, bu ekran değil.
 

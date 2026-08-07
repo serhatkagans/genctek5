@@ -213,10 +213,32 @@ ilanı üzerinden.
 
 ### Giriş kapısı
 
-Açılış ekranı: **EBA ile Giriş Yap** + **E-Devlet ile Giriş** ("Paydaş/Mentör
-girişleri için tıklayınız"). Başvuru formu tek; içinde Mezun / Paydaş
+Açılış ekranı: **EBA ile Giriş Yap** + **E-Devlet ile Giriş** ("Mezun
+öğrenci/Paydaş/Mentör girişleri için tıklayınız"). Başvuru formu tek; içinde
+Mezun / Paydaş
 temsilcisi / Mentör seçimi ve mezun-paydaş için "ayrıca mentörlük yapmak
 istiyorum" kutusu. `MEZUN` türü korundu.
+
+### Mezun / paydaş / mentör sekmeleri
+
+> **İstek:** "mezun paydaş mentör sayfasında şu sekmeler olacak — 1. sekme
+> Profil (Foto · Bilgileri: il kurum görevi linkedin github eposta
+> açıklamalar/katkı sağlayabileceği şeyler · Özgeçmiş · Katkı Nişanım),
+> 2. sekme Panel (Foto ekle · Mentörlüklerim/desteklerim · Çalışma Grupları),
+> 3. sekme Etkinlikler (Etkinlik Bildir · Görüntüle)"
+
+**Menü üç sekmeye indi**: Profil · Panel · Etkinlikler. Bağlantılarım, Pano ve
+Market menüden kalktı — sayfalar silinmedi, panoda ilan açma ve onaylı yazışma
+yetkileri duruyor.
+
+Yeni alanlar `ogretmen_profil`de (LinkedIn · GitHub · kişisel site · açıklama ·
+kurum · görev) ve yeni `kullanici_destek_grubu` tablosunda (katkı verebileceği
+çalışma grupları — mentörlükten ayrı, onaysız beyan).
+
+**Etkinlik Bildir**: mezun/paydaş/mentör artık il ve ulusal kapsamda etkinlik
+açabiliyor; **her biri onaya tabi** ve onayı ilin koordinatörü de proje
+yöneticisi de verebilir. Okul kapsamı kapalı (kurum kodu yok). Etkinliğe
+**katılımcı olarak başvuru** kapısı bu turda AÇILMADI.
 
 ---
 

@@ -24,8 +24,8 @@ export default async function DisGirisSayfasi({
 
   return (
     <KamuSayfaDuzeni
-      baslik="Mezun ve paydaş girişi"
-      aciklama="EBA hesabı olmayan mezun ve paydaş temsilcileri buradan giriş yapar."
+      baslik="Mezun, paydaş ve mentör girişi"
+      aciklama="EBA hesabı olmayan mezun öğrenciler, paydaş temsilcileri ve mentörler buradan giriş yapar."
       genislik="max-w-xl"
     >
       {hata && (

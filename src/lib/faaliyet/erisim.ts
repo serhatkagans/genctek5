@@ -116,6 +116,17 @@ export function faaliyetKapsamiCikar(faaliyet: {
     : false;
 
   /*
+   * Mezun / paydaş temsilcisi / mentörün açtığı etkinlik de ilin koordinatörünün
+   * onayına tabi (7 Ağustos 2026). Rol kaydından okunuyor, faaliyete
+   * kopyalanmıyor — yukarıdaki iki alanla aynı gerekçe.
+   */
+  const duzenleyenDisKullaniciMi = faaliyet.duzenleyen
+    ? faaliyet.duzenleyen.roller.some(
+        (rol) => rol.rolKodu === "MEZUN" || rol.rolKodu === "PAYDAS_TEMSILCISI",
+      )
+    : false;
+
+  /*
    * Faaliyetin ili kapsam alanlarından okunamaz: okul içi faaliyette il kodu
    * boştur (okulunki geçerlidir), ulusal faaliyette ikisi de boştur ve
    * devralacak kişi düzenleyenin ilindeki koordinatördür.
@@ -141,6 +152,7 @@ export function faaliyetKapsamiCikar(faaliyet: {
       : true,
     duzenleyenOgrenciMi,
     duzenleyenDanismanMi,
+    duzenleyenDisKullaniciMi,
   };
 }
 

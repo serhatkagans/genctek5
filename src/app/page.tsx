@@ -118,7 +118,7 @@ export default async function AcilisSayfasi() {
               E-Devlet ile Giriş
             </Link>
             <p className="mt-2 text-xs text-ust-bar-metin-yumusak">
-              Paydaş/Mentör girişleri için tıklayınız.
+              Mezun öğrenci/Paydaş/Mentör girişleri için tıklayınız.
             </p>
             <p className="mt-3 text-xs text-ust-bar-metin-yumusak">
               EBA hesabınız yoksa{" "}

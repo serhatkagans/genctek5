@@ -30,7 +30,9 @@ import {
   danismanYap,
   faaliyetYap,
   koordinatorYap,
+  mezunYap,
   ogrenciYap,
+  paydasTemsilcisiYap,
   projeYoneticisiYap,
   rolsuzOgretmenYap,
 } from "./yardimcilar";
@@ -67,8 +69,72 @@ describe("faaliyet açma kapsamı", () => {
     expect(faaliyetAcabilirMi(ogrenci, "ULUSAL")).toBe(true);
   });
 
+  /*
+   * "Etkinlik Bildir" (7 Ağustos 2026). Mezun/paydaş/mentöre il ve ulusal
+   * kapsam açık, okul kapsamı KAPALI: kurum kodları yok, "kendi okulu" diye bir
+   * yer yok ve bir okulun içine etkinlik açmak o okulun sorumlusunun işi.
+   */
+  it("mezun ve paydaş temsilcisi il ve ulusal etkinlik bildirebilir", () => {
+    for (const kisi of [mezunYap(), paydasTemsilcisiYap()]) {
+      expect(faaliyetAcabilirMi(kisi, "OKUL")).toBe(false);
+      expect(faaliyetAcabilirMi(kisi, "IL")).toBe(true);
+      expect(faaliyetAcabilirMi(kisi, "ULUSAL")).toBe(true);
+    }
+  });
+
   it("rolsüz öğretmen faaliyet açamaz", () => {
     expect(faaliyetAcabilirMi(rolsuzOgretmenYap(), "OKUL")).toBe(false);
+  });
+});
+
+describe("dış kullanıcı etkinliğinin onay akışı", () => {
+  it("mezun ve paydaşın bildirdiği her etkinlik onay bekler", () => {
+    // Kapsam sınırı değil onay sınırı: kimliği EBA'dan gelmeyen, bir okul ya da
+    // il görevine bağlı olmayan kişinin adına MEB etkinliği ilan edilmez.
+    for (const kisi of [mezunYap(), paydasTemsilcisiYap()]) {
+      expect(faaliyetOnayGerekiyorMu(kisi, "IL")).toBe(true);
+      expect(faaliyetOnayGerekiyorMu(kisi, "ULUSAL")).toBe(true);
+    }
+  });
+
+  it("etkinliğin ilindeki koordinatör onaylayabilir", () => {
+    const faaliyet = faaliyetYap({
+      duzenleyenKullaniciId: 500,
+      duzenleyenDisKullaniciMi: true,
+      onayliMi: false,
+      kapsamIlKodu: "34",
+    });
+    expect(ilKoordinatoruOnaylayabilirMi(koordinatorYap(), faaliyet)).toBe(true);
+    // Başka ilin koordinatörü karışamaz.
+    expect(
+      ilKoordinatoruOnaylayabilirMi(koordinatorYap({ id: 9 }), {
+        ...faaliyet,
+        kapsamIlKodu: "06",
+      }),
+    ).toBe(false);
+  });
+
+  it("proje yöneticisi de onaylayabilir", () => {
+    expect(
+      faaliyetOnaylayabilirMi(
+        projeYoneticisiYap(),
+        faaliyetYap({ duzenleyenDisKullaniciMi: true, onayliMi: false }),
+      ),
+    ).toBe(true);
+  });
+
+  it("onay bekleyen etkinlik yalnızca sahibine ve onaycılara görünür", () => {
+    const faaliyet = faaliyetYap({
+      duzenleyenKullaniciId: 500,
+      duzenleyenDisKullaniciMi: true,
+      onayliMi: false,
+      kapsam: "ULUSAL",
+      kapsamIlKodu: "34",
+    });
+    expect(faaliyetGorunurMu(mezunYap(), faaliyet)).toBe(true);
+    expect(faaliyetGorunurMu(koordinatorYap(), faaliyet)).toBe(true);
+    // Onaylanana kadar öğrenci göremez.
+    expect(faaliyetGorunurMu(ogrenciYap(), faaliyet)).toBe(false);
   });
 });
 

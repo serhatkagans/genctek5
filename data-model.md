@@ -113,9 +113,11 @@ olmayan giriş yapamaz" garantisi şemadan değil uygulamadan gelirdi.
 | son_giris_tarihi | timestamptz, null | |
 
 **ogretmen_profil**
-`kullanici_id` (PK, FK), `danisman_olmak_istiyor` (boolean), `isaretleme_tarihi`, `eposta`, `telefon`
+`kullanici_id` (PK, FK), `danisman_olmak_istiyor` (boolean), `isaretleme_tarihi`, `eposta`, `telefon`, CV alanları, bağlantı adresleri, `aciklama`, `kurum_adi`, `gorev_unvani`
 
-Bu bayrak `true` olmadan öğretmen danışman seçim listesinde görünmez.
+Bu bayrak `true` olmadan öğretmen danışman seçim listesinde görünmez. Tablonun
+adı tarihseldir; içeriği "öğrenci OLMAYAN kullanıcının profili"dir — dış
+kullanıcıya özgü alanlar için bkz. "Mezun / paydaş / mentör profili".
 
 **kullanici_onayi** — onay belgeleri
 `kullanici_id` + `belge` (PK), `onay_tarihi`
@@ -413,6 +415,35 @@ Sınırlar **ortak** (`IZINLI_CV_TIPLERI`, `CV_MAKS_BAYT`): aynı türde dosya, 
 `dis_kullanici_basvurusu` üç sütun kazandı: `mentorluk_istiyor`, `mentorluk_konulari`, `mentorluk_grup_idleri` (INTEGER[]). Dizi bilinçli — değerler yalnızca karar anına kadar yaşıyor ve onayla `mentorluk_calisma_grubu`na taşınıyor; junction tablo, onay sonrası boşalan ve kimsenin sorgulamadığı satırlar bırakırdı. Kimlikler onay anında yeniden doğrulanıyor (pasife alınmış grup elenir), bu yüzden yabancı anahtar da gerekmiyor.
 
 `DisKullaniciTuru` enum'una `MENTOR` eklendi. **Ayrı bir RolKodu eklenmedi:** mentörün kapsamı paydaş temsilcisininkiyle aynı, ayrı rol her kapsam filtresine hiçbir şey değiştirmeyen bir dal eklerdi.
+
+---
+
+### İki CHECK kısıtı enum'ların gerisinde kalmıştı (7 Ağustos 2026 · düzeltme)
+
+Dış giriş akışı **veritabanı seviyesinde hiç çalışmıyordu**; ikisi de aynı sınıftan hata: enum genişledi, kısıt genişlemedi. Birim testler saf fonksiyonları sınadığı için hiçbiri yakalanamazdı — ikisi de yalnızca gerçek veritabanına yazarken ortaya çıktı.
+
+- **`ck_kullanici_rol_kapsam`** beyaz listesi `('OGRENCI', 'PROJE_YONETICISI')` idi. `MEZUN` ve `PAYDAS_TEMSILCISI` 5 Ağustos'ta eklendi ama listeye girmedi → `basvuruyuOnayla` içindeki rol INSERT'i her seferinde 23514 veriyordu, yani **onaylanmış tek bir dış kullanıcı açılamıyordu**. Onay tek transaction olduğu için yarım kayıt kalmadı, işlem tamamen geri alındı. Düzeltmede iki rol için kapsam alanlarının **boş olması** açıkça şart koşuldu: dış kullanıcının kurumu yoktur, ili rol kaydında değil kullanıcı satırında durur.
+- **`dis_basvuru_tur_alanlari`** yalnızca `PAYDAS` ve `MEZUN` kollarını tanıyordu. Üçüncü tür `MENTOR` aynı gün eklendi; mentör başvurusunda ne paydaş kurumu ne mezuniyet okulu sorulur, dolayısıyla satır iki kolun da dışına düşüyordu → **hiçbir mentör başvurusu kaydedilemiyordu**. Düzeltmede `MENTOR` için iki alanın da boş olması şart koşuldu (serbest bırakılsaydı kurum seçmiş bir mentör başvurusu geçerli olurdu; oysa mentörlük kişiseldir, kurumu temsil edecekse tür zaten `PAYDAS`'tır).
+
+**Ders:** yeni bir enum değeri eklerken o enum'u okuyan CHECK kısıtları taranmalı. Beyaz listeli kısıtlar sessizce değil gürültülü biçimde bozulur ama bozulma yalnızca o kod yolu ilk kez gerçek veritabanına yazdığında görülür.
+
+---
+
+### Mezun / paydaş / mentör profili (7 Ağustos 2026)
+
+`ogretmen_profil` yedi sütun kazandı: `github_url`, `kisisel_site_url`, `linkedin_url` (üçü de varchar(200)), `aciklama` (text), `kurum_adi` ve `gorev_unvani` (varchar(150)).
+
+**Tablonun adı yanıltıcı ama yeri doğru:** içeriği "öğrenci OLMAYAN kullanıcının profili"dir — mezun, paydaş temsilcisi, mentör, il koordinatörü ve YEĞİTEK personeli aynı satırı kullanıyor. Dış kullanıcıya ayrı bir profil tablosu, e-posta/telefon/CV alanlarının ikinci bir kopyasını doğururdu.
+
+Bağlantı sütunları `ogrenci_profil`dekilerle birebir aynı ve aynı doğrulamadan geçiyor (`lib/ogrenci/iletisim-kurallar.ts`). Öğrencide olup burada olmaması bir eksiklikti: dış kullanıcının okulu, sınıfı, branşı yok — ekosisteme ne getirdiğini anlatan tek yer bu adresler ve açıklama alanı.
+
+`kurum_adi`/`gorev_unvani` **paydaş envanterine bağlanmadı** (yabancı anahtar yok, serbest metin): envanter, etkinliklerde iş birliği yapılan kurumların kaydıdır ve il koordinatörlerince yönetilir (S18); mezunun çalıştığı şirketin oraya girmesi gerekmiyor. Başvurudaki kurum/unvan **silinmedi** — bu alanlar boşken profil onları gösteriyor, kişi kendi değerini yazınca yenisi geçerli oluyor. Onay anında kopyalanmadı çünkü kopyalama, onaylanmış bütün satırları dolduran bir veri taşıma adımı gerektirirdi.
+
+**kullanici_destek_grubu** — `kullanici_id` + `calisma_grubu_id`, bileşik PK, `eklenme_tarihi`
+
+`mentorluk_calisma_grubu`dan **ayrı tablo**: orası onaya tabi bir *görevin* kapsamıdır ve öğrenciyle birebir yazışma hakkı doğurur; burası yalnızca bir beyandır ("bu alanlarda katkı verebilirim" — sponsorluk, mekân, eğitmen, ödül desteği de olabilir). Tek tabloda tutulsalardı mentörlüğü bırakan kişi destek alanlarını da kaybederdi ve panodaki mentör süzgeci mentör olmayan paydaşları da yakalardı.
+
+`ogrenci_calisma_grubu`dan da ayrı: o tablo öğrencinin hangi grupta çalıştığını söyler ve danışman/koordinatör ekranlarının kaynağıdır; dış kullanıcıyı oraya yazmak öğrenci listelerine yetişkin karıştırırdı. Kullanıcı silinirse beyan da gider (`ON DELETE CASCADE`); çalışma grubu tarafında `RESTRICT` durur çünkü grup silinmez, pasife alınır.
 
 ---
 

@@ -72,7 +72,7 @@ Kısa hâli: `git clone` → `.env` doldur → `npm ci && npm run build` →
 |---|---|
 | `npm run dev` | Geliştirme sunucusu |
 | `npm run build` / `npm start` | Üretim derlemesi ve sunucu |
-| `npm test` | Birim testler (720 test) |
+| `npm test` | Birim testler (764 test) |
 | `npm run test:duman` | Gerçek veritabanında uçtan uca doğrulama (40 kontrol) |
 | `npm run test:eposta` | E-posta kopyasının bildirim akışına doğru bağlandığını sınar (4 kontrol) |
 | `npm run senaryo:goruntu` | Yetki senaryolarını ve faaliyet akışını tarayıcıda gezer, ekran görüntüsü alır (`--tema=b` ile diğer tema) |
@@ -82,6 +82,7 @@ Kısa hâli: `git clone` → `.env` doldur → `npm ci && npm run build` →
 | `npm run db:seed` | Referans veri ve başlangıç yöneticisi |
 | `npm run veri:ornek` | Örnek envanter üretir (50 koordinatör, 50 öğretmen, 300 öğrenci); `-- --temizle` ile geri alır |
 | `npm run veri:kazanim` | Kazanımlar ekranını dolu görmek için demo katılım üretir (yalnızca geliştirme) |
+| `npm run veri:dis-kullanici` | Birer mezun, paydaş temsilcisi ve mentör hesabı açar (gerçek başvuru + onay akışıyla); `-- --temizle` ile geri alır. Yalnızca geliştirme |
 | `npm run skill:paketle` | `genctek-platform.skill` paketini kökteki SKILL.md ve üç referans belgesinden yeniden üretir |
 | `npm run senkron:danisman` | Gecelik senkron (cron) |
 | `npm run bakim:saklama` | Saklama süresi dolan erişim kaydı ve okunmuş bildirimi siler (cron) |
@@ -444,7 +445,7 @@ Skill'deki 13 adımlık geliştirme sırasına göre:
 | 9 | Başvuru ve değerlendirme | Tamam |
 | 10 | Raporlama ve filtreleme | Tamam (filtreler + CSV dışa aktarma) |
 | 11 | KVKK onay belgeleri (aydınlatma, açık rıza, taahhütname, gizlilik sözleşmesi), ilk giriş kapısı ve saklama süresi | Tamam |
-| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (720 test) |
+| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (764 test) |
 | 13 | Gerçek EBA SSO entegrasyonu | Erişim bekleniyor |
 | 14 | Danışman öğretmen envanteri (analiz Bölüm 2) | Tamam |
 | 15 | İl bazlı paydaş bilgi sistemi (analiz Bölüm 3) | Tamam |
@@ -887,7 +888,7 @@ tamamını zaten onayladı ve mentörlük isteği onun içindeydi.
 ### Giriş kapısı: EBA ve E-Devlet
 
 Açılış ekranında iki düğme: **EBA ile Giriş Yap** ve **E-Devlet ile Giriş**
-(altında "Paydaş/Mentör girişleri için tıklayınız").
+(altında "Mezun öğrenci/Paydaş/Mentör girişleri için tıklayınız").
 
 Başvuru formu **tektir**, içinde "kim olarak başvuruyorsunuz" seçimi var:
 Mezun · Paydaş temsilcisi · Mentör. Mezun ve paydaş ayrıca "mentörlük yapmak
@@ -896,6 +897,25 @@ istiyorum" işaretleyebilir; `MENTOR` türünde işaret zorunlu olarak açıktı
 `MEZUN` türü **korundu** — "mezunlar da paydaştan girsin" ifadesi giriş
 *kapısı* hakkındadır. Tür kaldırılsaydı mevcut mezunların mezuniyet yılı ve
 okul bağı anlamsızlaşırdı.
+
+### Mezun / paydaş / mentör ekranları
+
+Menü **üç sekme**: **Profil** · **Panel** · **Etkinlikler**. Bağlantılarım, Pano
+ve Market menüden kalktı; sayfalar silinmedi ve yetki daralmadı (panoda ilan
+açma, onaylı yazışma hakları duruyor).
+
+- **Profil** gösterir: foto, bilgiler (il · kurum · görev · e-posta · LinkedIn ·
+  GitHub · kişisel site · katkı açıklaması), Özgeçmiş, Katkı Nişanım.
+- **Panel** düzenler: fotoğraf, bilgiler, mentörlük, çalışma grupları, özgeçmiş.
+- **Etkinlikler**: "Etkinlik bildir" + görüntüleme. Bildirilen etkinlik **her
+  kapsamda onaya tabidir**; ilin koordinatörü de proje yöneticisi de
+  onaylayabilir. Okul kapsamı kapalıdır (kurum kodu yok). Kartta "Mezun/Paydaş
+  girişimi" yazar, koordinatörlüğe mal edilmez.
+
+**Kurum ve görev serbest metindir**, paydaş envanterinden seçilmez; alanlar
+boşken profilde başvurudaki değer görünür. **Çalışma grubu seçimi mentörlükten
+ayrı bir tablodadır** (`kullanici_destek_grubu`): mentörlük onaya tabi bir
+görev, bu ise yalnızca bir katkı beyanıdır.
 
 > **Gerçek e-Devlet entegrasyonu henüz YOK.** Düğme bugün mevcut e-posta/şifre
 > ekranına götürüyor. Entegrasyon için e-Devlet Kapısı kurum başvurusu, test

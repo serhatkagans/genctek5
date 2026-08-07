@@ -9,19 +9,24 @@ import {
   profilFotoSil,
   profilFotoSinirlariniGetir,
 } from "@/lib/kullanici/profil-foto";
+import {
+  destekGruplariniAyikla,
+  disProfiliDogrula,
+} from "@/lib/dis-kimlik/profil-kurallar";
 import { saltOkunurAlanlariAyikla } from "@/lib/kullanici/salt-okunur";
 import { baglantilariDogrula } from "@/lib/ogrenci/iletisim-kurallar";
 import { danismanlikDurumunuDegistir } from "@/lib/ogretmen/danismanlik";
 import { erisimLogla } from "@/lib/yetki/log";
-import { ogrenciMi } from "@/lib/yetki/izinler";
+import { disKullaniciMi, ogrenciMi } from "@/lib/yetki/izinler";
+import { YetkiHatasi } from "@/lib/yetki/tipler";
 
 /**
  * Kişinin kendi düzenleyebileceği alanlar. Diğer her şey salt okunurdur.
  *
  * Liste role göre değişmez: iletişim bilgisi kimlik bilgisi değildir, e-Okul'dan
  * gelmez ve kim olursa olsun sahibi tarafından girilir. Rol farkı yalnızca
- * bilginin hangi profil tablosuna yazıldığındadır — bağlantı adresleri yalnızca
- * öğrenci profilinde tutulduğu için öğretmende sessizce düşer.
+ * bilginin hangi profil tablosuna yazıldığındadır — kurum/görev/açıklama
+ * alanları yalnızca dış kullanıcıya sorulduğu için öğretmende sessizce düşer.
  */
 const IZINLI_ALANLAR = [
   "eposta",
@@ -29,6 +34,12 @@ const IZINLI_ALANLAR = [
   "githubUrl",
   "kisiselSiteUrl",
   "linkedinUrl",
+  // Dış kullanıcının kendi yazdığı kurum, görev ve katkı açıklaması
+  // (7 Ağustos 2026). İl, ad ve soyad BU LİSTEDE DEĞİL: onlar başvurudan gelen
+  // kimlik bilgileridir ve kişi değiştiremez.
+  "kurumAdi",
+  "gorevUnvani",
+  "aciklama",
 ] as const;
 
 /**
@@ -76,6 +87,9 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
     githubUrl: string;
     kisiselSiteUrl: string;
     linkedinUrl: string;
+    kurumAdi: string;
+    gorevUnvani: string;
+    aciklama: string;
   }>(gelenVeri, IZINLI_ALANLAR);
 
   // Salt okunur alanlar istekte gelirse sessizce yok sayılır, hata
@@ -119,6 +133,47 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
       update: ogrenciVerisi,
       create: { kullaniciId: kullanici.id, ...ogrenciVerisi },
     });
+  } else if (disKullaniciMi(kullanici)) {
+    /*
+     * DIŞ KULLANICI: iletişimin yanında bağlantılar, kurum, görev ve katkı
+     * açıklaması da yazılır (7 Ağustos 2026).
+     *
+     * Öğretmenden ayrı dal, alan listesi farklı olduğu için: öğretmene bu
+     * alanlar sorulmuyor ve formu gelmeyen alanları boş string olarak
+     * göndermediği için tek dalda birleştirmek, öğretmenin (hiç görmediği)
+     * kurum alanını her kayıtta null'lardı.
+     */
+    const karar = baglantilariDogrula({
+      githubUrl: temizVeri.githubUrl,
+      kisiselSiteUrl: temizVeri.kisiselSiteUrl,
+      linkedinUrl: temizVeri.linkedinUrl,
+    });
+    if (!karar.olurMu) {
+      panele("iletisim-bilgilerim", `hata=${encodeURIComponent(karar.neden)}`);
+    }
+
+    const profilKarari = disProfiliDogrula({
+      kurumAdi: temizVeri.kurumAdi ?? "",
+      gorevUnvani: temizVeri.gorevUnvani ?? "",
+      aciklama: temizVeri.aciklama ?? "",
+    });
+    if (!profilKarari.olurMu) {
+      panele(
+        "iletisim-bilgilerim",
+        `hata=${encodeURIComponent(profilKarari.neden)}`,
+      );
+    }
+
+    const disVeri = {
+      ...iletisim,
+      ...karar.baglantilar,
+      ...profilKarari.degerler,
+    };
+    await prisma.ogretmenProfil.upsert({
+      where: { kullaniciId: kullanici.id },
+      update: disVeri,
+      create: { kullaniciId: kullanici.id, ...disVeri },
+    });
   } else {
     await prisma.ogretmenProfil.upsert({
       where: { kullaniciId: kullanici.id },
@@ -136,6 +191,57 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
   });
 
   panele("iletisim-bilgilerim", "durum=iletisim-kaydedildi");
+}
+
+/**
+ * "Çalışma Grupları" — katkı verebileceği alanların seçimi (7 Ağustos 2026).
+ *
+ * Yalnızca dış kullanıcıya açık: öğrencinin çalışma grubu seçimi ayrı bir
+ * tabloda ve ayrı bir anlamda (hangi grupta çalışıyor), öğretmenin karşılığı
+ * ise mentörlük kaydıdır. Kapı burada kapalı tutuluyor ki form elle
+ * gönderildiğinde başka bir rol bu tabloya satır açamasın.
+ *
+ * SEÇİM TOPLUCA YAZILIR: gelmeyen her grup silinir. Fark hesaplamak yerine
+ * "önce sil, sonra yaz" seçildi çünkü kayıt kişi başına en fazla grup sayısı
+ * kadar satır ve işlem tek transaction içinde.
+ */
+export async function destekGruplariEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!disKullaniciMi(kullanici)) {
+    throw new YetkiHatasi("Çalışma grubu katkı seçimi bu hesap için açık değil.");
+  }
+
+  const gecerliGruplar = await prisma.calismaGrubu.findMany({
+    where: { aktif: true },
+    select: { id: true },
+  });
+
+  const secilenler = destekGruplariniAyikla(
+    veri.getAll("calismaGrubuId").map((deger) => String(deger)),
+    gecerliGruplar.map((grup) => grup.id),
+  );
+
+  await prisma.$transaction([
+    prisma.kullaniciDestekGrubu.deleteMany({
+      where: { kullaniciId: kullanici.id },
+    }),
+    prisma.kullaniciDestekGrubu.createMany({
+      data: secilenler.map((calismaGrubuId) => ({
+        kullaniciId: kullanici.id,
+        calismaGrubuId,
+      })),
+    }),
+  ]);
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: kullanici.id,
+    detay: `Katkı verilebilecek çalışma grupları güncellendi (${secilenler.length} grup)`,
+  });
+
+  panele("katki-alanlarim", "durum=destek-gruplari-kaydedildi");
 }
 
 export async function danismanlikEylemi(veri: FormData): Promise<void> {

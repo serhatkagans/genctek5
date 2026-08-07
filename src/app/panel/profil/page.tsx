@@ -3,7 +3,9 @@ import {
   Camera,
   FileText,
   GraduationCap,
+  Handshake,
   IdCard,
+  Layers,
   Link2,
   Mail,
   ShieldCheck,
@@ -56,6 +58,7 @@ import { tarihSaatYaz } from "@/lib/tarih";
 import { kullaniciRolEtiketi } from "@/lib/yetki/etiketler";
 import {
   danismanMi,
+  disKullaniciMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
   ogrenciMi,
@@ -110,6 +113,32 @@ export default async function ProfilSayfasi({
       ilce: { select: { ad: true } },
       ogrenciProfil: true,
       ogretmenProfil: true,
+      /*
+       * DIŞ KULLANICININ KURUM/GÖREV KAYNAĞI (7 Ağustos 2026 · istek: profilde
+       * "il kurum görevi").
+       *
+       * Başvuru DONDURULMUŞ bir belgedir ve değişmez; kişi kendi kurumunu
+       * profil alanlarından günceller. Burası yalnızca o alanlar BOŞKEN
+       * gösterilecek ilk değeri veriyor — onaylanmış mezun ve paydaşların
+       * profili, hiçbir şey yazmadan da dolu açılsın diye.
+       */
+      disBasvurusu: {
+        select: {
+          tur: true,
+          gorevUnvani: true,
+          mezuniyetYili: true,
+          paydas: { select: { ad: true } },
+          mezunKurum: { select: { ad: true } },
+        },
+      },
+      /*
+       * "Çalışma Grupları" — Panel'de seçiliyor, profilde görünüyor. Mentörlük
+       * kaydındaki gruplardan AYRI (bkz. prisma/schema.prisma).
+       */
+      destekGruplari: {
+        orderBy: { calismaGrubu: { siraNo: "asc" } },
+        select: { calismaGrubu: { select: { id: true, ad: true } } },
+      },
       kazanimlar: {
         // Kullanıcının girdiği tarih boş olabildiği için ikinci sıralama ölçütü
         // gerekiyor; yoksa tarihsiz kayıtların sırası belirsiz kalır.
@@ -134,6 +163,35 @@ export default async function ProfilSayfasi({
   const ogrenci = ogrenciMi(kullanici);
   // Kazanım kayıtları öğretmende de var; metinler bununla ayrılıyor.
   const kazanimSahibi = ogrenci ? "OGRENCI" : "OGRETMEN";
+
+  /*
+   * MEZUN / PAYDAŞ TEMSİLCİSİ / MENTÖR PROFİLİ (7 Ağustos 2026 · istek:
+   * "1. sekme Profil · Foto · Bilgileri (il kurum görevi linkedin github
+   * eposta açıklamalar/katkı sağlayabileceği şeyler) · Özgeçmiş · Katkı
+   * Nişanım").
+   *
+   * Öğretmen profilinden farkı SORULARDA: okul, branş, sınıf, danışmanlık gibi
+   * alanların hiçbiri yok — kişinin ekosistemdeki yerini kurumu, görevi,
+   * bağlantıları ve ne katkı verebileceği anlatıyor.
+   */
+  const disKullanici = disKullaniciMi(kullanici);
+  const disProfil = kayit.ogretmenProfil;
+  const basvuru = kayit.disBasvurusu;
+
+  /*
+   * Kurum ve görev: önce kişinin kendi yazdığı, yoksa başvurudaki değer.
+   *
+   * Onay anında KOPYALANMADI ve bu bilinçli: kopyalama, bugüne kadar onaylanmış
+   * bütün mezun/paydaş satırlarını dolduran bir veri taşıma adımı gerektirirdi
+   * ve başvuru zaten tek doğruluk kaynağı olarak duruyor. Kişi kendi değerini
+   * yazdığı anda bu düşüş sona eriyor.
+   */
+  const kurumAdi =
+    disProfil?.kurumAdi ??
+    basvuru?.paydas?.ad ??
+    basvuru?.mezunKurum?.ad ??
+    null;
+  const gorevUnvani = disProfil?.gorevUnvani ?? basvuru?.gorevUnvani ?? null;
 
   const atama = ogrenci ? await aktifAtamaGetir(kullanici.id) : null;
 
@@ -356,6 +414,26 @@ export default async function ProfilSayfasi({
           )}
           {kayit.il && <SaltOkunurAlan etiket="İl" deger={kayit.il.ad} />}
           {kayit.ilce && <SaltOkunurAlan etiket="İlçe" deger={kayit.ilce.ad} />}
+          {/*
+            KURUM VE GÖREV yalnızca dış kullanıcıda. Öğretmenin kurumu okuldur
+            ve yukarıda kimlik bilgisi olarak zaten yazıyor; oraya ikinci bir
+            "kurum" satırı koymak aynı bilgiyi iki kez sorardı.
+
+            Alanlar SALT OKUNUR DEĞİL ama bu ekranda öyle görünür: girişleri
+            Panel'de (bkz. C4 · profil gösterir, panel düzenler).
+          */}
+          {disKullanici && (
+            <>
+              <SaltOkunurAlan etiket="Kurum" deger={kurumAdi} />
+              <SaltOkunurAlan etiket="Görevi" deger={gorevUnvani} />
+              {basvuru?.mezuniyetYili && (
+                <SaltOkunurAlan
+                  etiket="Mezuniyet yılı"
+                  deger={String(basvuru.mezuniyetYili)}
+                />
+              )}
+            </>
+          )}
           {ogrenci ? (
             <SaltOkunurAlan etiket="Sınıf" deger={kayit.sinif} />
           ) : (
@@ -397,7 +475,19 @@ export default async function ProfilSayfasi({
           <SaltOkunurAlan etiket="Telefon" deger={iletisim?.telefon ?? null} />
         </dl>
 
-        {ogrenci && (
+        {/*
+          BAĞLANTILAR ÖĞRENCİDE VE DIŞ KULLANICIDA (7 Ağustos 2026 · istek:
+          mezun/paydaş/mentör profilinde "linkedin github").
+
+          Öğretmen ve koordinatörde YOK: onların GençTek'teki yeri okulları ve
+          görevleriyle belli, LinkedIn adresi sistemin işine yaramıyor. Dış
+          kullanıcıda tam tersi — okul, sınıf, branş yok; bu adresler kişinin
+          ne yaptığını anlatan tek yer.
+
+          Sütunlar iki ayrı tabloda ama alan adları aynı olduğu için tek döngü
+          yetiyor.
+        */}
+        {(ogrenci || disKullanici) && (
           <div className="mt-6 border-t border-cizgi pt-5">
             <h3 className="flex items-center gap-2 text-sm font-medium text-metin">
               <Link2 size={15} aria-hidden />
@@ -405,7 +495,10 @@ export default async function ProfilSayfasi({
             </h3>
             <dl className="mt-3 grid gap-5 sm:grid-cols-2">
               {BAGLANTI_TANIMLARI.map((tanim) => {
-                const adres = kayit.ogrenciProfil?.[tanim.alan] ?? null;
+                const adres =
+                  (ogrenci
+                    ? kayit.ogrenciProfil?.[tanim.alan]
+                    : disProfil?.[tanim.alan]) ?? null;
                 return (
                   <div key={tanim.alan}>
                     <dt className="text-sm font-medium text-metin-yumusak">
@@ -444,6 +537,59 @@ export default async function ProfilSayfasi({
           etiket="İletişim bilgilerimi Panelim'den düzenle →"
         />
       </Kart>
+
+      {/*
+        KATKI SAĞLAYABİLECEKLERİM (7 Ağustos 2026 · istek: profil bilgilerinde
+        "açıklamalar/katkı sağlayabileceği şeyler", panelde "Çalışma Grupları").
+
+        İKİSİ TEK KARTTA: serbest metin ile seçilen gruplar aynı sorunun iki
+        cevabı — "bu kişi ekosisteme ne getirebilir". Ayrı kartlara bölmek,
+        birini dolduran kullanıcının öbürünü görmemesine yol açardı.
+
+        MENTÖRLÜKTEN AYRI ve kartlar da ayrı duruyor: mentörlük onaya tabi bir
+        görevdir ve aşağıda kendi kartında, durumuyla birlikte görünüyor.
+        Buradaki seçim yalnızca bir beyandır, kimseye erişim açmaz.
+      */}
+      {disKullanici && (
+        <Kart>
+          <KartBasligi
+            baslik="Katkı sağlayabileceklerim"
+            aciklama="Bu bilgileri siz girersiniz; sizinle iletişime geçmek isteyenler burayı okur."
+            Ikon={Handshake}
+          />
+          <p className="whitespace-pre-line text-metin">
+            {disProfil?.aciklama || "Henüz bir açıklama yazmadınız."}
+          </p>
+
+          <div className="mt-6 border-t border-cizgi pt-5">
+            <h3 className="flex items-center gap-2 text-sm font-medium text-metin">
+              <Layers size={15} aria-hidden />
+              Çalışma gruplarım
+            </h3>
+            {kayit.destekGruplari.length === 0 ? (
+              <p className="mt-2 text-metin-yumusak">
+                Henüz çalışma grubu seçmediniz.
+              </p>
+            ) : (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {kayit.destekGruplari.map(({ calismaGrubu }) => (
+                  <li
+                    key={calismaGrubu.id}
+                    className="rounded-full bg-vurgu-zemin px-3 py-1 text-sm text-vurgu-metin"
+                  >
+                    {calismaGrubu.ad}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <PaneldenDuzenleBaglantisi
+            capa="katki-alanlarim"
+            etiket="Katkı alanlarımı Panel'den düzenle →"
+          />
+        </Kart>
+      )}
 
       {/*
         Danışmanlık işareti öğretmenin EYLEMİydi ve Panelim'e taşındı; burada
@@ -699,7 +845,13 @@ export default async function ProfilSayfasi({
         <KatkiNisanlariKarti
           rozetler={ogretmenKazanim.rozetler}
           seferler={ogretmenKazanim.seferler}
-          bosMesaji="Henüz nişan kazanmadınız. Etkinlik düzenledikçe ve danışmanlık yürüttükçe burası dolacak."
+          bosMesaji={
+            // Dış kullanıcının danışmanlığı yok; ona olmayan bir yoldan
+            // bahsetmek, nişanı ulaşılmaz gösterirdi.
+            disKullanici
+              ? "Henüz nişan kazanmadınız. Bildirdiğiniz etkinlikler onaylandıkça ve katkılarınız arttıkça burası dolacak."
+              : "Henüz nişan kazanmadınız. Etkinlik düzenledikçe ve danışmanlık yürüttükçe burası dolacak."
+          }
         />
       )}
 

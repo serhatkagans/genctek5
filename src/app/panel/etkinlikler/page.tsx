@@ -41,6 +41,7 @@ import { tarihYaz } from "@/lib/tarih";
 import {
   basvuruYapabilirMi,
   danismanMi,
+  disKullaniciMi,
   ilKoordinatoruMu,
   ogrenciMi,
   projeYoneticisiMi,
@@ -187,10 +188,17 @@ export default async function FaaliyetlerSayfasi({
             Belge oluştur
           </Link>
         )}
+        {/*
+          DÜĞMENİN ADI ROLE GÖRE (7 Ağustos 2026 · istek: dış kullanıcı
+          sekmesinde "Etkinlik Bildir · Görüntüle"). Mezun/paydaş/mentör bir
+          koordinatörlük adına etkinlik AÇMIYOR, yapacağı işi BİLDİRİYOR ve
+          bildirimi onaya düşüyor; "Yeni etkinlik" demek yetkisini olduğundan
+          geniş gösterirdi.
+        */}
         {acabilir && (
           <Link href="/panel/etkinlikler/yeni" className={SINIF_BIRINCIL_BUTON}>
             <Plus size={16} aria-hidden />
-            Yeni etkinlik
+            {disKullaniciMi(kullanici) ? "Etkinlik bildir" : "Yeni etkinlik"}
           </Link>
         )}
       </div>

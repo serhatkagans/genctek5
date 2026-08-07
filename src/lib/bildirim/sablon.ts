@@ -26,6 +26,16 @@ export const BILDIRIM_KODLARI = {
   ONAY_BEKLEYEN_OGRENCI_FAALIYETI: "ONAY_BEKLEYEN_OGRENCI_FAALIYETI",
   /** Danışman öğretmen faaliyet açtı; ilin koordinatörü onaylayacak. */
   ONAY_BEKLEYEN_OGRETMEN_FAALIYETI: "ONAY_BEKLEYEN_OGRETMEN_FAALIYETI",
+  /**
+   * Mezun / paydaş temsilcisi / mentör etkinlik bildirdi; öğrencininki gibi hem
+   * ilin koordinatörüne hem YEĞİTEK'e gider (7 Ağustos 2026).
+   *
+   * ÖĞRENCİ ŞABLONU KULLANILMADI: o metin "okulundan" diye başlıyor ve dış
+   * kullanıcının okulu yok. Onaylayan kişinin ekranında "hangi okuldan geldi"
+   * yerine "kim, hangi sıfatla" yazması gerekiyor — karar buna bakılarak
+   * veriliyor.
+   */
+  ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI: "ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI",
   /** Öğrencinin kendi ili, il dışı başvurusuna karar verdi. */
   IL_DISI_BASVURU_KARARI: "IL_DISI_BASVURU_KARARI",
   /** Merkezin tüm öğrenci/öğretmenlere gönderdiği serbest metinli duyuru. */
@@ -151,6 +161,13 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "Danışman öğretmen etkinlik açtığında okulun ilindeki koordinatöre gider. İlde koordinatör yoksa proje yöneticilerine düşer, etkinlik askıda kalmaz.",
     degiskenler: ["faaliyetAdi", "duzenleyenAdSoyad", "kapsam", "okulAdi"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI,
+    baslik: "Onay bekleyen mezun/paydaş etkinliği",
+    aciklama:
+      "Mezun, paydaş temsilcisi ya da mentör etkinlik bildirdiğinde hem kişinin ilinin koordinatörüne hem proje yöneticilerine gider. İkisi de onaylayabilir.",
+    degiskenler: ["faaliyetAdi", "duzenleyenAdSoyad", "kapsam", "sifat"],
   },
   {
     kod: BILDIRIM_KODLARI.IL_DISI_BASVURU_KARARI,

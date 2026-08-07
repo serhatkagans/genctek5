@@ -63,6 +63,17 @@ export interface FaaliyetKapsami {
    * genişletmek yerine dar tarafta kalıyoruz.
    */
   duzenleyenDanismanMi?: boolean;
+  /**
+   * Faaliyeti mezun / paydaş temsilcisi / mentör mü açtı? (7 Ağustos 2026)
+   *
+   * Öğrenci ve danışman faaliyetiyle AYNI kapıdan geçer: üçü de ilin
+   * koordinatörünün onayına tabidir. Ayrı alan tutuluyor çünkü onay dışındaki
+   * akışlarda (bildirim metni, kartta yazan düzenleyen birim) üçü farklı
+   * şeyler söylüyor — "Öğrenci girişimi" ile "Paydaş girişimi" aynı şey değil.
+   *
+   * Belirtilmezse `false` varsayılır.
+   */
+  duzenleyenDisKullaniciMi?: boolean;
 }
 
 export class YetkiHatasi extends Error {
