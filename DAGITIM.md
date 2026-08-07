@@ -543,12 +543,21 @@ geri yükleme için yetmez:
 şifreleri hiçbir yerde paylaşmamak.
 
 ```
-Yerel makine ──git push (HTTPS)──▶ github.com/serhatkagans/genctek4
+Yerel makine ──git push (HTTPS)──▶ github.com/serhatkagans/genctek5
                                             │
-                                            │ git pull (SSH, dağıtım anahtarı)
+                                            │ git pull
                                             ▼
    ssh genctek genctek-yayinla ─────▶ /opt/genctek → derle → migrate → restart
 ```
+
+> **Depo 7 Ağustos 2026'da genctek4'ten genctek5'e taşındı.** Sunucudaki
+> `origin` zaten `genctek5`i gösteriyor; bu bölüm bir tur boyunca `genctek4`
+> yazmaya devam etmişti. Yerel `origin` de aynı gün genctek5'e çevrildi —
+> ikisi ayrışırsa `yayinla.ps1` eski depoya gönderir, sunucu yenisinden çeker
+> ve **hiçbir şeyi değiştirmeyen "başarılı" bir yayın** olur.
+>
+> Depodaki eski uzak sunucular (`eski`, `genctek1`, `genctek2`, `genctek4`)
+> silinmedi ama **geride kaldılar**; yayın akışında kullanılmıyorlar.
 
 ### Tek komut
 
@@ -572,7 +581,26 @@ ssh genctek genctek-yayinla
 |---|---|
 | Yerel → GitHub | HTTPS + Git Credential Manager (Windows'ta kayıtlı) |
 | Yerel → sunucu | `~/.ssh/genctek` anahtarı, `~/.ssh/config` içinde `Host genctek` |
-| Sunucu → GitHub | `/opt/genctek/.ssh/id_ed25519` dağıtım anahtarı (salt okunur) |
+| Sunucu → GitHub | Bugün **HTTPS ve anonim** (genctek5 açık depo). Depo kapatılırsa dağıtım anahtarına dönülmeli — aşağıya bakın |
+
+> **DEPOYU ÖZELE ÇEVİRİRSENİZ YAYIN DURUR.** Sunucudaki `origin` bugün
+> `https://github.com/serhatkagans/genctek5.git` ve kimlik doğrulamadan
+> çekiyor; depo kapandığı anda `git pull` "Authentication failed" ile düşer.
+> Sunucuda dağıtım anahtarı hazır duruyor (`/opt/genctek/.ssh/id_ed25519`,
+> 31 Temmuz'dan beri) ama genctek5 deposunda **tanımlı değil**. İki adım:
+>
+> 1. GitHub → `serhatkagans/genctek5` → Settings → Deploy keys → Add deploy key.
+>    Anahtar (yazma yetkisi VERMEYİN, salt okunur yeter):
+>    ```
+>    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP10DkXWh+JLUo5JZBAcRd91Zyt37Izge4PFVI17g+BP genctek-deploy@aiotechs
+>    ```
+> 2. Sunucuda uzak adresi SSH'a çevirin ve doğrulayın:
+>    ```bash
+>    ssh genctek "cd /opt/genctek && sudo -u genctek git remote set-url origin git@github.com:serhatkagans/genctek5.git && sudo -u genctek git ls-remote origin HEAD"
+>    ```
+>
+> Sıra önemli: anahtar tanımlanmadan adres değiştirilirse yayın
+> `Permission denied (publickey)` ile ve **hiçbir şeye dokunmadan** düşer.
 
 Root **yalnızca anahtarla** girer; şifreyle SSH kapalıdır
 (`/etc/ssh/sshd_config.d/50-genctek-anahtar.conf`). Global

@@ -6,8 +6,14 @@
         .\dagitim\yayinla.ps1 -SadeceGonder    # yalnızca push, canlıya alma
 
     İki adım yapar:
-      1. git push  → github.com/serhatkagans/genctek4  (HTTPS, Credential Manager)
+      1. git push  → github.com/serhatkagans/genctek5  (HTTPS, Credential Manager)
       2. ssh genctek genctek-yayinla → sunucuda yedek + derleme + migration + restart
+
+    `origin` SUNUCUNUN ÇEKTİĞİ DEPOYU göstermek zorundadır. 7 Ağustos 2026'da
+    depo genctek4'ten genctek5'e taşındı ve bir tur boyunca yerel `origin`
+    eskisinde kaldı: push genctek4'e gitti, sunucu genctek5'ten çekti ve yayın
+    hiçbir şeyi değiştirmeden "başarılı" bitti. İkisi ayrışırsa aynı sessiz
+    hata tekrarlanır.
 
     Sunucu kodu GitHub'dan çeker (dağıtım anahtarıyla, salt okunur). Bu yüzden
     ÖNCE push, SONRA yayın: push atlanırsa sunucu eski kodu çeker ve "başarılı"
