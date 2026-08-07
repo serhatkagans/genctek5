@@ -3,7 +3,7 @@ import Link from "next/link";
 import { KapsamRozeti, KategoriRozeti } from "@/components/FaaliyetRozetleri";
 import { KatkiKarti } from "@/components/KatkiKarti";
 import { OgretmenKatkiKarti } from "@/components/OgretmenKatkiKarti";
-import { SeferlerimKarti, UrunlerKarti } from "@/components/OgrenciProfilBolumleri";
+import { KatkiNisanlariKarti, UrunlerKarti } from "@/components/OgrenciProfilBolumleri";
 import { BilgiKutusu, Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
@@ -77,7 +77,7 @@ async function OgrenciKatkilari({
 
       <UrunlerKarti kendiMi urunler={urunler} />
 
-      <SeferlerimKarti
+      <KatkiNisanlariKarti
         rozetler={rozetler}
         seferler={seferler}
         bosMesaji="Henüz seferin yok. İlk etkinliğine katıldığında burası dolmaya başlayacak."
@@ -135,7 +135,7 @@ async function OgretmenKatkilari({ kullaniciId }: { kullaniciId: number }) {
 
       <UrunlerKarti kendiMi sahip="OGRETMEN" urunler={urunler} />
 
-      <SeferlerimKarti
+      <KatkiNisanlariKarti
         rozetler={rozetler}
         bosMesaji="Henüz katkı nişanınız yok. İlk etkinliğinizi düzenlediğinizde ya da bir öğrencinin danışmanlığını üstlendiğinizde burası dolmaya başlar."
       />

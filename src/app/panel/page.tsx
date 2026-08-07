@@ -1,14 +1,20 @@
 import {
   BarChart3,
   BellRing,
+  Camera,
   CircleAlert,
   CalendarCheck,
   CalendarDays,
   CheckSquare,
   ClipboardCheck,
+  Compass,
+  FileText,
+  GraduationCap,
   Layers,
+  Mail,
   MapPin,
   Send,
+  ShieldCheck,
   Sparkles,
   UserCheck,
   Users,
@@ -20,17 +26,60 @@ import {
   KatlanabilirKart,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
-  SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { CalismaGrubuSecimi } from "@/components/CalismaGrubuSecimi";
 import { DanismanSecimi } from "@/components/DanismanSecimi";
 import { MesajSeridi } from "@/components/MesajSeridi";
 import { KapsamRozeti, KategoriRozeti } from "@/components/FaaliyetRozetleri";
+import {
+  CvDuzenleme,
+  DanismanlikDuzenleme,
+  FotografDuzenleme,
+  IletisimDuzenleme,
+  KayitEklemeFormu,
+  KayitYonetimi,
+  MentorlukDuzenleme,
+  ProfildeGorBaglantisi,
+} from "@/components/ProfilDuzenleme";
+import { RotamKarti } from "@/components/RotamKarti";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
 import { calismaGruplariniGetir } from "@/lib/ogrenci/calisma-grubu";
 import { calismaGrubuKaydetEylemi } from "./calisma-gruplari/eylemler";
 import { danismanSecEylemi } from "./danisman-secim/eylemler";
+import {
+  danismanlikEylemi,
+  profilFotoSilEylemi,
+  profilFotoYukleEylemi,
+  profilGuncelleEylemi,
+} from "./profil/eylemler";
+import {
+  cvSilEylemi,
+  cvYukleEylemi,
+  kazanimBelgeEkleEylemi,
+  kazanimBelgeSilEylemi,
+  kazanimEkleEylemi,
+  kazanimSilEylemi,
+} from "./profil/kazanim-eylemleri";
+import {
+  hedefDurumuEylemi,
+  hedefEkleEylemi,
+  hedefSilEylemi,
+} from "./profil/hedef-eylemleri";
+import { profilFotoSinirlariniGetir } from "@/lib/kullanici/profil-foto";
+import { mentorluguGetir } from "@/lib/mentor/veri";
+import {
+  mentorlukBasvurEylemi,
+  mentorluguBirakEylemi,
+} from "./mentorluk/eylemler";
+import { cvSinirlariniGetir } from "@/lib/ogrenci/cv";
+import { kazanimEkSinirlariniGetir } from "@/lib/kazanim/ek";
+import {
+  kazanimTipiGecerliMi,
+  kazanimTipiTanimi,
+  kazanimTipleri,
+} from "@/lib/kazanim/kurallar";
+import { uygulamaYolu } from "@/lib/ortam";
 import { belgeGuncellemeTarihleri } from "@/lib/kvkk/onay";
 import {
   faaliyetKatilimSayisi,
@@ -58,6 +107,7 @@ import {
   danismanMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
+  mentorlukBasvurabilirMi,
   ogrenciMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
@@ -108,23 +158,51 @@ function OlcumKarti({
 }
 
 /**
- * Panelim'den yapılan seçimlerin geri bildirimi.
+ * Panelim'den yapılan işlemlerin geri bildirimi.
  *
  * Seçim eylemleri iki yerden çağrılıyor (buradaki bölümler ve eski sekme
  * sayfaları); dönüş adresine göre mesaj burada da basılmalı, yoksa öğrenci
  * kaydettikten sonra hiçbir onay görmez ve işlemin geçtiğinden emin olamaz.
+ *
+ * Profil düzenleme mesajları da buraya EKLENDİ (7 Ağustos 2026): formlar
+ * profilden Panelim'e taşındı, dolayısıyla eylemlerin dönüş adresi de burası.
  */
 const DURUM_MESAJLARI: Record<string, string> = {
   secildi: "Danışman öğretmeniniz kaydedildi.",
   kaydedildi: "Çalışma grubu seçiminiz kaydedildi.",
+  "iletisim-kaydedildi": "İletişim bilgileriniz kaydedildi.",
+  "kazanim-eklendi": "Kayıt profiline eklendi.",
+  "kazanim-silindi": "Kayıt silindi.",
+  "cv-yuklendi": "CV'niz yüklendi.",
+  "cv-silindi": "CV'niz kaldırıldı.",
+  "foto-yuklendi": "Profil fotoğrafınız güncellendi.",
+  "foto-silindi": "Profil fotoğrafınız kaldırıldı.",
+  "belge-eklendi": "Destekleyici belge eklendi.",
+  "belge-silindi": "Destekleyici belge kaldırıldı.",
+  "mentorluk-basvuruldu":
+    "Mentörlük başvurunuz alındı ve onaya gönderildi.",
+  "mentorluk-birakildi": "Mentörlüğü bıraktınız.",
 };
+
+/** Kayıt ekleme formunun varsayılan türü — sekme listesinin ilki. */
+const VARSAYILAN_TUR = kazanimTipleri()[0].tip;
 
 export default async function PanelSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ hata?: string; durum?: string }>;
+  searchParams: Promise<{
+    hata?: string;
+    durum?: string;
+    tur?: string;
+    bolum?: string;
+  }>;
 }) {
-  const { hata: seciimHatasi, durum: secimDurumu } = await searchParams;
+  const {
+    hata: seciimHatasi,
+    durum: secimDurumu,
+    tur: istenenTur,
+    bolum: acilacakBolum,
+  } = await searchParams;
   const kullanici = await oturumKullanicisiZorunlu();
 
   const bildirimler = await prisma.bildirim.findMany({
@@ -166,6 +244,164 @@ export default async function PanelSayfasi({
     ? await calismaGruplariniGetir(kullanici.id)
     : null;
   const grupSayisi = calismaGruplari?.seciliIdler.size ?? 0;
+
+  /*
+   * ---------------------------------------------------------------------
+   * PROFİL DÜZENLEME VERİSİ (C4 · 7 Ağustos 2026)
+   * ---------------------------------------------------------------------
+   * İstek profil ile paneli iki yüzeye böldü: `/panel/profil` GÖSTERİR,
+   * burası DÜZENLER. Formların ihtiyaç duyduğu veri bu yüzden Panelim'e
+   * taşındı.
+   *
+   * Sorgular TEK SEFERDE ve paralel: Panelim kullanıcının ilk gördüğü ekran
+   * ve zaten yarım düzine sorgu çalıştırıyor; art arda beklemek açılışı
+   * gözle görülür yavaşlatırdı. Hepsi oturumdaki kişinin kendi satırlarına
+   * bakıyor ve birincil anahtar/dizin üzerinden gidiyor.
+   *
+   * Bölümler KATLI geliyor (aşağıda), yani içerikleri açılmadan görünmüyor —
+   * ama veri yine de sunucuda hazırlanmak zorunda: sayfada JavaScript yok ve
+   * `<details>` açıldığında sunucuya gidilmiyor.
+   */
+  const [
+    profilKaydi,
+    fotoSinirlari,
+    belgeSinirlari,
+    cvSinirlari,
+    programlar,
+    hedefler,
+  ] = await Promise.all([
+    prisma.kullanici.findUniqueOrThrow({
+      where: { id: kullanici.id },
+      select: {
+        ad: true,
+        soyad: true,
+        kurumKodu: true,
+        fotoYuklenmeTarihi: true,
+        ogrenciProfil: true,
+        ogretmenProfil: {
+          select: {
+            eposta: true,
+            telefon: true,
+            cvDosyaAdi: true,
+            cvYuklenmeTarihi: true,
+          },
+        },
+        kazanimlar: {
+          // Kullanıcının girdiği tarih boş olabildiği için ikinci sıralama
+          // ölçütü gerekiyor; yoksa tarihsiz kayıtların sırası belirsiz kalır.
+          orderBy: [{ tarih: "desc" }, { olusturmaTarihi: "desc" }],
+          include: {
+            ekler: {
+              select: { id: true, dosyaAdi: true },
+              orderBy: { yuklenmeTarihi: "asc" },
+            },
+            baglantilar: {
+              select: { id: true, adres: true, etiket: true },
+              orderBy: { siraNo: "asc" },
+            },
+          },
+        },
+      },
+    }),
+    // Fotoğraf sınırları role bakılmadan alınır: bölüm herkeste var.
+    profilFotoSinirlariniGetir(),
+    /*
+     * Destekleyici belge sınırları etkinlik ekleriyle ORTAKTIR: ikisi de aynı
+     * türde içerik taşıyor. Ayrışmaları gerekirse değişecek tek yer
+     * lib/kazanim/ek.ts.
+     */
+    kazanimEkSinirlariniGetir(),
+    // CV artık öğretmende de var (7 Ağustos 2026); sınırlar ortak.
+    cvSinirlariniGetir(),
+    /*
+     * Kazanım formunun "GençTek etkinliği" listesi, faaliyet formununkiyle
+     * AYNI kaynaktan gelir. Pasife alınmışlar teklif edilmez; geçmiş
+     * kayıtların bağlantısı korunur.
+     */
+    prisma.temelEtkinlikProgrami.findMany({
+      where: { aktif: true },
+      orderBy: [{ grup: "asc" }, { siraNo: "asc" }],
+      select: { id: true, ad: true, grup: true },
+    }),
+    /*
+     * "Rotam" hedefleri (D6). Sıralama KODDA yapılıyor
+     * (lib/hedef/kurallar.ts): kural "önce süren, sonra planlanan, en sonda
+     * tamamlanan" ve bunun testi saf fonksiyon üzerinden yazılabiliyor.
+     */
+    prisma.kullaniciHedefi.findMany({
+      where: { kullaniciId: kullanici.id },
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        baslik: true,
+        aciklama: true,
+        durum: true,
+        hedefTarihi: true,
+      },
+    }),
+  ]);
+
+  /*
+   * MENTÖRLÜK (7 Ağustos 2026). Öğrenciye sorulmaz — mentörlük 18 yaş altı bir
+   * kullanıcıyla birebir yazışma hakkı doğurur ve karşı taraf yetişkin olmalı
+   * (bkz. lib/yetki/izinler.ts · mentorlukBasvurabilirMi).
+   *
+   * Grup listesi çalışma grubu seçimindekiyle AYNI kaynaktan gelir; pasife
+   * alınmış grup teklif edilmez.
+   */
+  const mentorlukVerisi = mentorlukBasvurabilirMi(kullanici)
+    ? await Promise.all([
+        mentorluguGetir(kullanici.id),
+        prisma.calismaGrubu.findMany({
+          where: { aktif: true },
+          orderBy: { siraNo: "asc" },
+          select: { id: true, ad: true },
+        }),
+        prisma.mentorlukCalismaGrubu.findMany({
+          where: { mentorlukKullaniciId: kullanici.id },
+          select: { calismaGrubuId: true },
+        }),
+      ])
+    : null;
+
+  const kazanimSahibi = ogrenciMi(kullanici) ? "OGRENCI" : "OGRETMEN";
+
+  /*
+   * Kayıt ekleme formunun türü ADRESTEN gelir: alanlar türe göre değişiyor
+   * (derece yalnızca yarışmada var) ve sayfada JavaScript yok, dolayısıyla
+   * form sunucuda o türe göre basılmak zorunda.
+   */
+  const seciliTur =
+    istenenTur && kazanimTipiGecerliMi(istenenTur) ? istenenTur : VARSAYILAN_TUR;
+  const seciliTanim = kazanimTipiTanimi(seciliTur, kazanimSahibi);
+
+  const izinliBelgeTipleri = [
+    ...belgeSinirlari.izinliGorselTipleri,
+    ...belgeSinirlari.izinliBelgeTipleri,
+  ];
+
+  /*
+   * Adresin sonundaki sürüm damgası, yeni fotoğraf yüklendiğinde tarayıcının
+   * eskisini göstermesini engeller: rota kısa ömürlü bir ön bellek bıraktığı
+   * için adres değişmezse görsel güncellenmiş görünmezdi.
+   */
+  const fotoAdresi = profilKaydi.fotoYuklenmeTarihi
+    ? uygulamaYolu(
+        `/panel/profil/foto?s=${profilKaydi.fotoYuklenmeTarihi.getTime()}`,
+      )
+    : null;
+
+  /*
+   * Danışmanlık işareti yalnızca okulunda görev alabilecek öğretmene sorulur.
+   * YEĞİTEK personelinin ve il koordinatörünün okulu yoktur (kurum kodu boş),
+   * ayrıca il koordinatörü aynı anda danışman olamaz — bu bölümü onlara
+   * göstermek yapılamayacak bir işi teklif etmek olurdu.
+   */
+  const danismanlikSecimiGosterilir =
+    !ogrenciMi(kullanici) &&
+    !ilKoordinatoruMu(kullanici) &&
+    !projeYoneticisiMi(kullanici) &&
+    profilKaydi.kurumKodu !== null;
 
   /*
    * Öğretmenin bağlı olduğu il koordinatörü.
@@ -404,10 +640,19 @@ export default async function PanelSayfasi({
           <p className="mt-2 text-uyari-metin">
             Sisteme giriş yaptınız ancak henüz danışman öğretmen görevi
             almadınız. Okulunuzdaki öğrencilerin danışman seçim listesinde
-            görünmek için profilinizden bu görevi işaretlemeniz gerekiyor.
+            görünmek için aşağıdaki &quot;Danışman öğretmenliğim&quot;
+            bölümünden bu görevi işaretlemeniz gerekiyor.
           </p>
-          <Link href="/panel/profil" className={`${SINIF_BIRINCIL_BUTON} mt-4`}>
-            Profilime git
+          {/*
+            Bağlantı artık PROFİLE değil aynı sayfadaki bölüme iniyor
+            (7 Ağustos 2026): işaret profilden Panelim'e taşındı ve profile
+            göndermek kullanıcıyı işi yapamayacağı bir ekrana atardı.
+          */}
+          <Link
+            href="/panel?bolum=danismanligim#danismanligim"
+            className={`${SINIF_BIRINCIL_BUTON} mt-4`}
+          >
+            Görevi işaretle
           </Link>
         </div>
       )}
@@ -582,63 +827,26 @@ export default async function PanelSayfasi({
       )}
 
       {/*
-        Katkı GİRİŞİ buradan başlar, gösterimi profilde. İstekteki "Katkılarım
-        (Panel sekmesinden giriş olacak, profilde gözükecek)" ifadesi böyle
-        okundu: Panelim giriş noktası, kayıtların kendisi profilde yaşıyor.
-        Formu buraya İKİNCİ KEZ basmak, aynı kaydın iki ayrı yerden girildiği
-        ve birinde görünüp öbüründe görünmediği bir düzen üretirdi.
+        "KATKI GİRİŞİ" KARTI KALDIRILDI (7 Ağustos 2026). Kart, profildeki
+        forma giden bir kestirmeydi ("Yeni kayıt ekle", "Sertifika ekle",
+        "Topluluk ekle"). Form artık aşağıdaki "Kayıtlarım" bölümünde, aynı
+        sayfada; kestirme kalsaydı kullanıcıyı bulunduğu sayfadan çıkarıp geri
+        getiren bir bağlantıya dönüşürdü. Sertifika ve topluluk girişleri o
+        bölümün sekmelerinde duruyor.
       */}
-      {ogrenciMi(kullanici) && (
-        <Kart>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
-            <Sparkles size={18} className="text-vurgu-metin" aria-hidden />
-            Katkı girişi
-          </h2>
-          <p className="mt-1 text-sm text-metin-yumusak">
-            Katıldığın etkinlikleri, yaptığın ürünleri, verdiğin akran
-            eğitimlerini ve derecelerini profilinden ekleyebilirsin. Kayıtlar
-            GençTek Yolculuğum ve Bilişim Yolculuğum bölümlerinde görünür.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Link
-              href="/panel/profil#kayit-ekle"
-              className={SINIF_BIRINCIL_BUTON}
-            >
-              Yeni kayıt ekle
-            </Link>
-            {/*
-              "Sertifika ve Topluluk ekle başlıkları da oluşturulacak (bu bölüm
-              panelde olacak)" — istenen giriş noktası burası. Bağlantılar formu
-              İKİNCİ KEZ basmıyor, profildeki tek forma doğru sekme seçili
-              inerler: aynı kaydın iki ayrı formdan girilmesi, birinde eklenen
-              alanın öbüründe eksik kalması demek olurdu.
-            */}
-            <Link
-              href="/panel/profil?tur=SERTIFIKA#kayit-ekle"
-              className={SINIF_IKINCIL_BUTON}
-            >
-              Sertifika ekle
-            </Link>
-            <Link
-              href="/panel/profil?tur=TOPLULUK#kayit-ekle"
-              className={SINIF_IKINCIL_BUTON}
-            >
-              Topluluk ekle
-            </Link>
-            <Link href="/panel/kazanimlarim" className={SINIF_IKINCIL_BUTON}>
-              Katkılarım
-            </Link>
-          </div>
-        </Kart>
-      )}
 
       {calismaGruplari && (
         <KatlanabilirKart
           baslik="Çalışma gruplarım"
+          /*
+            "İstediğiniz kadar seçebilirsiniz" NOTU KALDIRILDI (7 Ağustos 2026
+            · istek). Sayı sınırı olmadığı bilgisi kullanıcıyı yönlendirmiyor,
+            aksine "çok seç" gibi okunuyordu.
+          */
           aciklama={
             grupSayisi > 0
-              ? `${grupSayisi} grup seçtiniz. İstediğiniz kadar grup seçebilirsiniz; sayı sınırı yoktur.`
-              : "Henüz grup seçmediniz. İlgi alanınıza göre istediğiniz kadar seçebilirsiniz."
+              ? `${grupSayisi} grup seçtiniz.`
+              : "Henüz grup seçmediniz."
           }
           Ikon={Layers}
           capa="calisma-gruplarim"
@@ -650,6 +858,226 @@ export default async function PanelSayfasi({
             kaydetEylemi={calismaGrubuKaydetEylemi}
             donusYolu="/panel"
           />
+        </KatlanabilirKart>
+      )}
+
+      {/*
+        ---------------------------------------------------------------------
+        PROFİL DÜZENLEME BÖLÜMLERİ (C4 · 7 Ağustos 2026)
+        ---------------------------------------------------------------------
+        Hepsi profilden BURAYA taşındı; profilde yalnızca gösterimleri kaldı.
+        Bölümler KATLI: Panelim kullanıcının ilk gördüğü ekran ve asıl işi
+        (başvurusu açık etkinlikler, takvim) yedi formun altında kalmamalı.
+        Hiçbiri `baslangictaAcik` değil — danışman ve çalışma grubu
+        seçimlerinden farkı bu: onlar yapılması GEREKEN işler, bunlar
+        istendiğinde yapılan düzenlemeler.
+      */}
+
+      <KatlanabilirKart
+        baslik="Fotoğrafım"
+        aciklama="Yalnızca siz yükleyebilir ve kaldırabilirsiniz. e-Okul kayıtlarından gelmez; tek kopya tutulur, yeni yükleme öncekinin yerine geçer."
+        Ikon={Camera}
+        capa="fotografim"
+        baslangictaAcik={acilacakBolum === "fotografim"}
+      >
+        <FotografDuzenleme
+          ad={profilKaydi.ad}
+          soyad={profilKaydi.soyad}
+          fotoAdresi={fotoAdresi}
+          sinirlar={fotoSinirlari}
+          yukleEylemi={profilFotoYukleEylemi}
+          silEylemi={profilFotoSilEylemi}
+        />
+        <ProfildeGorBaglantisi />
+      </KatlanabilirKart>
+
+      <KatlanabilirKart
+        baslik="İletişim bilgilerim"
+        aciklama={
+          ogrenciMi(kullanici)
+            ? "Bu alanları siz düzenleyebilirsiniz; profilinizde görünür."
+            : "Bu alanları siz düzenleyebilirsiniz; kapsamınızdaki kişiler size buradan ulaşır."
+        }
+        Ikon={Mail}
+        capa="iletisim-bilgilerim"
+        baslangictaAcik={acilacakBolum === "iletisim-bilgilerim"}
+      >
+        <IletisimDuzenleme
+          iletisim={
+            ogrenciMi(kullanici)
+              ? profilKaydi.ogrenciProfil
+              : profilKaydi.ogretmenProfil
+          }
+          baglantilar={profilKaydi.ogrenciProfil}
+          ogrenci={ogrenciMi(kullanici)}
+          kaydetEylemi={profilGuncelleEylemi}
+        />
+        <ProfildeGorBaglantisi />
+      </KatlanabilirKart>
+
+      {/*
+        "DANIŞMAN ÖĞRETMENLİĞİM" BÖLÜMÜ BURADAN KALKTI (7 Ağustos 2026 · istek:
+        "GençTek Danışman Öğretmenliği Öğrencilerim sekmesine geçsin").
+        İşaret ve durum artık Öğrencilerim ekranının başında — görevle o ekran
+        aynı işin parçası.
+      */}
+
+      {/*
+        MENTÖRLÜK BAŞVURUSU (7 Ağustos 2026).
+        İstek: "Öğretmen hesabında 'mentör başvurusu yap' bölümü ekleyelim.
+        hangi çalışma grubunda mentörlük yapabilir seçsin. hatta mümkünse
+        diğer mentörlük konuları ekleyebilsin? yani öğretmen mentör olabilsin"
+
+        Öğretmene özel DEĞİL: il koordinatörü, proje yöneticisi, mezun ve
+        paydaş temsilcisi de mentör olabiliyor. Dışarıdan gelenler bunu
+        başvuru formunda istiyor; içerideki herkes buradan başvuruyor. Öğrenci
+        hariç — gerekçesi izinler.ts'te.
+      */}
+      {mentorlukVerisi && (
+        <KatlanabilirKart
+          baslik="Mentörlüğüm"
+          aciklama="Bildiğiniz konularda öğrencilere yol gösterin. Başvurunuz il koordinatörünüzün ya da proje yöneticisinin onayından geçer."
+          Ikon={GraduationCap}
+          capa="mentorlugum"
+          baslangictaAcik={acilacakBolum === "mentorlugum"}
+        >
+          <MentorlukDuzenleme
+            mevcut={
+              mentorlukVerisi[0]
+                ? {
+                    durum: mentorlukVerisi[0].durum,
+                    konular: mentorlukVerisi[0].konular,
+                    retGerekcesi: mentorlukVerisi[0].retGerekcesi,
+                    seciliGrupIdleri: mentorlukVerisi[2].map(
+                      (satir) => satir.calismaGrubuId,
+                    ),
+                  }
+                : null
+            }
+            gruplar={mentorlukVerisi[1]}
+            basvurEylemi={mentorlukBasvurEylemi}
+            birakEylemi={mentorluguBirakEylemi}
+          />
+        </KatlanabilirKart>
+      )}
+
+      <KatlanabilirKart
+        baslik="Kayıtlarım"
+        aciklama="Katıldığın etkinlikler, sertifikaların, toplulukların, ürünlerin ve derecelerin. Kayıtlar profilinde GençTek Yolculuğum ve Bilişim Yolculuğum bölümlerinde görünür."
+        Ikon={Sparkles}
+        capa="kayitlarim"
+        /*
+          Tür adreste geldiyse bölüm AÇIK gelir: sekme bağlantısına tıklayan
+          kullanıcı, kapalı bir bölüme inip ne olduğunu anlamamalı.
+        */
+        baslangictaAcik={Boolean(istenenTur) || acilacakBolum === "kayitlarim"}
+      >
+        <KayitEklemeFormu
+          sahip={kazanimSahibi}
+          seciliTanim={seciliTanim}
+          programlar={programlar}
+          izinliBelgeTipleri={izinliBelgeTipleri}
+          belgeSinirlari={belgeSinirlari}
+          ekleEylemi={kazanimEkleEylemi}
+        />
+
+        <div className="mt-8 border-t border-cizgi pt-6">
+          <h3 className="mb-4 text-base font-semibold text-baslik">
+            Girdiğim kayıtlar
+          </h3>
+          <KayitYonetimi
+            kazanimlar={profilKaydi.kazanimlar}
+            sahip={kazanimSahibi}
+            silmeEylemi={kazanimSilEylemi}
+            belgeEkleEylemi={kazanimBelgeEkleEylemi}
+            belgeSilEylemi={kazanimBelgeSilEylemi}
+            izinliBelgeTipleri={izinliBelgeTipleri}
+          />
+        </div>
+        <ProfildeGorBaglantisi />
+      </KatlanabilirKart>
+
+      <KatlanabilirKart
+        baslik="Özgeçmişim (CV)"
+        aciklama={
+          ogrenciMi(kullanici)
+            ? "Danışmanın, il koordinatörün ve proje yöneticisi profilinden açabilir."
+            : "İl koordinatörünüz ve proje yöneticisi kaydınızdan açabilir."
+        }
+        Ikon={FileText}
+        capa="cvm"
+        baslangictaAcik={acilacakBolum === "cvm"}
+      >
+        <CvDuzenleme
+          cv={
+            ogrenciMi(kullanici)
+              ? profilKaydi.ogrenciProfil
+              : profilKaydi.ogretmenProfil
+          }
+          kullaniciId={kullanici.id}
+          ogrenci={ogrenciMi(kullanici)}
+          izinliTipler={cvSinirlari.izinliTipler}
+          yukleEylemi={cvYukleEylemi}
+          silEylemi={cvSilEylemi}
+        />
+        <ProfildeGorBaglantisi />
+      </KatlanabilirKart>
+
+      {/*
+        ÖZDEĞERLENDİRME ENVANTERLERİ — Algoritmam (7 Ağustos 2026).
+        İstek: "Özdeğerlendirme Envanterler- Algoritmam (ileride yz)".
+
+        Sekme menüden kalktı, giriş buraya geldi. Envanterin KENDİSİ
+        `/panel/algoritmam` ekranında kalıyor: madde madde ilerleyen bir
+        uygulama ve katlanabilir bir bölüme sığmaz. Buradaki iş, girişi
+        vermek ve sonucun kime görünür olduğunu söylemek.
+
+        "İleride yz" — yapay zekâ ile öz değerlendirme sonraki faza bırakıldı
+        (YAPILACAKLAR.md · K).
+      */}
+      {ogrenciMi(kullanici) && (
+        <KatlanabilirKart
+          baslik="Özdeğerlendirme Envanterleri"
+          aciklama="Algoritmam: güçlü yönlerini, çalışma biçimini ve teknolojideki eğilimlerini keşfet."
+          Ikon={Compass}
+          capa="algoritmam"
+        >
+          <p className="text-sm text-metin-yumusak">
+            Cevapların ve sonuçların <strong>yalnızca sana görünür</strong> —
+            danışman öğretmenin, il koordinatörün ve merkez hiçbir ekranda
+            göremez.
+          </p>
+          <Link
+            href="/panel/algoritmam"
+            className={`${SINIF_BIRINCIL_BUTON} mt-4`}
+          >
+            Envanterlere git
+          </Link>
+        </KatlanabilirKart>
+      )}
+
+      {/*
+        ROTAM ARTIK HERKESTE (7 Ağustos 2026 · istek: öğretmen Panel'inde de
+        "Yeni Kayıt Ekle: … Rotam"). Hedef eylemleri zaten rol kısıtı
+        taşımıyordu (bkz. hedef-eylemleri.ts); eksik olan yalnızca bölümün
+        basılmasıydı.
+      */}
+      {(
+        <KatlanabilirKart
+          baslik="Rotam"
+          aciklama="Yapmak istediklerin: öğrenmek istediğin bir konu, katılmak istediğin bir yarışma, geliştirmek istediğin bir proje. Yalnızca sen görürsün."
+          Ikon={Compass}
+          capa="rotam"
+          baslangictaAcik={acilacakBolum === "rotam"}
+        >
+          <RotamKarti
+            hedefler={hedefler}
+            ekleEylemi={hedefEkleEylemi}
+            durumEylemi={hedefDurumuEylemi}
+            silmeEylemi={hedefSilEylemi}
+            kartlaSar={false}
+          />
+          <ProfildeGorBaglantisi />
         </KatlanabilirKart>
       )}
 

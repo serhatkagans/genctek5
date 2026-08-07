@@ -1,4 +1,5 @@
 import { Compass, Flag, Play, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import type { HedefDurumu } from "@/generated/prisma/enums";
 
 import { Kart, KartBasligi, SINIF_GIRDI, SINIF_BIRINCIL_BUTON } from "@/components/ui";
@@ -70,8 +71,8 @@ function HedefSatiriGovdesi({
   silmeEylemi,
 }: {
   hedef: HedefSatiri;
-  durumEylemi: Eylem;
-  silmeEylemi: Eylem;
+  durumEylemi?: Eylem;
+  silmeEylemi?: Eylem;
 }) {
   const tamamlandi = hedef.durum === "TAMAMLANDI";
 
@@ -104,76 +105,110 @@ function HedefSatiriGovdesi({
         </span>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {/*
-          Yalnızca İLERİ yöndeki adım gösteriliyor; "geri al" düğmesi yok.
-          Yanlış basılan tamamlama, hedef silinip yeniden yazılarak düzeltilir —
-          her satıra üç durumun üç düğmesini basmak, listeyi düğme tarlasına
-          çevirirdi.
-        */}
-        {hedef.durum === "PLANLANDI" && (
-          <DurumDugmesi
-            hedefId={hedef.id}
-            durum="SURUYOR"
-            etiket="Başladım"
-            Ikon={Play}
-            eylem={durumEylemi}
-          />
-        )}
-        {hedef.durum !== "TAMAMLANDI" && (
-          <DurumDugmesi
-            hedefId={hedef.id}
-            durum="TAMAMLANDI"
-            etiket="Tamamladım"
-            Ikon={Flag}
-            eylem={durumEylemi}
-          />
-        )}
-        <form action={silmeEylemi}>
-          <input type="hidden" name="hedefId" value={hedef.id} />
-          <button
-            type="submit"
-            className="inline-flex items-center gap-1.5 rounded-md border border-cizgi px-2.5 py-1.5 text-sm font-medium text-metin-yumusak transition hover:bg-zemin hover:text-hata-metin"
-            aria-label={`${hedef.baslik} hedefini sil`}
-          >
-            <Trash2 size={14} aria-hidden />
-            Sil
-          </button>
-        </form>
-      </div>
+      {/*
+        Düğme sırası YALNIZCA düzenleme yüzeyinde basılır. Eylem verilmediğinde
+        (profildeki salt okunur gösterim) satır bilgiden ibarettir; boş bir
+        düğme çubuğu basmak, tıklanamayan düğmeler göstermek olurdu.
+      */}
+      {(durumEylemi || silmeEylemi) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {/*
+            Yalnızca İLERİ yöndeki adım gösteriliyor; "geri al" düğmesi yok.
+            Yanlış basılan tamamlama, hedef silinip yeniden yazılarak düzeltilir —
+            her satıra üç durumun üç düğmesini basmak, listeyi düğme tarlasına
+            çevirirdi.
+          */}
+          {durumEylemi && hedef.durum === "PLANLANDI" && (
+            <DurumDugmesi
+              hedefId={hedef.id}
+              durum="SURUYOR"
+              etiket="Başladım"
+              Ikon={Play}
+              eylem={durumEylemi}
+            />
+          )}
+          {durumEylemi && hedef.durum !== "TAMAMLANDI" && (
+            <DurumDugmesi
+              hedefId={hedef.id}
+              durum="TAMAMLANDI"
+              etiket="Tamamladım"
+              Ikon={Flag}
+              eylem={durumEylemi}
+            />
+          )}
+          {silmeEylemi && (
+            <form action={silmeEylemi}>
+              <input type="hidden" name="hedefId" value={hedef.id} />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 rounded-md border border-cizgi px-2.5 py-1.5 text-sm font-medium text-metin-yumusak transition hover:bg-zemin hover:text-hata-metin"
+                aria-label={`${hedef.baslik} hedefini sil`}
+              >
+                <Trash2 size={14} aria-hidden />
+                Sil
+              </button>
+            </form>
+          )}
+        </div>
+      )}
     </li>
   );
 }
 
+/**
+ * `kartlaSar=false` verildiğinde dış çerçeve basılmaz: Panelim'de bölüm zaten
+ * katlanabilir kartın içinde duruyor ve kart içinde kart iç içe çerçeve
+ * üretirdi (DanismanSecimi ile aynı desen).
+ *
+ * EYLEMLER İSTEĞE BAĞLI (7 Ağustos 2026). Verilmediğinde kart salt okunur
+ * olur — profil ekranının kullandığı hâl. İki ayrı bileşen yazılmadı: aynı
+ * listenin iki kopyası zamanla ayrışır ve birine eklenen alan öbüründe eksik
+ * kalırdı.
+ */
 export function RotamKarti({
   hedefler,
   ekleEylemi,
   durumEylemi,
   silmeEylemi,
+  kartlaSar = true,
+  duzenlemeYolu,
 }: {
   hedefler: readonly HedefSatiri[];
-  ekleEylemi: Eylem;
-  durumEylemi: Eylem;
-  silmeEylemi: Eylem;
+  ekleEylemi?: Eylem;
+  durumEylemi?: Eylem;
+  silmeEylemi?: Eylem;
+  kartlaSar?: boolean;
+  /** Salt okunur hâlde gösterilecek "düzenleme buradan" bağlantısı. */
+  duzenlemeYolu?: string;
 }) {
   const ozet = hedefOzeti(hedefler);
   const sirali = hedefleriSirala(hedefler);
 
-  return (
-    /* `id`: hedef eylemleri kaydettikten sonra buraya geri iner. */
-    <Kart className="scroll-mt-6" id="rotam">
-      <KartBasligi
-        baslik="Rotam"
-        aciklama={
-          ozet.toplam === 0
-            ? "Yapmak istediklerini buraya yaz: öğrenmek istediğin bir konu, katılmak istediğin bir yarışma, geliştirmek istediğin bir proje. Yalnızca sen görürsün."
-            : `${ozet.toplam} hedef · ${ozet.tamamlanan} tamamlandı · ${ozet.suren} sürüyor. Yalnızca sen görürsün.`
-        }
-        Ikon={Compass}
-      />
+  const govde = (
+    <>
+      {/*
+        Başlık YALNIZCA kendi kartını basarken görünür. Panelim'de bölümün
+        başlığını `KatlanabilirKart` veriyor; ikisi birden basılsaydı "Rotam"
+        alt alta iki kez yazardı.
+      */}
+      {kartlaSar && (
+        <KartBasligi
+          baslik="Rotam"
+          aciklama={
+            ozet.toplam === 0
+              ? "Yapmak istediklerini buraya yaz: öğrenmek istediğin bir konu, katılmak istediğin bir yarışma, geliştirmek istediğin bir proje. Yalnızca sen görürsün."
+              : `${ozet.toplam} hedef · ${ozet.tamamlanan} tamamlandı · ${ozet.suren} sürüyor. Yalnızca sen görürsün.`
+          }
+          Ikon={Compass}
+        />
+      )}
 
       {sirali.length === 0 ? (
-        <p className="text-metin-yumusak">Henüz hedef eklemedin.</p>
+        <p className="text-metin-yumusak">
+          {ekleEylemi
+            ? "Henüz hedef eklemedin."
+            : "Henüz hedef eklemedin. Panelim ekranındaki Rotam bölümünden ekleyebilirsin."}
+        </p>
       ) : (
         <ul className="space-y-3">
           {sirali.map((hedef) => (
@@ -187,6 +222,16 @@ export function RotamKarti({
         </ul>
       )}
 
+      {duzenlemeYolu && (
+        <Link
+          href={duzenlemeYolu}
+          className="mt-4 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
+        >
+          Rotamı düzenle →
+        </Link>
+      )}
+
+      {ekleEylemi && (
       <form action={ekleEylemi} className="mt-5 space-y-3 border-t border-cizgi pt-5">
         <p className="text-sm font-medium text-baslik">Yeni hedef</p>
 
@@ -255,6 +300,16 @@ export function RotamKarti({
           Hedef ekle
         </button>
       </form>
+      )}
+    </>
+  );
+
+  if (!kartlaSar) return govde;
+
+  /* `id`: hedef eylemleri kaydettikten sonra buraya geri iner. */
+  return (
+    <Kart className="scroll-mt-6" id="rotam">
+      {govde}
     </Kart>
   );
 }

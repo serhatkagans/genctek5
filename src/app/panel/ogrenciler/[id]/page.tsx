@@ -37,6 +37,7 @@ import {
   ogrenciProfilVerisiGetir,
 } from "@/lib/ogrenci/profil";
 import { SALT_OKUNUR_ACIKLAMASI } from "@/lib/kullanici/salt-okunur";
+import { uygulamaYolu } from "@/lib/ortam";
 import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
 import { gorevRolAdi } from "@/lib/yetki/etiketler";
 import { ogrenciCalismaGrubuYonetebilirMi } from "@/lib/yetki/izinler";
@@ -411,13 +412,21 @@ export default async function OgrenciProfilSayfasi({
         />
         {cvVar && cv ? (
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={`/panel/ogrenciler/${ogrenci.id}/cv`}
+            {/*
+              Yeni sekmede açılır: rota pdf'i `inline` gönderiyor ve yetkili,
+              öğrencinin kaydından düşmeden CV'ye bakabilmeli. `<Link>` değil
+              `<a>` — hedef bir rota; ham `<a href>` basePath almadığı için
+              `uygulamaYolu()` şart.
+            */}
+            <a
+              href={uygulamaYolu(`/panel/ogrenciler/${ogrenci.id}/cv`)}
+              target="_blank"
+              rel="noopener noreferrer"
               className={SINIF_BIRINCIL_BUTON}
             >
               <FileText size={15} aria-hidden />
-              CV&apos;yi görüntüle
-            </Link>
+              CV&apos;yi aç
+            </a>
             <p className="text-sm text-metin-yumusak">
               {cv.cvDosyaAdi}
               {cv.cvYuklenmeTarihi

@@ -8,6 +8,7 @@ import {
   belgeMetniUret,
   belgeTuruMu,
 } from "@/lib/belge/kurallar";
+import { belgeUretiminiKaydet } from "@/lib/belge/kayit";
 import { katilimciIdleriniCoz, topluAlicilariSec } from "@/lib/belge/toplu";
 import { prisma } from "@/lib/db";
 import {
@@ -160,6 +161,21 @@ export default async function TopluBelgeSayfasi({
     hedefTip: "FAALIYET",
     hedefId: faaliyet.id,
     detay: `Toplu ${BELGE_TURU_ETIKETLERI[tur]} üretildi: ${secim.alicilar.length} kişi`,
+  });
+
+  /*
+   * Üretim kaydı — belgesi basılan her kişinin profiline katılım düşer
+   * (7 Ağustos 2026). Erişim kaydından AYRI tutulur: log KVKK saklama
+   * süresiyle siliniyor, oysa katılım geçmişi kalıcı olmalı.
+   *
+   * Alıcılar `topluAlicilariSec` süzgecinden geçti; hepsi bu faaliyetin
+   * seçilmiş katılımcısı ve kimlikleri veritabanından geldi.
+   */
+  await belgeUretiminiKaydet({
+    faaliyetId: faaliyet.id,
+    katilimciIdleri: secim.alicilar.map((alici) => alici.katilimciId),
+    tur,
+    uretenKullaniciId: kullanici.id,
   });
 
   const tarihMetni = tarihYaz(faaliyet.tarih);

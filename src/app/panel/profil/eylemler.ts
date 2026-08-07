@@ -31,7 +31,38 @@ const IZINLI_ALANLAR = [
   "linkedinUrl",
 ] as const;
 
-const YOL = "/panel/profil";
+/**
+ * Formların yaşadığı ekran — dönüş adresi.
+ *
+ * `/panel/profil` DEĞİL (C4 · 7 Ağustos 2026): fotoğraf ve iletişim formları
+ * Panelim'e taşındı, profil salt okunur oldu. Kullanıcıyı kaydettikten sonra
+ * profile atmak, formu bırakıp başka bir ekrana düşürmek olurdu.
+ */
+const YOL = "/panel";
+
+/**
+ * Gösterim yüzeyi — yazılan bilgi burada görünüyor, bu yüzden o da tazelenir.
+ * Tazelenmezse kullanıcı profiline geçtiğinde eski değeri görür.
+ */
+const PROFIL_YOLU = "/panel/profil";
+
+function yollariTazele(): void {
+  revalidatePath(YOL);
+  revalidatePath(PROFIL_YOLU);
+}
+
+/**
+ * Panelim'e, ilgili bölüm AÇIK olarak döner.
+ *
+ * `bolum` parametresi ÇIPADAN AYRI ve ikisi de gerekli: bölümler katlanabilir
+ * `<details>` öğeleri ve kapalı bir öğenin çapasına inmek kullanıcıyı boş bir
+ * başlığa götürürdü — az önce doldurduğu form gözden kaybolurdu. Sayfa
+ * `bolum` değerine bakıp o bölümü açık basıyor, çapa da oraya kaydırıyor.
+ */
+function panele(capa: string, sorgu: string): never {
+  yollariTazele();
+  redirect(`${YOL}?bolum=${capa}&${sorgu}#${capa}`);
+}
 
 export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
@@ -76,7 +107,10 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
       linkedinUrl: temizVeri.linkedinUrl,
     });
     if (!karar.olurMu) {
-      redirect(`${YOL}?hata=${encodeURIComponent(karar.neden)}`);
+      panele(
+        "iletisim-bilgilerim",
+        `hata=${encodeURIComponent(karar.neden)}`,
+      );
     }
 
     const ogrenciVerisi = { ...iletisim, ...karar.baglantilar };
@@ -101,8 +135,7 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
     detay: "İletişim bilgileri güncellendi",
   });
 
-  revalidatePath(YOL);
-  redirect(`${YOL}?durum=iletisim-kaydedildi`);
+  panele("iletisim-bilgilerim", "durum=iletisim-kaydedildi");
 }
 
 export async function danismanlikEylemi(veri: FormData): Promise<void> {
@@ -111,8 +144,14 @@ export async function danismanlikEylemi(veri: FormData): Promise<void> {
 
   await danismanlikDurumunuDegistir(kullanici.id, gorevAlmakIstiyor);
 
-  revalidatePath("/panel/profil");
-  revalidatePath("/panel");
+  /*
+   * YÖNLENDİRME YOK — bilerek. Kullanıcı zaten Panelim'de ve `revalidatePath`
+   * sonrası Next sayfayı eylem yanıtında yeniden üretiyor; gezinme olmadığı
+   * için kaydırma konumu da bozulmuyor. Rol değiştiği için düzen de
+   * tazeleniyor: menü ve şerit rol bilgisine bakıyor.
+   */
+  revalidatePath("/panel", "layout");
+  yollariTazele();
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +171,7 @@ export async function profilFotoYukleEylemi(veri: FormData): Promise<void> {
 
   const dosya = veri.get("foto");
   if (!(dosya instanceof File) || dosya.size === 0) {
-    redirect(`${YOL}?hata=${encodeURIComponent("Fotoğraf seçilmedi.")}`);
+    panele("fotografim", `hata=${encodeURIComponent("Fotoğraf seçilmedi.")}`);
   }
 
   const sonuc = await profilFotoKaydet({
@@ -154,8 +193,7 @@ export async function profilFotoYukleEylemi(veri: FormData): Promise<void> {
     detay: "Profil fotoğrafı yüklendi",
   });
 
-  revalidatePath(YOL);
-  redirect(`${YOL}?durum=foto-yuklendi`);
+  panele("fotografim", "durum=foto-yuklendi");
 }
 
 export async function profilFotoSilEylemi(): Promise<void> {
@@ -176,6 +214,5 @@ export async function profilFotoSilEylemi(): Promise<void> {
     detay: "Profil fotoğrafı kaldırıldı",
   });
 
-  revalidatePath(YOL);
-  redirect(`${YOL}?durum=foto-silindi`);
+  panele("fotografim", "durum=foto-silindi");
 }

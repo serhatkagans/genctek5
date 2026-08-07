@@ -4,12 +4,23 @@ import { depolama } from "../depolama";
 import { type CvSinirlari, cvKabulEdilirMi } from "./cv-kurallar";
 
 /**
- * Öğrenci CV'sinin kaydedilmesi ve kaldırılması.
+ * CV'nin kaydedilmesi ve kaldırılması.
+ *
+ * ÖĞRENCİ VE ÖĞRETMEN AYNI KODU KULLANIR (7 Ağustos 2026): dosya, sınırlar ve
+ * depolama aynı; değişen tek şey satırın hangi profil tablosuna yazıldığı.
+ * `hedef` parametresi bunu seçer. İki ayrı fonksiyon yazılsaydı sınır
+ * değişikliği birinde unutulurdu.
+ *
+ * ALANLAR İKİ TABLOYA KOPYALANDI, ortak bir CV tablosu açılmadı: ortak tablo
+ * iki profil satırının yaşam döngüsünü birbirine bağlardı (öğrenci mezun
+ * olduğunda öğrenci profili kapanır, öğretmeninki kapanmaz).
  *
  * Yetki kontrolü BURADA YAPILMAZ; çağıranın işidir (bkz.
- * lib/faaliyet/ek-kaydet.ts ile aynı ayrım). Bu dosya yalnızca "kural uygunsa
- * depola ve profile yaz" adımını tek yerde tutar.
+ * lib/faaliyet/ek-kaydet.ts ile aynı ayrım).
  */
+
+/** CV'nin hangi profil tablosunda tutulacağı. */
+export type CvSahibi = "OGRENCI" | "OGRETMEN";
 
 export async function cvSinirlariniGetir(): Promise<CvSinirlari> {
   const [izinliTipler, maksBayt] = await Promise.all([
@@ -38,6 +49,7 @@ export async function cvKaydet(girdi: {
   ogrenciId: number;
   dosya: File;
   sinirlar: CvSinirlari;
+  sahip?: CvSahibi;
 }): Promise<CvKayitSonucu> {
   const { dosya } = girdi;
 
@@ -47,7 +59,8 @@ export async function cvKaydet(girdi: {
   );
   if (!karar.olurMu) return karar;
 
-  const oncekiAnahtar = await mevcutCvAnahtari(girdi.ogrenciId);
+  const sahip = girdi.sahip ?? "OGRENCI";
+  const oncekiAnahtar = await mevcutCvAnahtari(girdi.ogrenciId, sahip);
 
   const anahtar = await depolama().yaz({
     icerik: Buffer.from(await dosya.arrayBuffer()),
@@ -63,11 +76,19 @@ export async function cvKaydet(girdi: {
     cvYuklenmeTarihi: new Date(),
   };
 
-  await prisma.ogrenciProfil.upsert({
-    where: { kullaniciId: girdi.ogrenciId },
-    update: cv,
-    create: { kullaniciId: girdi.ogrenciId, ...cv },
-  });
+  if (sahip === "OGRENCI") {
+    await prisma.ogrenciProfil.upsert({
+      where: { kullaniciId: girdi.ogrenciId },
+      update: cv,
+      create: { kullaniciId: girdi.ogrenciId, ...cv },
+    });
+  } else {
+    await prisma.ogretmenProfil.upsert({
+      where: { kullaniciId: girdi.ogrenciId },
+      update: cv,
+      create: { kullaniciId: girdi.ogrenciId, ...cv },
+    });
+  }
 
   if (oncekiAnahtar) await depolama().sil(oncekiAnahtar);
 
@@ -75,30 +96,50 @@ export async function cvKaydet(girdi: {
 }
 
 /** CV kaydını ve dosyasını kaldırır. CV yoksa sessizce hiçbir şey yapmaz. */
-export async function cvSil(ogrenciId: number): Promise<boolean> {
-  const anahtar = await mevcutCvAnahtari(ogrenciId);
+export async function cvSil(
+  ogrenciId: number,
+  sahip: CvSahibi = "OGRENCI",
+): Promise<boolean> {
+  const anahtar = await mevcutCvAnahtari(ogrenciId, sahip);
   if (!anahtar) return false;
 
   // Kayıt önce temizlenir: dosya silinip kayıt kalırsa profil indirilemeyen
   // bir CV gösterirdi. Ters sırada en kötü durumda yetim dosya kalır.
-  await prisma.ogrenciProfil.update({
-    where: { kullaniciId: ogrenciId },
-    data: {
-      cvDosyaAdi: null,
-      cvDepolamaYolu: null,
-      cvMimeTipi: null,
-      cvBoyutBayt: null,
-      cvYuklenmeTarihi: null,
-    },
-  });
+  const bosalt = {
+    cvDosyaAdi: null,
+    cvDepolamaYolu: null,
+    cvMimeTipi: null,
+    cvBoyutBayt: null,
+    cvYuklenmeTarihi: null,
+  };
+  if (sahip === "OGRENCI") {
+    await prisma.ogrenciProfil.update({
+      where: { kullaniciId: ogrenciId },
+      data: bosalt,
+    });
+  } else {
+    await prisma.ogretmenProfil.update({
+      where: { kullaniciId: ogrenciId },
+      data: bosalt,
+    });
+  }
   await depolama().sil(anahtar);
   return true;
 }
 
-async function mevcutCvAnahtari(ogrenciId: number): Promise<string | null> {
-  const profil = await prisma.ogrenciProfil.findUnique({
-    where: { kullaniciId: ogrenciId },
-    select: { cvDepolamaYolu: true },
-  });
+async function mevcutCvAnahtari(
+  ogrenciId: number,
+  sahip: CvSahibi,
+): Promise<string | null> {
+  const profil =
+    sahip === "OGRENCI"
+      ? await prisma.ogrenciProfil.findUnique({
+          where: { kullaniciId: ogrenciId },
+          select: { cvDepolamaYolu: true },
+        })
+      : await prisma.ogretmenProfil.findUnique({
+          where: { kullaniciId: ogrenciId },
+          select: { cvDepolamaYolu: true },
+        });
   return profil?.cvDepolamaYolu ?? null;
 }

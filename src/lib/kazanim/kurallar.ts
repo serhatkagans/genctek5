@@ -258,11 +258,41 @@ export function kazanimTipiTanimi(
   return { ...tanim, ...OGRETMEN_METINLERI[tip] };
 }
 
-/** Sekme ve bölüm listesi — sırası sahibe göre değişmez. */
+/**
+ * Artık GİRİLEMEYEN kazanım tipleri (7 Ağustos 2026).
+ *
+ * GENCTEK_ETKINLIGI kapatıldı. Bu tip "sisteme girilmemiş eski GençTek
+ * etkinliklerini elle beyan et" işini görüyordu; katılım artık ÜRETİLEN
+ * BELGEDEN doğduğu için (bkz. lib/kazanim/katilim-kurallar.ts) beyanın
+ * işlevi kalmadı. İki kaynak yan yana dursaydı aynı etkinlik profilde biri
+ * doğrulanmış biri beyan olmak üzere iki kez görünebilirdi.
+ *
+ * TİP ENUM'DAN SİLİNMEDİ ve kayıtlar TEMİZLENMEDİ: bugüne kadar girilmiş
+ * beyanlar kullanıcının verisidir, silme kararı ona ait. Kayıtlar Panelim'deki
+ * düzenleme bölümünde görünmeye ve silinebilmeye devam eder; profilde
+ * görünmezler.
+ */
+export const ARSIVLENMIS_TIPLER: readonly KazanimTipi[] = ["GENCTEK_ETKINLIGI"];
+
+export function kazanimTipiArsivlenmisMi(tip: KazanimTipi): boolean {
+  return ARSIVLENMIS_TIPLER.includes(tip);
+}
+
+/**
+ * Sekme ve bölüm listesi — sırası sahibe göre değişmez.
+ *
+ * Arşivlenmiş tipler VARSAYILAN OLARAK DIŞARIDA: bu liste hem giriş formunun
+ * sekmelerini hem profil bölümlerini besliyor ve ikisinde de kapanmış bir tip
+ * görünmemeli. `arsivDahil`, eski kayıtları yönetip silmeye yarayan ekran için
+ * var — orada tip başlığı olmadan kayıtlar başlıksız kalırdı.
+ */
 export function kazanimTipleri(
   sahip: KazanimSahibi = "OGRENCI",
+  { arsivDahil = false }: { arsivDahil?: boolean } = {},
 ): KazanimTipiTanimi[] {
-  return KAZANIM_TIPLERI.map((tanim) => kazanimTipiTanimi(tanim.tip, sahip));
+  return KAZANIM_TIPLERI.filter(
+    (tanim) => arsivDahil || !kazanimTipiArsivlenmisMi(tanim.tip),
+  ).map((tanim) => kazanimTipiTanimi(tanim.tip, sahip));
 }
 
 /**
@@ -274,12 +304,17 @@ export function kazanimTipleri(
  * öbüründe. "Diğer" bilişim tarafındadır — GençTek kapsamındaki bir kaydın
  * zaten kendi tipi var, tipini bulamayan kayıt tanımı gereği dışarıdandır.
  *
- * İki listenin birleşimi TÜM tipleri kapsamak zorundadır; aksi halde kullanıcı
- * bir kaydı girer ve profilinde hiçbir yerde göremez. `kazanimBolumuBulunmayan`
- * bunu birim testte sınar.
+ * İki listenin birleşimi GİRİLEBİLEN tüm tipleri kapsamak zorundadır; aksi
+ * halde kullanıcı bir kaydı girer ve profilinde hiçbir yerde göremez.
+ * `kazanimBolumuBulunmayan` bunu birim testte sınar.
+ *
+ * GENCTEK_ETKINLIGI 7 Ağustos 2026'da bu listeden ÇIKARILDI: tip arşivlendi
+ * (bkz. ARSIVLENMIS_TIPLER) ve istek "Beyan ettiği GençTek etkinlikleri
+ * kaldırılacak" diyor. Geriye AKRAN_EGITIMI kalıyor — kartın diğer bölümleri
+ * (temsilcilikler, gruplar, düzenlenen ve katıldığı etkinlikler) kazanım
+ * kaydından değil, sistemin kendi verisinden geliyor.
  */
 export const GENCTEK_YOLCULUGU_TIPLERI: readonly KazanimTipi[] = [
-  "GENCTEK_ETKINLIGI",
   "AKRAN_EGITIMI",
 ];
 
@@ -294,14 +329,99 @@ export const BILISIM_YOLCULUGU_TIPLERI: readonly KazanimTipi[] = [
   "DIGER",
 ];
 
-/** Hiçbir yolculuk bölümüne düşmeyen tipler — boş olmalı. */
+/**
+ * "Bilişim Yolculuğum"un ÜÇ ALT BÖLÜMÜ (7 Ağustos 2026).
+ *
+ * İstek bölümü şöyle ayırdı:
+ *
+ *   Bilişim Yolculuğum
+ *     Ürünlerim
+ *     Deneyimlerim (GençTek Dışı Etkinlikler/Derece/Ödül, Sertifika/Eğitim)
+ *     Topluluklarım/Ekiplerim
+ *
+ * Yedi tip yan yana listelenmek yerine üç başlık altında toplanıyor. Tipler
+ * BİRLEŞTİRİLMEDİ, yalnızca gruplandı: her tipin kendi alan kuralları var
+ * (derece yalnızca yarışmada, ürün alanları yalnızca üründe) ve tek tipe
+ * indirmek o kuralları kaybettirirdi. Grup, ekranın düzenidir; tip, kaydın
+ * ne olduğudur.
+ *
+ * "Diğer" DENEYİMLERE düşüyor: tanımı gereği bir başlığa oturmayan kayıt,
+ * bir ürün ya da topluluk değildir.
+ */
+export interface KazanimGrubu {
+  kod: string;
+  baslik: string;
+  aciklama: string;
+  tipler: readonly KazanimTipi[];
+}
+
+export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
+  {
+    kod: "URUNLERIM",
+    baslik: "Ürünlerim",
+    aciklama:
+      "Geliştirdiğin site, uygulama, oyun, film ve diğer üretimlerin. Markette paylaştıklarını buradan görebilirsin.",
+    tipler: ["URUN"],
+  },
+  {
+    kod: "DENEYIMLERIM",
+    baslik: "Deneyimlerim",
+    aciklama:
+      "GençTek dışında katıldığın etkinlikler, aldığın dereceler ve ödüller, sertifika ve eğitimlerin.",
+    tipler: ["DIS_ETKINLIK", "YARISMA_DERECESI", "SERTIFIKA", "DIGER"],
+  },
+  {
+    kod: "TOPLULUKLARIM",
+    baslik: "Topluluklarım / Ekiplerim",
+    aciklama:
+      "İçinde yer aldığın kulüp, proje ekibi ve takımlar. Beyandır — aynı ekibi yazan iki kişi sistemde eşleştirilmez.",
+    tipler: ["TOPLULUK"],
+  },
+];
+
+/**
+ * Her grubun kayıt ekleme sekmeleri.
+ *
+ * Arşivlenmiş tipler ELENİR: giriş formunda kapanmış bir tür görünmemeli.
+ */
+export function bilisimYolculuguGruplari(
+  sahip: KazanimSahibi = "OGRENCI",
+): { grup: KazanimGrubu; tanimlar: KazanimTipiTanimi[] }[] {
+  return BILISIM_YOLCULUGU_GRUPLARI.map((grup) => ({
+    grup,
+    tanimlar: grup.tipler
+      .filter((tip) => !kazanimTipiArsivlenmisMi(tip))
+      .map((tip) => kazanimTipiTanimi(tip, sahip)),
+  })).filter((bolum) => bolum.tanimlar.length > 0);
+}
+
+/**
+ * Üç grubun birleşimi, `BILISIM_YOLCULUGU_TIPLERI` ile aynı kümeyi vermeli.
+ *
+ * Ayrışırlarsa bir tip ya profilde iki kez görünür ya hiç görünmez; ikisi de
+ * sessiz hatadır. `kazanim-kurallar.test.ts` bunu sınar.
+ */
+export function grupsuzBilisimTipleri(): KazanimTipi[] {
+  const gruplanan = new Set<KazanimTipi>(
+    BILISIM_YOLCULUGU_GRUPLARI.flatMap((grup) => [...grup.tipler]),
+  );
+  return BILISIM_YOLCULUGU_TIPLERI.filter((tip) => !gruplanan.has(tip));
+}
+
+/**
+ * Hiçbir yolculuk bölümüne düşmeyen tipler — boş olmalı.
+ *
+ * Arşivlenmiş tipler SORGUYA GİRMEZ: onların bir bölümü olmaması kural gereği,
+ * eksiklik değil. Yeni kayıt kabul etmedikleri için "girdim ama göremiyorum"
+ * durumu da doğuramazlar.
+ */
 export function kazanimBolumuBulunmayan(): KazanimTipi[] {
   const yerlesenler = new Set<KazanimTipi>([
     ...GENCTEK_YOLCULUGU_TIPLERI,
     ...BILISIM_YOLCULUGU_TIPLERI,
   ]);
   return KAZANIM_TIPLERI.map((tanim) => tanim.tip).filter(
-    (tip) => !yerlesenler.has(tip),
+    (tip) => !kazanimTipiArsivlenmisMi(tip) && !yerlesenler.has(tip),
   );
 }
 
@@ -402,6 +522,19 @@ export function baglantiGecerliMi(adres: string): boolean {
 export function kazanimKabulEdilirMi(girdi: KazanimGirdisi): KazanimKarari {
   if (!kazanimTipiGecerliMi(girdi.tip)) {
     return { olurMu: false, neden: "Geçersiz kazanım türü." };
+  }
+  /*
+   * Arşivlenmiş tip YENİ KAYIT KABUL ETMEZ. Kontrol sunucuda: sekmeyi
+   * ekrandan kaldırmak, adres çubuğuna `?tur=GENCTEK_ETKINLIGI` yazan birini
+   * durdurmaz — ve o kayıt profilde hiçbir yerde görünmediği için kullanıcı
+   * kaydettiğini sanıp kaybederdi.
+   */
+  if (kazanimTipiArsivlenmisMi(girdi.tip)) {
+    return {
+      olurMu: false,
+      neden:
+        "Bu kayıt türü kapatıldı. GençTek etkinliklerine katılımınız, etkinlik sonunda adınıza belge üretildiğinde profilinize kendiliğinden düşer.",
+    };
   }
   const tanim = kazanimTipiTanimi(girdi.tip);
 

@@ -30,6 +30,7 @@ const GOREV_ROLLERI: GorevRolKodu[] = [
   "IL_TEMSILCISI",
   "ILCE_TEMSILCISI",
   "OKUL_TEMSILCISI",
+  "CALISMA_GRUBU_YONETICISI",
 ];
 
 /**
@@ -102,9 +103,39 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
     ilKodu: string | null;
     ilceKodu: string | null;
     kurumKodu: number | null;
-  } = { ilKodu: null, ilceKodu: null, kurumKodu: null };
+    calismaGrubuId: number | null;
+  } = { ilKodu: null, ilceKodu: null, kurumKodu: null, calismaGrubuId: null };
 
-  if (rolKodu === "IL_TEMSILCISI") {
+  /*
+   * ÇALIŞMA GRUBU YÖNETİCİSİ (7 Ağustos 2026) diğer üçünden önce ele alınıyor
+   * çünkü kapsamı bir YER değil bir GRUP: öğrencinin kayıtlı ilinden/okulundan
+   * türetilemez, formdan gelen grup kimliğiyle belirlenir.
+   *
+   * Yetki İL TEMSİLCİSİ ile aynı kapıdan geçiyor: atama kararı ilin, okulun
+   * değil. Danışman öğretmene açmak ayrı bir karardır — aynı grubun okuldan
+   * okula birden çok yöneticisi doğardı.
+   */
+  if (rolKodu === "CALISMA_GRUBU_YONETICISI") {
+    if (!ogrenci.ilKodu || !ilTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu)) {
+      throw new YetkiHatasi(
+        "Bu ilde Çalışma Grubu Yöneticisi atama yetkiniz yok.",
+      );
+    }
+    const grupId = Number.parseInt(String(veri.get("calismaGrubuId") ?? ""), 10);
+    if (!Number.isFinite(grupId)) {
+      hataylaDon(donusYolu, "Çalışma grubu seçilmedi.");
+    }
+    /*
+     * Grup VERİTABANINDAN doğrulanıyor: form girdisine güvenilseydi kapatılmış
+     * ya da hiç var olmayan bir gruba yönetici atanabilirdi.
+     */
+    const grup = await prisma.calismaGrubu.findFirst({
+      where: { id: grupId, aktif: true },
+      select: { id: true },
+    });
+    if (!grup) hataylaDon(donusYolu, "Seçilen çalışma grubu bulunamadı.");
+    kapsam.calismaGrubuId = grup.id;
+  } else if (rolKodu === "IL_TEMSILCISI") {
     if (!ogrenci.ilKodu || !ilTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu)) {
       throw new YetkiHatasi("Bu ilde İl Temsilcisi atama yetkiniz yok.");
     }
@@ -135,7 +166,9 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
         ? { ilKodu: kapsam.ilKodu }
         : rolKodu === "ILCE_TEMSILCISI"
           ? { ilceKodu: kapsam.ilceKodu }
-          : { kurumKodu: kapsam.kurumKodu }),
+          : rolKodu === "CALISMA_GRUBU_YONETICISI"
+            ? { calismaGrubuId: kapsam.calismaGrubuId }
+            : { kurumKodu: kapsam.kurumKodu }),
     },
     select: { id: true, ogrenci: { select: { ad: true, soyad: true } } },
   });
@@ -155,6 +188,7 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
       ilKodu: kapsam.ilKodu,
       ilceKodu: kapsam.ilceKodu,
       kurumKodu: kapsam.kurumKodu,
+      calismaGrubuId: kapsam.calismaGrubuId,
       atayanKullaniciId: kullanici.id,
     },
   });

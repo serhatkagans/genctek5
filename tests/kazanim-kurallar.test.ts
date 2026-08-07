@@ -2,8 +2,12 @@ import {
   BILISIM_YOLCULUGU_TIPLERI,
   GENCTEK_YOLCULUGU_TIPLERI,
   KAZANIM_TIPLERI,
+  BILISIM_YOLCULUGU_GRUPLARI,
+  bilisimYolculuguGruplari,
+  grupsuzBilisimTipleri,
   kazanimBolumuBulunmayan,
   kazanimKabulEdilirMi,
+  kazanimTipiArsivlenmisMi,
   kazanimTipiGecerliMi,
   kazanimTipiTanimi,
   kazanimTipleri,
@@ -91,11 +95,117 @@ describe("profil yolculuk bölümleri", () => {
     expect(kesisim).toEqual([]);
   });
 
-  it("GençTek tarafında katılım ve akran eğitimi durur", () => {
-    expect([...GENCTEK_YOLCULUGU_TIPLERI].sort()).toEqual([
-      "AKRAN_EGITIMI",
-      "GENCTEK_ETKINLIGI",
+  it("GençTek tarafında yalnızca akran eğitimi durur", () => {
+    /*
+     * GENCTEK_ETKINLIGI 7 Ağustos 2026'da ÇIKARILDI. Katılım artık üretilen
+     * belgeden doğuyor (lib/kazanim/katilim-kurallar.ts) ve istek beyan
+     * bölümünün kaldırılmasını söylüyor: "Beyan Ettiği GençTek Etkinlikleri
+     * kaldırılacak".
+     */
+    expect([...GENCTEK_YOLCULUGU_TIPLERI].sort()).toEqual(["AKRAN_EGITIMI"]);
+  });
+});
+
+/*
+ * BİLİŞİM YOLCULUĞUNUN ÜÇ GRUBU (7 Ağustos 2026).
+ *
+ * İstek: "Bilişim Yolculuğum → Ürünlerim / Deneyimlerim (GençTek Dışı
+ * Etkinlikler/Derece/Ödül, Sertifika/Eğitim) / Topluluklarım/Ekiplerim".
+ *
+ * Gruplar bir EKRAN DÜZENİDİR, tipleri değiştirmez. Ama düzen ile tip listesi
+ * ayrışırsa bir kayıt ya profilde iki kez görünür ya hiç görünmez — ikisi de
+ * sessiz hatadır ve ancak kullanıcı "girdim, göremiyorum" dediğinde fark
+ * edilir. Testin işi bu.
+ */
+describe("bilişim yolculuğu grupları", () => {
+  it("üç başlığı istekteki sırayla verir", () => {
+    expect(BILISIM_YOLCULUGU_GRUPLARI.map((grup) => grup.kod)).toEqual([
+      "URUNLERIM",
+      "DENEYIMLERIM",
+      "TOPLULUKLARIM",
     ]);
+  });
+
+  it("gruplanmamış bilişim tipi bırakmaz", () => {
+    expect(grupsuzBilisimTipleri()).toEqual([]);
+  });
+
+  it("aynı tipi iki gruba birden koymaz", () => {
+    const hepsi = BILISIM_YOLCULUGU_GRUPLARI.flatMap((grup) => [...grup.tipler]);
+    expect(hepsi.length).toBe(new Set(hepsi).size);
+  });
+
+  it("deneyimler dört türü toplar", () => {
+    const deneyimler = BILISIM_YOLCULUGU_GRUPLARI.find(
+      (grup) => grup.kod === "DENEYIMLERIM",
+    );
+    expect([...(deneyimler?.tipler ?? [])].sort()).toEqual([
+      "DIGER",
+      "DIS_ETKINLIK",
+      "SERTIFIKA",
+      "YARISMA_DERECESI",
+    ]);
+  });
+
+  it("grup listesi arşivlenmiş tip taşımaz", () => {
+    const tipler = bilisimYolculuguGruplari().flatMap((bolum) =>
+      bolum.tanimlar.map((tanim) => tanim.tip),
+    );
+    expect(tipler).not.toContain("GENCTEK_ETKINLIGI");
+  });
+
+  it("öğretmende de aynı tipleri verir, yalnızca etiketler değişir", () => {
+    const ogrenci = bilisimYolculuguGruplari("OGRENCI").flatMap((b) =>
+      b.tanimlar.map((t) => t.tip),
+    );
+    const ogretmen = bilisimYolculuguGruplari("OGRETMEN").flatMap((b) =>
+      b.tanimlar.map((t) => t.tip),
+    );
+    expect(ogretmen).toEqual(ogrenci);
+  });
+});
+
+/*
+ * ARŞİVLENMİŞ TİPLER (7 Ağustos 2026).
+ *
+ * Kapatılan tip enum'dan SİLİNMEZ — girilmiş kayıtlar kullanıcının verisidir.
+ * Silinseydi eski satırlar okunamaz hâle gelirdi. Bunun yerine tip yeni kayıt
+ * kabul etmiyor ve sekme listesinden düşüyor.
+ */
+describe("arşivlenmiş kazanım tipleri", () => {
+  it("GençTek etkinliği beyanını arşivlemiş sayar", () => {
+    expect(kazanimTipiArsivlenmisMi("GENCTEK_ETKINLIGI")).toBe(true);
+    expect(kazanimTipiArsivlenmisMi("SERTIFIKA")).toBe(false);
+  });
+
+  it("sekme listesinde arşivlenmiş tipi göstermez", () => {
+    expect(kazanimTipleri().map((tanim) => tanim.tip)).not.toContain(
+      "GENCTEK_ETKINLIGI",
+    );
+  });
+
+  it("eski kayıtları yönetebilmek için arşiv dahil listeyi verebilir", () => {
+    expect(
+      kazanimTipleri("OGRENCI", { arsivDahil: true }).map((tanim) => tanim.tip),
+    ).toContain("GENCTEK_ETKINLIGI");
+  });
+
+  it("arşivlenmiş tipte YENİ kayıt kabul etmez", () => {
+    /*
+     * Sunucu kontrolü şart: sekmeyi ekrandan kaldırmak, adres çubuğuna
+     * `?tur=GENCTEK_ETKINLIGI` yazan birini durdurmaz — ve o kayıt profilde
+     * hiçbir yerde görünmediği için kullanıcı kaydettiğini sanıp kaybederdi.
+     */
+    const karar = kazanimKabulEdilirMi({
+      tip: "GENCTEK_ETKINLIGI",
+      baslik: "Genç Gölge — Ankara",
+    });
+    expect(karar.olurMu).toBe(false);
+  });
+
+  it("arşivlenmiş tip yolculuk bölümü eksiği saymaz", () => {
+    // Bölümü olmaması kural gereği; `kazanimBolumuBulunmayan` onu aramamalı.
+    expect(kazanimBolumuBulunmayan()).toEqual([]);
   });
 });
 
@@ -367,9 +477,14 @@ describe("beyan edilen GençTek etkinliği", () => {
     expect(KAZANIM_TIPLERI[KAZANIM_TIPLERI.length - 1].tip).toBe("DIGER");
   });
 
-  it("GençTek türü, otomatik listeyle çakışabileceğini açıklamasında söyler", () => {
+  it("GençTek türünün tanımı eski kayıtlar için duruyor", () => {
+    /*
+     * Tip arşivlendi ama tanımı SİLİNMEDİ: girilmiş kayıtların başlığı ve
+     * etiketleri hâlâ buradan okunuyor (Panelim · "Girdiğim kayıtlar").
+     * Tanım silinseydi eski satırlar başlıksız kalırdı.
+     */
     const tanim = KAZANIM_TIPLERI.find((t) => t.tip === "GENCTEK_ETKINLIGI");
-    expect(tanim?.aciklama).toContain("otomatik");
+    expect(tanim?.baslik).toBeTruthy();
   });
 });
 

@@ -106,13 +106,29 @@ describe("talebiCoz", () => {
     if (sonuc.olurMu) expect(sonuc.tur).toBe("SPONSOR");
   });
 
-  it("dört türü kapsar", () => {
+  it("beş türü kapsar", () => {
+    /*
+     * MENTORE_SOR 7 Ağustos 2026'da eklendi. TEKNIK_DESTEK'ten ayrı: o bir
+     * SORUNU çözdürmek için açılır, bu bir YOL sorar.
+     *
+     * SPONSOR istekteki dörtlüde yok ama KAPATILMADI: açılmış ilanları
+     * türsüz bırakmamak için listede duruyor.
+     */
     expect([...TALEP_TURLERI].sort()).toEqual([
       "DUYURU",
       "EKIP_ARKADASI",
+      "MENTORE_SOR",
       "SPONSOR",
       "TEKNIK_DESTEK",
     ]);
+  });
+
+  it("istekteki dört başlığın hepsinin bir türü vardır", () => {
+    // Ekrandaki adlar istek listesiyle birebir eşleşmeli.
+    expect(TALEP_TURU_ETIKETLERI.TEKNIK_DESTEK).toBe("Destek talebi");
+    expect(TALEP_TURU_ETIKETLERI.MENTORE_SOR).toBe("Mentöre sor");
+    expect(TALEP_TURU_ETIKETLERI.DUYURU).toBe("Genel");
+    expect(TALEP_TURU_ETIKETLERI.EKIP_ARKADASI).toBe("Ekip arkadaşı arama");
   });
 
   it("her türün ekran etiketi vardır", () => {

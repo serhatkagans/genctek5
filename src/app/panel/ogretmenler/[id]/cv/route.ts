@@ -1,0 +1,130 @@
+import { oturumKullanicisi } from "@/lib/auth/oturum";
+import { prisma } from "@/lib/db";
+import { depolama } from "@/lib/depolama";
+import { ogretmenKapsamFiltresi } from "@/lib/yetki/kapsam";
+import { erisimLogla } from "@/lib/yetki/log";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Öğretmenin (ve dış kullanıcının) CV'sini açar — 7 Ağustos 2026.
+ *
+ * Dosya public bir dizinden servis EDİLMEZ: her istek önce oturumdan, sonra
+ * merkezi öğretmen kapsam filtresinden geçer. Aksi halde adresi bilen herkes
+ * herhangi birinin özgeçmişini indirebilirdi.
+ *
+ * KENDİ KAYDI AYRICA ELE ALINIR ve bu öğrenci rotasından ayrıldığı yer:
+ * `ogrenciKapsamFiltresi` öğrenciye "yalnızca kendisi" filtresi üretiyor,
+ * `ogretmenKapsamFiltresi` ise ÜRETMİYOR — görev almamış öğretmen ve dış
+ * kullanıcılar (mezun, paydaş, mentör) hiçbir öğretmen kaydı görmüyor. Kapsam
+ * filtresine "kendisi" dalı EKLENMEDİ çünkü o filtre aynı zamanda öğretmen
+ * ENVANTERİNİ süzüyor; oraya dokunmak, görev almamış her öğretmeni kendi
+ * envanter listesinde tek satır olarak görür hâle getirirdi.
+ *
+ * Kapsam dışında 403 değil 404 döner — kaydın varlığı sızmasın
+ * (references/permissions.md Bölüm 4).
+ */
+export async function GET(
+  _istek: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+
+  const kullanici = await oturumKullanicisi();
+  if (!kullanici) {
+    return new Response("Bulunamadı", { status: 404 });
+  }
+
+  const ogretmenId = Number.parseInt(id, 10);
+  if (!Number.isInteger(ogretmenId)) {
+    return new Response("Bulunamadı", { status: 404 });
+  }
+
+  const ogretmen = await prisma.kullanici.findFirst({
+    where: {
+      AND: [
+        { id: ogretmenId },
+        {
+          OR: [
+            // Kişinin kendi CV'si — kapsam filtresi bunu kapsamıyor.
+            { id: kullanici.id },
+            ogretmenKapsamFiltresi(kullanici),
+          ],
+        },
+      ],
+    },
+    select: {
+      id: true,
+      ogretmenProfil: {
+        select: {
+          cvDosyaAdi: true,
+          cvDepolamaYolu: true,
+          cvMimeTipi: true,
+        },
+      },
+    },
+  });
+
+  const cv = ogretmen?.ogretmenProfil;
+  if (!cv?.cvDepolamaYolu || !cv.cvDosyaAdi || !cv.cvMimeTipi) {
+    return new Response("Bulunamadı", { status: 404 });
+  }
+
+  let icerik: Buffer;
+  try {
+    icerik = await depolama().oku(cv.cvDepolamaYolu);
+  } catch {
+    // Kayıt var ama dosya yok: 500 yerine 404 daha dürüst bir cevap.
+    return new Response("Bulunamadı", { status: 404 });
+  }
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "GORUNTULEME",
+    hedefTip: "OGRETMEN",
+    hedefId: ogretmenId,
+    detay: `Öğretmen CV'si açıldı: ${cv.cvDosyaAdi}`,
+  });
+
+  return new Response(new Uint8Array(icerik), {
+    headers: {
+      "Content-Type": cv.cvMimeTipi,
+      /*
+       * TARAYICIDA AÇILABİLENLER `inline` GELİR (7 Ağustos 2026 · istek:
+       * "özgeçmişe tıklanınca sayfada ya da yeni sekmede açılacak").
+       *
+       * Ayrım tipe göre yapılıyor, hepsine birden `inline` denmiyor: pdf
+       * tarayıcının kendi görüntüleyicisinde açılır ama doc/docx açılamaz ve
+       * "inline" başlığıyla gelen bir Word belgesi bazı tarayıcılarda ADSIZ
+       * indirilir — kullanıcı elinde ne olduğu belirsiz bir dosyayla kalır.
+       * O yüzden açılamayanlar `attachment` olarak, adıyla iner.
+       *
+       * Dosya adı ASCII dışı karakter içerebildiği için RFC 5987 biçimi
+       * kullanılır.
+       */
+      "Content-Disposition": `${tarayicidaAcilirMi(cv.cvMimeTipi) ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(cv.cvDosyaAdi)}`,
+      "Content-Length": String(icerik.byteLength),
+      /*
+       * `X-Content-Type-Options` ZORUNLU oldu. Dosya artık `inline`
+       * gelebiliyor; tarayıcının içeriğe bakıp tipi kendi tahmin etmesi
+       * (MIME sniffing), pdf diye yüklenmiş bir dosyanın HTML olarak
+       * yorumlanmasına ve oturum arkasındaki bu adreste kod çalışmasına yol
+       * açardı. Tip yalnızca yüklemede doğrulanan değerden okunur.
+       */
+      "X-Content-Type-Options": "nosniff",
+      // Kapsam kontrolünden geçen içerik ara belleklerde tutulmamalı.
+      "Cache-Control": "private, no-store",
+    },
+  });
+}
+
+/**
+ * Tarayıcının kendi görüntüleyicisinde açabildiği CV biçimleri.
+ *
+ * Liste DAR ve beyaz listedir: `inline` gelen her tip, oturum arkasındaki bu
+ * adreste tarayıcıya bir şey yorumlatma fırsatıdır. Yalnızca pdf var — doc ve
+ * docx zaten açılamıyor.
+ */
+function tarayicidaAcilirMi(mimeTipi: string): boolean {
+  return mimeTipi === "application/pdf";
+}

@@ -58,16 +58,14 @@ export async function ilkGirisOnaylaEylemi(veri: FormData): Promise<void> {
 
   /*
    * Giriş akışının yönlendirmesi burada GERİ KAZANDIRILIR: kapı araya girdiği
-   * için app/giris/eylemler.ts'nin hedefi kayboluyor. İki kural aynı sırayla
-   * uygulanır — danışmansız öğrenci seçim ekranına, diğer öğrenciler profiline
-   * (5 Ağustos talebi · C3), geri kalan herkes panele.
+   * için app/giris/eylemler.ts'nin hedefi kayboluyor. Kural onunla AYNI
+   * olmalı, yoksa ilk giriş ile sonraki girişler farklı ekrana düşerdi:
+   * danışmansız öğrenci seçim ekranına, HERKES profiline (7 Ağustos 2026 ·
+   * "tüm kullanıcı grupları için ilk açılınca profil sekmesi ile başlasın").
    */
-  if (ogrenciMi(kullanici)) {
-    if ((await aktifAtamaGetir(kullanici.id)) === null) {
-      redirect("/panel/danisman-secim");
-    }
-    redirect("/panel/profil");
+  if (ogrenciMi(kullanici) && (await aktifAtamaGetir(kullanici.id)) === null) {
+    redirect("/panel/danisman-secim");
   }
 
-  redirect("/panel");
+  redirect("/panel/profil");
 }

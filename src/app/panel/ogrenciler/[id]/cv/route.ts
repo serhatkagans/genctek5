@@ -66,22 +66,48 @@ export async function GET(
     islem: "GORUNTULEME",
     hedefTip: "OGRENCI",
     hedefId: ogrenciId,
-    detay: `Öğrenci CV'si indirildi: ${cv.cvDosyaAdi}`,
+    detay: `Öğrenci CV'si açıldı: ${cv.cvDosyaAdi}`,
   });
 
   return new Response(new Uint8Array(icerik), {
     headers: {
       "Content-Type": cv.cvMimeTipi,
       /*
-       * `attachment`: pdf tarayıcıda açılabilir ama doc/docx açılamaz ve
-       * "inline" başlığıyla gelen bir Word belgesi bazı tarayıcılarda adsız
-       * indirilir. Dosya adı ASCII dışı karakter içerebildiği için RFC 5987
-       * biçimi kullanılır.
+       * TARAYICIDA AÇILABİLENLER `inline` GELİR (7 Ağustos 2026 · istek:
+       * "özgeçmişe tıklanınca sayfada ya da yeni sekmede açılacak").
+       *
+       * Ayrım tipe göre yapılıyor, hepsine birden `inline` denmiyor: pdf
+       * tarayıcının kendi görüntüleyicisinde açılır ama doc/docx açılamaz ve
+       * "inline" başlığıyla gelen bir Word belgesi bazı tarayıcılarda ADSIZ
+       * indirilir — kullanıcı elinde ne olduğu belirsiz bir dosyayla kalır.
+       * O yüzden açılamayanlar `attachment` olarak, adıyla iner.
+       *
+       * Dosya adı ASCII dışı karakter içerebildiği için RFC 5987 biçimi
+       * kullanılır.
        */
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(cv.cvDosyaAdi)}`,
+      "Content-Disposition": `${tarayicidaAcilirMi(cv.cvMimeTipi) ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(cv.cvDosyaAdi)}`,
       "Content-Length": String(icerik.byteLength),
+      /*
+       * `X-Content-Type-Options` ZORUNLU oldu. Dosya artık `inline`
+       * gelebiliyor; tarayıcının içeriğe bakıp tipi kendi tahmin etmesi
+       * (MIME sniffing), pdf diye yüklenmiş bir dosyanın HTML olarak
+       * yorumlanmasına ve oturum arkasındaki bu adreste kod çalışmasına yol
+       * açardı. Tip yalnızca yüklemede doğrulanan değerden okunur.
+       */
+      "X-Content-Type-Options": "nosniff",
       // Kapsam kontrolünden geçen içerik ara belleklerde tutulmamalı.
       "Cache-Control": "private, no-store",
     },
   });
+}
+
+/**
+ * Tarayıcının kendi görüntüleyicisinde açabildiği CV biçimleri.
+ *
+ * Liste DAR ve beyaz listedir: `inline` gelen her tip, oturum arkasındaki bu
+ * adreste tarayıcıya bir şey yorumlatma fırsatıdır. Yalnızca pdf var — doc ve
+ * docx zaten açılamıyor.
+ */
+function tarayicidaAcilirMi(mimeTipi: string): boolean {
+  return mimeTipi === "application/pdf";
 }

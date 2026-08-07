@@ -42,6 +42,9 @@ export async function katkiVerisiGetir(
         il: { select: { ad: true } },
         ilce: { select: { ad: true } },
         kurum: { select: { ad: true } },
+        // CALISMA_GRUBU_YONETICISI rolünün kapsamı (7 Ağustos 2026); diğer
+        // rollerde boş gelir ve etiket yer adını il/ilçe/kurumdan okur.
+        calismaGrubu: { select: { ad: true } },
       },
     }),
     prisma.ogrenciCalismaGrubu.findMany({

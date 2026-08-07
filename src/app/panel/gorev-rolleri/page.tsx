@@ -92,9 +92,28 @@ export default async function GorevRolleriSayfasi({
       ilce: { select: { ad: true } },
       gorevRolleri: {
         where: { egitimOgretimYili: kullanici.egitimOgretimYili },
-        select: { id: true, rolKodu: true },
+        select: {
+          id: true,
+          rolKodu: true,
+          // Çalışma grubu yöneticiliğinin kapsamı; rozet grup adını yazsın.
+          calismaGrubu: { select: { ad: true } },
+        },
       },
     },
+  });
+
+  /*
+   * ÇALIŞMA GRUBU YÖNETİCİLİĞİ (7 Ağustos 2026) için grup listesi. Diğer üç
+   * temsilcilikten farkı: kapsam öğrencinin kayıtlı yerinden türetilemiyor,
+   * atayan kişi hangi grup olduğunu SEÇMEK zorunda.
+   *
+   * Pasif gruplar teklif edilmez; kapatılmış bir gruba yönetici atamak
+   * yönetilecek bir şey olmayan bir unvan üretirdi.
+   */
+  const calismaGruplari = await prisma.calismaGrubu.findMany({
+    where: { aktif: true },
+    orderBy: { siraNo: "asc" },
+    select: { id: true, ad: true },
   });
 
   const atanabilirRoller = (ogrenci: (typeof ogrenciler)[number]) => {
@@ -125,6 +144,21 @@ export default async function GorevRolleriSayfasi({
       !ogrenci.gorevRolleri.some((rol) => rol.rolKodu === "OKUL_TEMSILCISI")
     ) {
       roller.push("OKUL_TEMSILCISI");
+    }
+    /*
+     * Çalışma grubu yöneticiliğinde "zaten var mı" kontrolü YAPILMAZ: bir
+     * öğrenci birden çok grubun yöneticisi olabilir ve diğer üç rolün aksine
+     * tekillik grup başınadır, kişi başına değil. Aynı gruba ikinci yönetici
+     * atanması eylemde engelleniyor.
+     *
+     * Yetki il temsilciliğiyle aynı: atama kararı ilin.
+     */
+    if (
+      ogrenci.ilKodu &&
+      ilTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu) &&
+      calismaGruplari.length > 0
+    ) {
+      roller.push("CALISMA_GRUBU_YONETICISI");
     }
     return roller;
   };
@@ -211,7 +245,9 @@ export default async function GorevRolleriSayfasi({
                           className="inline-flex items-center gap-1 rounded-full bg-rol-ogrenci-zemin px-2.5 py-0.5 text-xs font-medium text-rol-ogrenci-metin"
                         >
                           <BadgeCheck size={13} aria-hidden />
-                          {GOREV_ROL_ETIKETLERI[gorev.rolKodu]}
+                          {gorev.calismaGrubu
+                            ? `${gorev.calismaGrubu.ad} ${GOREV_ROL_ETIKETLERI[gorev.rolKodu]}`
+                            : GOREV_ROL_ETIKETLERI[gorev.rolKodu]}
                         </span>
                       ))}
                     </div>
@@ -228,6 +264,30 @@ export default async function GorevRolleriSayfasi({
                       />
                       <input type="hidden" name="rolKodu" value={rolKodu} />
                       <input type="hidden" name="donusYolu" value={YOL} />
+                      {/*
+                        Çalışma grubu yöneticiliğinde HANGİ GRUP sorulur:
+                        kapsam öğrencinin kayıtlı yerinden türetilemiyor.
+                        Seçim aynı formun içinde duruyor — ayrı bir adım,
+                        listedeki her satır için ikinci bir ekran demekti.
+                      */}
+                      {rolKodu === "CALISMA_GRUBU_YONETICISI" && (
+                        <select
+                          name="calismaGrubuId"
+                          required
+                          defaultValue=""
+                          aria-label={`${ogrenci.ad} ${ogrenci.soyad} için çalışma grubu`}
+                          className="mb-1.5 block w-full rounded-md border border-cizgi bg-kart px-2 py-1 text-sm text-metin"
+                        >
+                          <option value="" disabled>
+                            Grup seçin
+                          </option>
+                          {calismaGruplari.map((grup) => (
+                            <option key={grup.id} value={grup.id}>
+                              {grup.ad}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <button type="submit" className={SINIF_ATA_BUTON}>
                         {GOREV_ROL_ETIKETLERI[rolKodu]} yap
                       </button>

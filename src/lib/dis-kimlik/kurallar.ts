@@ -14,6 +14,25 @@ import type { DisKullaniciTuru, RolKodu } from "@/generated/prisma/enums";
 export const TUR_ETIKETLERI: Record<DisKullaniciTuru, string> = {
   MEZUN: "Mezun",
   PAYDAS: "Paydaş temsilcisi",
+  MENTOR: "Mentör",
+};
+
+/**
+ * Başvuru formundaki "kim olarak başvuruyorsunuz" seçenekleri (7 Ağustos 2026).
+ *
+ * ÜÇÜ TEK FORMDA (istek: "Paydaş/Mentör başvurusu tek bir formdan yapılacak",
+ * "mezunlar da paydaştan girsin"). Ayrı formlar, aynı doğrulama ve aynı KVKK
+ * metnini üç kez yazdırırdı.
+ */
+export const DIS_TURLERI: DisKullaniciTuru[] = ["MEZUN", "PAYDAS", "MENTOR"];
+
+export const TUR_ACIKLAMALARI: Record<DisKullaniciTuru, string> = {
+  MEZUN:
+    "GençTek'te öğrenci olarak yer aldınız ve mezun oldunuz. Okulunuzu ve mezuniyet yılınızı yazarsınız.",
+  PAYDAS:
+    "Bir kurumu temsilen katkı vermek istiyorsunuz. Kurumunuzu envanterden seçer, görev unvanınızı yazarsınız.",
+  MENTOR:
+    "Bildiğiniz konularda öğrencilere yol göstermek istiyorsunuz. Çalışma gruplarını ve konularınızı seçersiniz.",
 };
 
 /**
@@ -24,11 +43,23 @@ export const TUR_ETIKETLERI: Record<DisKullaniciTuru, string> = {
  * onaylanan paydaş yanlış rolle sisteme girerdi.
  */
 export function turunRolu(tur: DisKullaniciTuru): RolKodu {
+  /*
+   * MENTOR'ün AYRI BİR ROLÜ YOK ve bu bilinçli (7 Ağustos 2026).
+   *
+   * Rol, kapsam filtrelerinin okuduğu şeydir: "bu kişi hangi kayıtları
+   * görebilir". Mentörün kapsamı paydaş temsilcisininkiyle birebir aynı —
+   * ikisi de öğrenci/öğretmen kişisel verisine erişemez, etkinlik takvimini
+   * ve panoyu görür. Ayrı bir rol açmak, her kapsam filtresine hiçbir şey
+   * değiştirmeyen ikinci bir dal eklemek olurdu.
+   *
+   * Mentörlüğün KENDİSİ ayrı bir kayıtta tutuluyor (model Mentorluk) ve
+   * "bu kişi mentör mü" sorusu oradan cevaplanıyor.
+   */
   return tur === "MEZUN" ? "MEZUN" : "PAYDAS_TEMSILCISI";
 }
 
 export function disTuruMu(deger: string): deger is DisKullaniciTuru {
-  return deger === "MEZUN" || deger === "PAYDAS";
+  return (DIS_TURLERI as string[]).includes(deger);
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +235,14 @@ export interface DisBasvuruGirdisi {
   beyan: string;
   /** Aydınlatma metni onay kutusu işaretlendi mi? */
   aydinlatmaOnayi: boolean;
+  /**
+   * MENTÖRLÜK (7 Ağustos 2026 · "Paydaş/Mentör başvurusu tek bir formdan
+   * yapılacak"). tur=MENTOR olduğunda zorunlu olarak true gelir; mezun ve
+   * paydaş da işaretleyebilir.
+   */
+  mentorlukIstiyor: boolean;
+  mentorlukKonulari: string;
+  mentorlukGrupIdleri: readonly unknown[];
 }
 
 /** Veritabanına yazılabilir hâle gelmiş başvuru (şifre henüz özetlenmemiş). */
@@ -220,6 +259,9 @@ export interface DisBasvuruKaydi {
   paydasId: number | null;
   gorevUnvani: string | null;
   beyan: string;
+  mentorlukIstiyor: boolean;
+  mentorlukKonulari: string | null;
+  mentorlukGrupIdleri: number[];
 }
 
 export type DisBasvuruKarari =
@@ -230,6 +272,8 @@ const AD_UST_SINIRI = 100;
 const UNVAN_UST_SINIRI = 150;
 const BEYAN_ALT_SINIRI = 20;
 const BEYAN_UST_SINIRI = 2000;
+/** `mentorluk.konular` ile aynı sınır (lib/mentor/kurallar.ts). */
+const MENTORLUK_KONULARI_UST_SINIRI = 500;
 
 /** Telefon biçimi paydaş envanteriyle aynı gevşeklikte tutuldu. */
 const TELEFON_BICIMI = /^[0-9+()\s./-]{7,20}$/;
@@ -350,7 +394,7 @@ export function disBasvuruGirdisiniCoz(
       }
       mezunKurumKodu = kurumKodu;
     }
-  } else {
+  } else if (tur === "PAYDAS") {
     const paydasMetni = girdi.paydasId.trim();
     const secilen = Number(paydasMetni);
     if (!paydasMetni || !Number.isInteger(secilen) || secilen <= 0) {
@@ -376,6 +420,57 @@ export function disBasvuruGirdisiniCoz(
     }
   }
 
+  /*
+   * MENTÖRLÜK ALANLARI.
+   *
+   * tur=MENTOR ise işaret ZORUNLU: o türü seçen kişi mentörlük istiyor
+   * demektir ve işaretsiz gelen bir MENTOR başvurusu, onaylayan için ne
+   * yapacağı belirsiz bir kayıt olurdu.
+   *
+   * Mentörlük isteniyorsa EN AZ BİR ALAN dolu olmalı — grup ya da konu.
+   * İkisi de boşsa öğrenci bu kişiye hangi konuda başvuracağını bilemez.
+   *
+   * Grup kimlikleri BURADA listeye karşı doğrulanmaz: seçilebilir grupların
+   * listesi veritabanındadır ve bu fonksiyon saf. Doğrulama onay anında
+   * yapılıyor (bkz. lib/mentor/veri.ts · disBasvurudanMentorlukAc) — o an
+   * bir grup pasife alınmış da olabilir.
+   */
+  const mentorlukIstiyor = tur === "MENTOR" ? true : girdi.mentorlukIstiyor;
+
+  const mentorlukGrupIdleri = mentorlukIstiyor
+    ? [
+        ...new Set(
+          girdi.mentorlukGrupIdleri
+            .map((ham) => Number.parseInt(String(ham), 10))
+            .filter((id) => Number.isInteger(id) && id > 0),
+        ),
+      ]
+    : [];
+
+  const mentorlukKonulariMetni = girdi.mentorlukKonulari.trim();
+  if (mentorlukKonulariMetni.length > MENTORLUK_KONULARI_UST_SINIRI) {
+    return {
+      olurMu: false,
+      neden: `Mentörlük konuları en fazla ${MENTORLUK_KONULARI_UST_SINIRI} karakter olabilir.`,
+    };
+  }
+
+  if (
+    mentorlukIstiyor &&
+    mentorlukGrupIdleri.length === 0 &&
+    !mentorlukKonulariMetni
+  ) {
+    return {
+      olurMu: false,
+      neden:
+        "Mentörlük için en az bir çalışma grubu seçin ya da mentörlük yapabileceğiniz konuları yazın.",
+    };
+  }
+
+  const mentorlukKonulari = mentorlukIstiyor
+    ? mentorlukKonulariMetni || null
+    : null;
+
   return {
     olurMu: true,
     kayit: {
@@ -391,6 +486,9 @@ export function disBasvuruGirdisiniCoz(
       paydasId,
       gorevUnvani,
       beyan,
+      mentorlukIstiyor,
+      mentorlukKonulari,
+      mentorlukGrupIdleri,
     },
   };
 }

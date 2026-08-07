@@ -4,6 +4,7 @@ import {
   GraduationCap,
   Send,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { ILLER } from "../../../prisma/veri/iller";
@@ -39,6 +40,14 @@ import { basvuruEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
 
+/*
+ * TEK FORM, ÜÇ SIFAT (7 Ağustos 2026 · istek: "Paydaş/Mentör başvurusu tek bir
+ * formdan yapılacak", "mezunlar da paydaştan girsin").
+ *
+ * Üçü de aynı formdan, aynı doğrulamadan ve aynı KVKK metninden geçiyor; ayrı
+ * formlar aynı işi üç kez yazdırırdı. Değişen tek şey ikinci adımda açılan
+ * alanlar.
+ */
 const TUR_KARTLARI = [
   {
     kod: "MEZUN" as const,
@@ -53,6 +62,13 @@ const TUR_KARTLARI = [
     aciklama:
       "İş birliği yapılan üniversite, kurum ya da şirketin temsilcisi. Kurumunuzun sistemde kayıtlı olması gerekir.",
     Ikon: Building2,
+  },
+  {
+    kod: "MENTOR" as const,
+    baslik: "Mentör",
+    aciklama:
+      "Bildiğiniz konularda öğrencilere yol göstermek istiyorsunuz. Çalışma gruplarını ve konularınızı seçersiniz.",
+    Ikon: Users,
   },
 ];
 
@@ -174,8 +190,9 @@ export default async function BasvuruSayfasi({
 
   // ---- 2. adım: asıl form ------------------------------------------------
   const mezunMu = secilenTur === "MEZUN";
+  const mentorMu = secilenTur === "MENTOR";
 
-  const [okullar, paydaslar, aydinlatma] = await Promise.all([
+  const [okullar, paydaslar, aydinlatma, calismaGruplari] = await Promise.all([
     mezunMu
       ? prisma.kurum.findMany({
           where: { ilKodu: secilenIl },
@@ -183,21 +200,37 @@ export default async function BasvuruSayfasi({
           orderBy: { ad: "asc" },
         })
       : Promise.resolve([]),
-    mezunMu
-      ? Promise.resolve([])
-      : prisma.paydas.findMany({
+    secilenTur === "PAYDAS"
+      ? prisma.paydas.findMany({
           where: { ilKodu: secilenIl, aktif: true },
           select: { id: true, ad: true, tur: true },
           orderBy: { ad: "asc" },
-        }),
+        })
+      : Promise.resolve([]),
     belgeMetniGetir(belgeTanimi("AYDINLATMA")),
+    /*
+     * Çalışma grupları HER TÜRDE çekiliyor: mentörlük yalnızca MENTOR türüne
+     * özel değil — mezun ve paydaş da "ayrıca mentörlük yapmak istiyorum"
+     * diyebiliyor (istek: tek form).
+     */
+    prisma.calismaGrubu.findMany({
+      where: { aktif: true },
+      orderBy: { siraNo: "asc" },
+      select: { id: true, ad: true },
+    }),
   ]);
 
   const buYil = new Date().getFullYear();
 
   return (
     <KamuSayfaDuzeni
-      baslik={mezunMu ? "Mezun başvurusu" : "Paydaş temsilcisi başvurusu"}
+      baslik={
+        mezunMu
+          ? "Mezun başvurusu"
+          : mentorMu
+            ? "Mentör başvurusu"
+            : "Paydaş temsilcisi başvurusu"
+      }
       aciklama={`${ilAdi} · Başvurunuz proje yöneticisinin onayından sonra etkinleşir.`}
       geriYol="/basvuru"
       geriEtiket="Tür ve il seçimine dön"
@@ -208,7 +241,7 @@ export default async function BasvuruSayfasi({
         </BilgiKutusu>
       )}
 
-      {!mezunMu && paydaslar.length === 0 && (
+      {secilenTur === "PAYDAS" && paydaslar.length === 0 && (
         <BilgiKutusu cesit="uyari" className="mt-6">
           {ilAdi} ilinde kayıtlı aktif paydaş kurumu yok. Paydaş envanterini il
           koordinatörü yönetiyor: kurumunuzun eklenmesi için ilinizin GençTek
@@ -270,6 +303,12 @@ export default async function BasvuruSayfasi({
           </div>
         </Kart>
 
+        {/*
+          MENTÖR TÜRÜNDE BU KART HİÇ BASILMAZ: mentörün ne mezun olduğu okulu
+          ne temsil ettiği kurum sorulur — bağını KONULAR üzerinden kuruyor.
+          Boş bir kart basmak, doldurulacak bir şey varmış izlenimi verirdi.
+        */}
+        {!mentorMu && (
         <Kart>
           <h2 className="mb-4 text-lg font-semibold text-baslik">
             {mezunMu ? "Mezuniyet bilgisi" : "Temsil ettiğiniz kurum"}
@@ -335,6 +374,83 @@ export default async function BasvuruSayfasi({
               </label>
             </div>
           )}
+        </Kart>
+        )}
+
+        {/*
+          MENTÖRLÜK (7 Ağustos 2026 · "Paydaş/Mentör başvurusu tek bir formdan
+          yapılacak").
+
+          MENTOR türünde işaret ZORUNLU ve gizli alandan geliyor — o türü seçen
+          kişi zaten mentörlük istiyor, ayrıca sormak gereksiz bir adım olurdu.
+          Mezun ve paydaş için AÇILIR KUTU: ikisi de ayrıca mentörlük
+          yapabilir.
+        */}
+        <Kart>
+          <h2 className="mb-4 text-lg font-semibold text-baslik">
+            Mentörlük
+          </h2>
+
+          {mentorMu ? (
+            <input type="hidden" name="mentorlukIstiyor" value="evet" />
+          ) : (
+            <label className="mb-4 flex items-start gap-2">
+              <input
+                type="checkbox"
+                name="mentorlukIstiyor"
+                value="evet"
+                className="mt-1 h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+              />
+              <span className="text-sm text-metin">
+                <span className="font-medium">
+                  Ayrıca mentörlük yapmak istiyorum
+                </span>
+                <span className="mt-0.5 block text-metin-yumusak">
+                  İşaretlerseniz aşağıdaki alanlar da değerlendirilir ve
+                  onaylanırsanız panodaki &quot;Mentöre sor&quot; ilanlarında
+                  mentör olarak görünürsünüz.
+                </span>
+              </span>
+            </label>
+          )}
+
+          <fieldset>
+            <legend className="text-sm font-medium text-metin-yumusak">
+              Hangi çalışma gruplarında mentörlük yapabilirsiniz?
+            </legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {calismaGruplari.map((grup) => (
+                <label
+                  key={grup.id}
+                  className="flex items-center gap-2 rounded-md border border-cizgi px-3 py-2 text-sm text-metin"
+                >
+                  <input
+                    type="checkbox"
+                    name="mentorlukGrupId"
+                    value={grup.id}
+                    className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+                  />
+                  {grup.ad}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <label className="mt-4 block">
+            <span className="text-sm font-medium text-metin-yumusak">
+              Diğer mentörlük konularınız
+            </span>
+            <textarea
+              name="mentorlukKonulari"
+              rows={2}
+              maxLength={500}
+              placeholder="3B tasarım, Arduino, girişimcilik…"
+              className={SINIF_GIRDI}
+            />
+            <span className="mt-1 block text-xs text-metin-yumusak">
+              Listede olmayan konuları buraya yazabilirsiniz.
+            </span>
+          </label>
         </Kart>
 
         <Kart>

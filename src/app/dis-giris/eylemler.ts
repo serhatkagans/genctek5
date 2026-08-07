@@ -27,5 +27,10 @@ export async function disGirisEylemi(veri: FormData): Promise<void> {
    * yönlendirir. "İlk girişte profil" kuralı ÖĞRENCİYE aittir ve buraya
    * uygulanmaz: mezunun/paydaşın profilinde doldurulacak alan yok.
    */
-  redirect("/panel");
+  /*
+   * Profile düşer, panele değil (7 Ağustos 2026): mezun, paydaş ve mentör de
+   * "tüm kullanıcı grupları" içinde. EBA girişiyle aynı yere varmalı — aynı
+   * kişi hangi kapıdan girdiğine göre farklı ekran görmemeli.
+   */
+  redirect("/panel/profil");
 }

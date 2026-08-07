@@ -30,26 +30,45 @@ export function talepAktifMi(talep: {
 }
 
 /**
- * Talep türleri — istek listesindeki dört başlık.
+ * Talep türleri.
  *
  * SABİT LİSTE, çalışma grupları gibi yönetim ekranından büyütülebilir değil:
- * dördü de panonun ne işe yaradığını tanımlıyor ve her biri ekranda ayrı bir
- * anlam taşıyor (sponsor ilanı ile ekip arkadaşı ilanı aynı kitleye bakmıyor).
- * Beşinci bir tür gerekirse enum'a eklenir — bu bir migration'dır ve öyle
- * olmalı: tür listesi büyüdüğünde kimin ne göreceği yeniden düşünülmeli.
+ * her biri ekranda ayrı bir anlam taşıyor (sponsor ilanı ile ekip arkadaşı
+ * ilanı aynı kitleye bakmıyor). Yeni bir tür enum'a eklenir — bu bir
+ * migration'dır ve öyle olmalı: tür listesi büyüdüğünde kimin ne göreceği
+ * yeniden düşünülmeli.
+ *
+ * 7 AĞUSTOS 2026 · istekteki dört başlık: "Destek Talebi / Mentöre sor /
+ * Genel / Ekip Arkadaşı arama".
+ *
+ * - `MENTORE_SOR` **yeni tür**. `TEKNIK_DESTEK`'ten ayrı: o bir SORUNU
+ *   çözdürmek için açılır ("kodum çalışmıyor"), bu bir YOL sorar ("hangi alana
+ *   gitmeliyim"). Tek türde toplansalardı mentor arayan öğrenci teknik
+ *   soruların arasında kaybolurdu.
+ * - `TEKNIK_DESTEK` ve `DUYURU` **yalnızca etiket olarak** yeniden
+ *   adlandırıldı ("Destek talebi", "Genel"). Enum değerleri korundu: etiket
+ *   değişikliği için veri taşımak, geri alınması pahalı bir işi bedavaya
+ *   yapmak olurdu.
+ * - `SPONSOR` **kapatılmadı** — açılmış ilanları türsüz bırakmamak için
+ *   listede duruyor. İstekteki dörtlüde yok ama var olan ilanların bir süzgeci
+ *   olmalı.
+ *
+ * Sıra istekteki sırayla aynı; ekrandaki süzgeç ve seçim listesi bunu okur.
  */
 export const TALEP_TURLERI: TalepTuru[] = [
-  "EKIP_ARKADASI",
   "TEKNIK_DESTEK",
-  "SPONSOR",
+  "MENTORE_SOR",
   "DUYURU",
+  "EKIP_ARKADASI",
+  "SPONSOR",
 ];
 
 export const TALEP_TURU_ETIKETLERI: Record<TalepTuru, string> = {
-  EKIP_ARKADASI: "Ekip arkadaşı",
-  TEKNIK_DESTEK: "Teknik destek",
+  TEKNIK_DESTEK: "Destek talebi",
+  MENTORE_SOR: "Mentöre sor",
+  DUYURU: "Genel",
+  EKIP_ARKADASI: "Ekip arkadaşı arama",
   SPONSOR: "Sponsor",
-  DUYURU: "Duyuru (tanıtım/yaygınlaştırma)",
 };
 
 /** Türü olmayan eski ilanlar için filtre ve rozet etiketi. */

@@ -210,12 +210,20 @@ export default async function BelgelerSayfasi({
 
                       Belge türü yukarıdaki seçimden gelir; böylece tür için tek
                       bir doğruluk kaynağı olur. `formaction` isteği tekil belge
-                      yoluna çevirir, `name="ad"` de o satırın kişisini taşır.
+                      yoluna çevirir.
+
+                      DÜĞME ADI ARTIK `katilimciId` (7 Ağustos 2026), `ad`
+                      değil: belge üretimi artık kişinin profiline katılım
+                      düşürüyor ve serbest metin bir ad hangi öğrenci olduğunu
+                      söylemiyor — aynı adlı iki öğrencide katılım yanlış kişiye
+                      giderdi. Ad, belge sayfasında kimlikten çözülüyor.
+                      Bir düğme tek bir ad/değer çifti taşıyabildiği için ikisi
+                      birden gönderilemiyordu; doğru olan kimlik.
                     */}
                     <button
                       type="submit"
-                      name="ad"
-                      value={adSoyad}
+                      name="katilimciId"
+                      value={basvuru.katilimciId}
                       formAction={uygulamaYolu(
                         `/panel/etkinlikler/${faaliyet.id}/belge`,
                       )}

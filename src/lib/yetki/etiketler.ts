@@ -25,6 +25,7 @@ export const GOREV_ROL_ETIKETLERI: Record<GorevRolKodu, string> = {
   IL_TEMSILCISI: "İl Temsilcisi",
   ILCE_TEMSILCISI: "İlçe Temsilcisi",
   OKUL_TEMSILCISI: "Okul Temsilcisi",
+  CALISMA_GRUBU_YONETICISI: "Çalışma Grubu Yöneticisi",
 };
 
 /** Görev kaydının kapsam adları; hangisinin dolu olduğu rol koduna bağlıdır. */
@@ -33,6 +34,8 @@ export interface GorevKapsamAdlari {
   il?: { ad: string } | null;
   ilce?: { ad: string } | null;
   kurum?: { ad: string } | null;
+  /** CALISMA_GRUBU_YONETICISI rolünün kapsamı; diğerlerinde boş. */
+  calismaGrubu?: { ad: string } | null;
 }
 
 /**
@@ -52,7 +55,15 @@ export function gorevRolAdi(gorev: GorevKapsamAdlari): string {
       ? gorev.il?.ad
       : gorev.rolKodu === "ILCE_TEMSILCISI"
         ? gorev.ilce?.ad
-        : gorev.kurum?.ad;
+        : /*
+           * Çalışma grubu yöneticiliğinin "yer"i bir kurum değil GRUPTUR
+           * (7 Ağustos 2026). Kurum adına düşseydi etiket "Atatürk Lisesi
+           * Çalışma Grubu Yöneticisi" derdi — hangi grubun yöneticisi olduğu
+           * kaybolurdu.
+           */
+          gorev.rolKodu === "CALISMA_GRUBU_YONETICISI"
+          ? gorev.calismaGrubu?.ad
+          : gorev.kurum?.ad;
 
   const etiket = GOREV_ROL_ETIKETLERI[gorev.rolKodu];
   return yer ? `${yer} ${etiket}` : etiket;

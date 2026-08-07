@@ -48,6 +48,28 @@ enum RolKodu {
 enum DisKullaniciTuru {
   MEZUN
   PAYDAS
+  /// Dışarıdan mentörlük yapmak için başvuran kişi (7 Ağustos 2026).
+  ///
+  /// Mezun ve paydaştan farkı, ekosisteme bağının bir OKUL ya da KURUM
+  /// üzerinden değil, bildiği KONULAR üzerinden kurulması. Mezun ve paydaş da
+  /// ayrıca mentörlük isteyebilir — o zaman türleri değişmez, başvuruya
+  /// mentörlük işareti eklenir.
+  MENTOR
+}
+
+/// Mentörlük başvurusunun durumu.
+///
+/// `OnayDurumu` PAYLAŞILMADI: o enum'da `ONAY_GEREKMEZ` var ve mentörlükte
+/// böyle bir hâl yok — her mentörlük onaydan geçer. Paylaşılan enum, hiçbir
+/// zaman kullanılmayacak bir değeri sürekli ele almayı zorunlu kılardı.
+enum MentorlukDurumu {
+  BEKLIYOR
+  ONAYLANDI
+  REDDEDILDI
+  /// Kişi mentörlüğü kendi bıraktı. Reddedilmekten AYRI: ret bir karardır,
+  /// bu bir vazgeçmedir ve geçmişe dönük "bu kişi reddedilmişti" izlenimi
+  /// bırakmamalı.
+  BIRAKILDI
 }
 
 enum AtamaTipi {
@@ -73,6 +95,17 @@ enum GorevRolKodu {
   IL_TEMSILCISI
   ILCE_TEMSILCISI
   OKUL_TEMSILCISI
+  /// Bir çalışma grubunun öğrenci yöneticisi (7 Ağustos 2026).
+  ///
+  /// Diğer üçünden farkı KAPSAMININ NE OLDUĞU: onlar bir YERE (il, ilçe, okul)
+  /// bağlanır, bu bir ÇALIŞMA GRUBUNA. Kapsam sütunu bu yüzden ayrı
+  /// (`calisma_grubu_id`); yer sütunlarına sığdırılsaydı "Robotik" bir okul
+  /// adıymış gibi durur ve etiket yanlış yazılırdı.
+  ///
+  /// Bugün ek YETKİ getirmez, bir unvandır — profildeki "Görevlerim"
+  /// bölümünde görünür. Yetki eklenecekse `permissions.md` ile birlikte
+  /// düşünülmeli.
+  CALISMA_GRUBU_YONETICISI
 }
 
 enum KazanimTipi {
@@ -173,6 +206,17 @@ enum BasvuruDurumu {
   /// Faaliyet iptal edildiği için sistem tarafından kapatıldı. Öğrencinin
   /// kendi geri çekmesiyle (GERI_CEKILDI) karıştırılmamalıdır.
   IPTAL_EDILDI
+}
+
+/// Üretilen katılım / teşekkür belgesinin türü.
+///
+/// `lib/belge/kurallar.ts` içindeki BELGE_TURLERI ile AYNI değerleri taşır ve
+/// taşımak zorundadır: oradaki liste belgenin METNİNİ seçer, buradaki enum
+/// üretimin KAYDINI tutar. İkisi ayrışırsa kaydedilemeyen bir belge türü
+/// doğar — bu yüzden yeni tür eklenirken iki yer birlikte güncellenmeli.
+enum FaaliyetBelgeTuru {
+  KATILIM
+  TESEKKUR
 }
 
 enum LogIslemi {
@@ -404,6 +448,15 @@ model Kullanici {
   adinaYaptigiBasvurular    Basvuru[] @relation("BasvuruAdinaBasvuran")
   degerlendirdigiBasvurular Basvuru[] @relation("BasvuruDegerlendiren")
 
+  /// Adına belge üretilmiş etkinlikler. Profildeki "Katıldığı GençTek
+  /// etkinlikleri" listesinin yeni kaynağı (bkz. lib/kazanim/getir.ts).
+  aldigiBelgeler    FaaliyetBelgesi[] @relation("BelgeSahibi")
+  urettigiBelgeler  FaaliyetBelgesi[] @relation("BelgeUreten")
+
+  /// Mentörlük kaydı — öğretmende de dış kullanıcıda da aynı tablo.
+  mentorluk              Mentorluk?  @relation("MentorlukSahibi")
+  kararVerdigiMentorluk  Mentorluk[] @relation("MentorlukKararVeren")
+
   ekledigiPaydaslar Paydas[] @relation("PaydasEkleyen")
 
   /// EBA dışı kullanıcının şifreli giriş kimliği. EBA/mock kimlikli
@@ -497,6 +550,25 @@ model DisKullaniciBasvurusu {
   /// başvuru, onaylayan için karar verilemez bir kayıttır.
   beyan String @db.Text
 
+  /// MENTÖRLÜK İSTEĞİ (7 Ağustos 2026 · "Paydaş/Mentör başvurusu tek bir
+  /// formdan yapılacak").
+  ///
+  /// tur=MENTOR olanlarda zorunlu olarak true'dur; mezun ve paydaş da
+  /// işaretleyebilir. Onaylanan başvuruda bu alanlardan bir `mentorluk`
+  /// kaydı doğar ve BURASI kaynak olmaktan çıkar — sonraki değişiklikler
+  /// mentörlük kaydında yapılır, başvuru satırı dondurulmuş bir belgedir.
+  mentorlukIstiyor Boolean @default(false) @map("mentorluk_istiyor")
+  /// Mentörlük yapabileceği serbest konular ("3B tasarım, Arduino").
+  mentorlukKonulari String? @map("mentorluk_konulari") @db.Text
+  /// Mentörlük yapabileceği çalışma gruplarının kimlikleri.
+  ///
+  /// JUNCTION TABLO AÇILMADI ve bu bilinçli: değerler yalnızca karar anına
+  /// kadar yaşıyor, onayla birlikte `mentorluk_calisma_grubu`na taşınıyor.
+  /// Bekleyen bir başvuru için ayrı tablo, onay sonrası boşalan ve kimsenin
+  /// sorgulamadığı satırlar bırakırdı. Grup kimlikleri onay anında yeniden
+  /// doğrulanır (silinmiş/pasif grup elenir).
+  mentorlukGrupIdleri Int[] @default([]) @map("mentorluk_grup_idleri")
+
   /// Başvuru anında okutulan aydınlatma metninin onay tarihi.
   ///
   /// Diğer onaylar `kullanici_onayi`ndadır ama bu ORADA TUTULAMAZ: başvuru
@@ -528,6 +600,63 @@ model DisKullaniciBasvurusu {
   /// Aynı e-posta için aynı anda tek BEKLEYEN başvuru olur; kısıt kısmi unique
   /// index olduğu için migration'da durur (ux_dis_basvuru_bekleyen_eposta).
   @@map("dis_kullanici_basvurusu")
+}
+
+/// MENTÖRLÜK (7 Ağustos 2026).
+///
+/// İstek iki yerden geldi ve TEK KAYITTA toplandı:
+///   · "Öğretmen hesabında 'mentör başvurusu yap' bölümü ekleyelim. hangi
+///      çalışma grubunda mentörlük yapabilir seçsin ... yani öğretmen mentör
+///      olabilsin"
+///   · "Paydaş/Mentör başvurusu tek bir formdan yapılacak."
+///
+/// İKİ GİRİŞ YOLU, TEK TABLO:
+///   · ÖĞRETMEN (EBA'lı kullanıcı) → Panel'den başvurur, kayıt BEKLIYOR
+///     durumunda doğar, il koordinatörü ya da proje yöneticisi onaylar.
+///   · DIŞARIDAN (mezun/paydaş/mentör) → başvuru formundan ister; kayıt,
+///     proje yöneticisi dış başvuruyu onayladığı anda ONAYLANDI olarak doğar
+///     (aynı kararı iki kez sormanın anlamı yok).
+///
+/// İki ayrı yerde tutulsalardı "kimler mentör" sorusunun iki ayrı cevabı olur
+/// ve pano süzgeci iki kaynağı birleştirmek zorunda kalırdı.
+///
+/// KİŞİ BAŞINA TEK KAYIT: mentörlük bir DURUMDUR, geçmiş tablosu değil.
+/// Bırakılan mentörlük `BIRAKILDI` olur ve yeniden başvuruda aynı satır
+/// `BEKLIYOR`a döner; her başvuru yeni satır açsaydı "şu an mentör mü"
+/// sorusu her seferinde sıralama gerektirirdi.
+model Mentorluk {
+  kullaniciId Int             @id @map("kullanici_id")
+  durum       MentorlukDurumu @default(BEKLIYOR)
+  /// Çalışma grupları dışında kalan serbest konular ("3B tasarım, Arduino").
+  /// Gruplar sabit bir listedir ve mentörlüğün tamamını taşımıyor.
+  konular     String?         @db.Text
+
+  basvuruTarihi         DateTime  @default(now()) @map("basvuru_tarihi") @db.Timestamptz(6)
+  kararVerenKullaniciId Int?      @map("karar_veren_kullanici_id")
+  kararTarihi           DateTime? @map("karar_tarihi") @db.Timestamptz(6)
+  /// Rette ZORUNLU (uygulama katmanında): gerekçesiz ret, kişiye tekrar
+  /// başvururken neyi düzelteceğini söylemez.
+  retGerekcesi          String?   @map("ret_gerekcesi") @db.Text
+
+  kullanici  Kullanici  @relation("MentorlukSahibi", fields: [kullaniciId], references: [id], onDelete: Cascade)
+  kararVeren Kullanici? @relation("MentorlukKararVeren", fields: [kararVerenKullaniciId], references: [id])
+  gruplar    MentorlukCalismaGrubu[]
+
+  @@index([durum])
+  @@map("mentorluk")
+}
+
+/// Mentörün hangi çalışma gruplarında mentörlük yapabildiği.
+model MentorlukCalismaGrubu {
+  mentorlukKullaniciId Int @map("mentorluk_kullanici_id")
+  calismaGrubuId       Int @map("calisma_grubu_id")
+
+  mentorluk    Mentorluk    @relation(fields: [mentorlukKullaniciId], references: [kullaniciId], onDelete: Cascade)
+  calismaGrubu CalismaGrubu @relation(fields: [calismaGrubuId], references: [id])
+
+  @@id([mentorlukKullaniciId, calismaGrubuId])
+  @@index([calismaGrubuId])
+  @@map("mentorluk_calisma_grubu")
 }
 
 /// Onaylanmış dış kullanıcının giriş kimliği.
@@ -577,6 +706,20 @@ model OgretmenProfil {
   eposta               String?   @db.VarChar(150)
   telefon              String?   @db.VarChar(20)
 
+  /// ÖZGEÇMİŞ (7 Ağustos 2026 · istek: öğretmen profilinde "Özgeçmiş").
+  ///
+  /// `ogrenci_profil`dekiyle AYNI desende ve aynı sınırlarla; alanlar
+  /// kopyalandı, ortak tabloya taşınmadı. Ortak tablo iki profil satırının
+  /// yaşam döngüsünü birbirine bağlardı: öğrenci mezun olduğunda öğrenci
+  /// profili kapanır, öğretmeninki kapanmaz.
+  ///
+  /// Saklanan şey dosya yolu değil, depolama sağlayıcısının ANAHTARIDIR.
+  cvDosyaAdi         String?   @map("cv_dosya_adi") @db.VarChar(255)
+  cvDepolamaYolu     String?   @map("cv_depolama_yolu") @db.Text
+  cvMimeTipi         String?   @map("cv_mime_tipi") @db.VarChar(100)
+  cvBoyutBayt        BigInt?   @map("cv_boyut_bayt")
+  cvYuklenmeTarihi   DateTime? @map("cv_yuklenme_tarihi") @db.Timestamptz(6)
+
   kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
 
   @@map("ogretmen_profil")
@@ -621,6 +764,10 @@ model CalismaGrubu {
 
   ogrenciSecimleri OgrenciCalismaGrubu[]
   faaliyetler      FaaliyetCalismaGrubu[]
+  /// Bu grubun öğrenci yöneticileri (CALISMA_GRUBU_YONETICISI görev rolü).
+  yoneticiGorevleri OgrenciGorevRolu[]
+  /// Bu grupta mentörlük yapabilen kişiler.
+  mentorlukleri     MentorlukCalismaGrubu[]
 
     talepler Talep[]
 
@@ -741,6 +888,8 @@ model OgrenciGorevRolu {
   /// ILCE_TEMSILCISI rolünün kapsamı.
   ilceKodu          String?      @map("ilce_kodu") @db.Char(4)
   kurumKodu         Int?         @map("kurum_kodu")
+  /// CALISMA_GRUBU_YONETICISI rolünün kapsamı. Diğer rollerde NULL kalır.
+  calismaGrubuId    Int?         @map("calisma_grubu_id")
   atayanKullaniciId Int          @map("atayan_kullanici_id")
   atamaTarihi       DateTime     @default(now()) @map("atama_tarihi") @db.Timestamptz(6)
 
@@ -749,6 +898,7 @@ model OgrenciGorevRolu {
   il      Il?       @relation(fields: [ilKodu], references: [ilKodu])
   ilce    Ilce?     @relation(fields: [ilceKodu], references: [ilceKodu])
   kurum   Kurum?    @relation(fields: [kurumKodu], references: [kurumKodu])
+  calismaGrubu CalismaGrubu? @relation(fields: [calismaGrubuId], references: [id])
 
   @@index([ogrenciId])
   @@map("ogrenci_gorev_rolu")
@@ -1036,6 +1186,7 @@ model Faaliyet {
   yorumlar        Yorum[]
   basvurular      Basvuru[]
   paydaslar       FaaliyetPaydas[]
+  belgeler        FaaliyetBelgesi[]
 
   @@index([kapsam, onayDurumu])
   @@index([etkinlikKategorisi])
@@ -1184,6 +1335,48 @@ model Basvuru {
   @@index([katilimciId])
   @@index([kaynakIlOnayDurumu])
   @@map("basvuru")
+}
+
+/// Bir kişiye bir etkinlikten belge ÜRETİLDİĞİNİN kaydı.
+///
+/// NE TUTMAZ: belgenin metnini, adı, imzayı. Belge içeriği eskisi gibi her
+/// istekte faaliyet kayıtlarından üretilmeye devam ediyor (bkz.
+/// lib/belge/kurallar.ts) — metin saklansaydı faaliyetin adı düzeltildiğinde
+/// basılmış belgeler eski adı göstermeye devam ederdi.
+///
+/// NEDEN YİNE DE TABLO: "ismine belge oluşturulan öğrencinin profiline
+/// katıldığı etkinlik düşsün" kuralı (7 Ağustos 2026) belge üretimini kişi
+/// hakkında KALICI bir olguya çevirdi. Bu bilgi daha önce yalnızca erişim
+/// kaydının serbest metnindeydi; erişim kayıtları KVKK saklama süresiyle
+/// siliniyor (scripts/veri-saklama.ts), yani öğrencinin katılım geçmişi
+/// bakım işi çalıştığında sessizce boşalırdı.
+///
+/// Yalnızca SİSTEMDE KAYDI OLAN kişi için satır açılır. Belgeler ekranındaki
+/// "listede olmayan biri için" formu serbest metin ad alır (konuşmacı, destek
+/// veren kurum); onların profili olmadığı için düşecekleri bir yer de yok.
+model FaaliyetBelgesi {
+  id                Int               @id @default(autoincrement())
+  faaliyetId        Int               @map("faaliyet_id")
+  /// Belgenin sahibi. Faaliyetin SEÇİLMİŞ katılımcısı olduğu üretim anında
+  /// doğrulanır; adres çubuğuna elle kimlik yazan biri katılımcı olmayan
+  /// birine belge bastıramaz.
+  katilimciId       Int               @map("katilimci_id")
+  tur               FaaliyetBelgeTuru
+  uretimTarihi      DateTime          @default(now()) @map("uretim_tarihi") @db.Timestamptz(6)
+  /// Belgeyi üreten yetkili. Erişim kaydı silinse de "bu belgeyi kim bastı"
+  /// sorusunun cevabı burada kalır.
+  uretenKullaniciId Int               @map("ureten_kullanici_id")
+
+  faaliyet  Faaliyet  @relation(fields: [faaliyetId], references: [id], onDelete: Cascade)
+  katilimci Kullanici @relation("BelgeSahibi", fields: [katilimciId], references: [id])
+  ureten    Kullanici @relation("BelgeUreten", fields: [uretenKullaniciId], references: [id])
+
+  /// Aynı belgeyi ikinci kez yazdırmak yeni bir satır AÇMAZ: kayıt "kaç kez
+  /// basıldı" değil "üretildi mi" sorusunu cevaplıyor. Yazıcı sıkıştığı için
+  /// üç kez basılan belge, öğrencinin profiline üç katılım düşürmemeli.
+  @@unique([faaliyetId, katilimciId, tur])
+  @@index([katilimciId])
+  @@map("faaliyet_belgesi")
 }
 
 // ---------------------------------------------------------------------------
@@ -1353,8 +1546,14 @@ enum TalepTuru {
   EKIP_ARKADASI
   TEKNIK_DESTEK
   SPONSOR
-  /// Tanıtım / yaygınlaştırma duyurusu.
+  /// Tanıtım / yaygınlaştırma duyurusu. Ekranda "Genel" yazar.
   DUYURU
+  /// Deneyimli birine danışma isteği (7 Ağustos 2026).
+  ///
+  /// TEKNIK_DESTEK'ten ayrı: o bir SORUNU çözdürmek için açılır ("kodum
+  /// çalışmıyor"), bu bir YOL sorar ("hangi alana gitmeliyim"). Tek türde
+  /// toplansalardı mentor arayan öğrenci teknik soruların arasında kaybolurdu.
+  MENTORE_SOR
 }
 
 model Talep {

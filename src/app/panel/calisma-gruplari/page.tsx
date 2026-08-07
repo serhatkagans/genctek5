@@ -40,7 +40,12 @@ export default async function CalismaGruplariSayfasi({
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Çalışma gruplarım"
-        aciklama="İlgi alanınıza göre istediğiniz kadar grup seçebilirsiniz; sayı sınırı yoktur."
+        /*
+          "İstediğiniz kadar seçebilirsiniz; sayı sınırı yoktur" NOTU
+          KALDIRILDI (7 Ağustos 2026 · istek). Panelim'deki aynı not da
+          kaldırıldı — iki yüzey aynı metni taşıyordu.
+        */
+        aciklama="İlgi alanınıza göre grup seçebilirsiniz."
       />
 
       {durum === "kaydedildi" && (

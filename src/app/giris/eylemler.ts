@@ -22,22 +22,25 @@ export async function girisEylemi(veri: FormData): Promise<void> {
 /**
  * Giriş sonrası açılacak ekran.
  *
- * ÖĞRENCİ HER GİRİŞTE PROFİLİNİ GÖRÜR (5 Ağustos talebi · C3). "İlk girişte"
- * denmiş olsa da karar her giriş yönünde verildi: profil, öğrencinin kendini
- * tanıttığı ve güncellediği yer ve envanterin değeri oranın doluluğuna bağlı.
- * Öğretmen, koordinatör ve merkez personeli panele girmeye devam eder —
- * onların günlük işi listelerde, profilde değil.
+ * HERKES PROFİLLE KARŞILANIR (7 Ağustos 2026 · istek: "tüm kullanıcı grupları
+ * için ilk açılınca profil sekmesi ile başlasın, panel ile değil").
  *
- * DANIŞMAN SEÇİMİ ÖNCELİKLİDİR: danışmansız öğrenci "boşta" kalamaz
+ * Önceden yalnızca öğrenci profile düşüyordu (C3 · 5 Ağustos); öğretmen,
+ * koordinatör ve merkez panele giriyordu. Kural artık rolden bağımsız —
+ * profil, kişinin kendini gördüğü ve tanıttığı yer ve menüde de ilk sekme.
+ * Rol ayrımı, aynı soruya iki cevap vermek olurdu.
+ *
+ * DANIŞMAN SEÇİMİ HÂLÂ ÖNCELİKLİDİR: danışmansız öğrenci "boşta" kalamaz
  * (SKILL.md · Değişmezler 2), o yüzden seçim ekranı bir kapıdır ve profilin
  * önüne geçer. Seçimini yapan öğrenci sonraki girişinde profile düşer.
+ *
+ * `ogrenciMi` artık kullanılmıyor ama imzada DURUYOR: çağıran `girisYap`
+ * sonucunu olduğu gibi geçiriyor ve alanı ayıklamak, ileride rol bazlı bir
+ * kapı gerektiğinde geri eklenecek bir bilgiyi bugünden atmak olurdu.
  */
-function girisSonrasiYol(sonuc: {
-  danismanSecimiGerekli: boolean;
-  ogrenciMi: boolean;
-}): string {
+function girisSonrasiYol(sonuc: { danismanSecimiGerekli: boolean }): string {
   if (sonuc.danismanSecimiGerekli) return "/panel/danisman-secim";
-  return sonuc.ogrenciMi ? "/panel/profil" : "/panel";
+  return "/panel/profil";
 }
 
 export async function cikisEylemi(): Promise<void> {

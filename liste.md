@@ -2,7 +2,7 @@
 
 5–6 Ağustos 2026 istek listesinden **geriye kalanlar**. Üç kaynağın özeti:
 
-- [`YAPILACAKLAR.md`](YAPILACAKLAR.md) — **açık** maddelerin planı (C4, G).
+- [`YAPILACAKLAR.md`](YAPILACAKLAR.md) — **açık** maddenin planı (G).
 - [`YAPILACAKLAR-ARSIV.md`](YAPILACAKLAR-ARSIV.md) — **biten 25 maddenin**
   gerekçeleri. 6 Ağustos'ta oraya taşındı.
 - [`SORULAR.md`](SORULAR.md) — açık sorular.
@@ -14,9 +14,10 @@ Burada yalnızca "ne kaldı, neden bekliyor" var.
 > tek kusur (`/panel/dis-basvurular` yetkisiz kullanıcıya "Beklenmeyen bir
 > hata" diyordu) düzeltildi. Ayrıntı: `YAPILACAKLAR-ARSIV.md` · "Uçtan uca denetim".
 
-**Durum:** 27 maddenin **25'i bitti**, **2'si duruyor: C4 ve G.**
+**Durum:** 27 maddenin **26'sı bitti**, **1'i duruyor: G.**
 **Öğretmen tarafı (J1–J5), profil bölümünün tamamı (D1–D8), Algoritmam (E) ve
-GençTek Market (I) bitti.** Kalan iki madde de cevap bekliyor. Üç bitmiş
+GençTek Market (I) bitti.** **C4 de 7 Ağustos'ta bitti** (S9 cevaplandı): profil salt okunur oldu,
+düzenlemenin tamamı Panelim'e taşındı. Kalan madde cevap bekliyor. Üç bitmiş
 maddenin artığı var: D5'ten **ürün taahhütnamesi** (→ S12), E'den **dört
 ölçeğin madde metni** (→ S16), I'den **DİLİM'in tanımı** (→ S22).
 
@@ -91,9 +92,8 @@ Ayrıntı `YAPILACAKLAR-ARSIV.md`'deki "YAPILDI" bölümlerinde; buraya yalnızc
 
 ### C. Öğrenci paneli düzeni
 
-| # | Madde | Büyüklük | Bekleyen |
-|---|---|---|---|
-| C4 | Profil bölümleri için düzenleme/ekleme/silme ekranı | M | **S9** |
+**Tamamı bitti.** C4, 7 Ağustos 2026'da yapıldı: profil salt okunur, düzenleme
+Panelim'de (bkz. `YAPILACAKLAR.md` · C4).
 
 ### D. Profil içeriği
 
@@ -123,9 +123,9 @@ yalnızca sisteme girmiş kullanıcılar görüyor.
 
 ## Bekleyen sorular
 
-**8 soru açık**, ikisi (S16 ve S22) kısmen cevaplandı — o iki madde yapıldı,
-yalnızca artıkları bekliyor. Cevaplanan on yedisi A1, C3, A2, C1, B2, B3, C2,
-D3, D4, D5, D6, D7, H, E, I ve J1–J5'i açtı.
+**7 soru açık**, ikisi (S16 ve S22) kısmen cevaplandı — o iki madde yapıldı,
+yalnızca artıkları bekliyor. Cevaplanan on sekizi A1, C3, A2, C1, B2, B3, C2,
+**C4**, D3, D4, D5, D6, D7, H, E, I ve J1–J5'i açtı.
 
 ### 🔴 Önce bunlar — mimari/veri modeli kararı bunlara bağlı
 
@@ -143,7 +143,6 @@ D3, D4, D5, D6, D7, H, E, I ve J1–J5'i açtı.
 |---|---|---|
 | S16 | Algoritmam: dört ölçeğin madde metni + izin; "Dick" adı; sonucu kim görecek | E'nin kalanı |
 | S22 | Market: "DİLİM" nedir? | I'nin kalanı |
-| S9 | "Profil bölümlerinin düzenleme sayfası" ne demek? | C4 |
 | S12 | Ürün taahhütnamesi metni ve markette moderasyon | D5'in kalanı, I |
 | S19 | Grup sohbetlerini kim okuyabilecek, kim üye ekleyecek? | G |
 
@@ -153,6 +152,20 @@ D3, D4, D5, D6, D7, H, E, I ve J1–J5'i açtı.
 |---|---|---|
 | S5 | "Katkılarım" hem sekme hem profil bölümü mü? *(varsayımla ilerlendi)* | — |
 | S20 | Ekip arkadaşlığı ve takım grupları *(istekte de soru işaretli)* | G |
+
+---
+
+## 7 Ağustos ikinci turundan kalanlar
+
+O günkü ikinci istek dalgası (menü küçültme, bölüm düzeni, mentörlük, giriş
+kapısı) uygulandı. Kalanlar:
+
+| Ne | Neden bekliyor |
+|---|---|
+| **E-Devlet entegrasyonu** | Kurum başvurusu, test ortamı erişimi ve istemci sertifikası gerekiyor (→ **S26**). Düğme ve kapı hazır |
+| **Bağlantılarım › Sohbet** | Grup sohbeti — G maddesi (→ S19, S20) |
+| **Market › Taahhütname metni** | Bölüm ekranda, metin bekleniyor (→ S12) |
+| **Akran eğitimi öğretmen onayı** | Karar gereği sonraki işe bırakıldı; onay kuyruğu + bildirim gerektiriyor |
 
 ---
 
@@ -183,22 +196,21 @@ Kayıt altına alındı, sonraki faza bırakıldı:
 8. ~~**D3–D7**~~ ✅ — profil bölümleri tamamlandı
 9. ~~**E**~~ ✅ — Algoritmam (dört ölçeğin içeriği bekliyor)
 10. ~~**I**~~ ✅ — GençTek Market (DİLİM'in tanımı bekliyor)
-11. **C4** — profil bölümlerinin düzenleme ekranı (S9 ile açılır)
+11. ~~**C4**~~ ✅ — profil salt okunur, düzenleme Panelim'de
 12. **G** — son büyük modül
 
 ---
 
 ## En hızlı yol
 
-Kalan 2 madde: **C4 ve G.** Ayrıca üç bitmiş maddenin artığı var.
-En verimli dört cevap:
+Kalan 1 madde: **G.** Ayrıca üç bitmiş maddenin artığı var.
+En verimli üç cevap:
 
 | Cevap | Açılan |
 |---|---|
 | **S16** — dört ölçeğin madde metni + izin | E'nin kalanı; kod yazılmayacak, yalnızca tanım dosyası dolacak |
 | **S22** — "DİLİM" nedir? | I'nin kalanı; tek süzgeç eklenecek |
 | **S19** — grup sohbetlerini kim okuyacak, kim üye ekleyecek? | G |
-| **S9** — "profil bölümleri için düzenleme sayfası" ne demek? | C4 |
 
 **S12** (ürün taahhütnamesi + markette moderasyon) hem D5'i hem I'yi
 tamamlıyor: bugün markete çıkan ürünü kimse onaylamıyor ve kullanıcıların çoğu

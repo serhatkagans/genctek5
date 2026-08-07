@@ -1,9 +1,12 @@
 import {
+  BadgeCheck,
   CalendarRange,
   ChevronLeft,
   ChevronRight,
   Download,
   Filter,
+  ShieldCheck,
+  UserPlus,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -13,12 +16,17 @@ import {
   KartBasligi,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
+  SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
   gorevRoluAtaEylemi,
   gorevRoluKaldirEylemi,
 } from "@/app/panel/gorev-rolleri/eylemler";
+import {
+  danismanlikIsaretiEylemi,
+  ogrenciyiDanismanligaAlEylemi,
+} from "./eylemler";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import { prisma } from "@/lib/db";
 import {
@@ -187,6 +195,35 @@ export default async function OgrencilerSayfasi({
   const gorevDurumu = tekil(parametreler.durum);
   const gorevHatasi = tekil(parametreler.hata);
 
+  /*
+   * DANIŞMAN ÖĞRETMENLİĞİ İŞARETİ (7 Ağustos 2026). Yalnızca okulunda görev
+   * alabilecek öğretmene sorulur: il koordinatörünün ve YEĞİTEK personelinin
+   * okulu yoktur ve koordinatör aynı anda danışman olamaz.
+   */
+  const danismanlikIsaretiGosterilir =
+    !ilKoordinatoruMu(kullanici) &&
+    !projeYoneticisiMi(kullanici) &&
+    kullanici.kurumKodu !== null;
+
+  /*
+   * Okulundaki DANIŞMANSIZ öğrenciler. Yalnızca görev almış danışmana
+   * sorulur — işaretlememiş öğretmen zaten kimseyi alamaz (eylem de
+   * reddediyor) ve ona boş bir liste göstermenin karşılığı yok.
+   */
+  const danismansizlar =
+    danismanMi(kullanici) && kullanici.kurumKodu !== null
+      ? await prisma.kullanici.findMany({
+          where: {
+            kurumKodu: kullanici.kurumKodu,
+            roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } },
+            ogrenciAtamalari: { none: { bitisTarihi: null } },
+          },
+          orderBy: [{ sinif: "asc" }, { ad: "asc" }],
+          take: 50,
+          select: { id: true, ad: true, soyad: true, sinif: true },
+        })
+      : [];
+
   // Filtre seçenekleri de kapsamla sınırlıdır: proje yöneticisi tüm illeri,
   // il koordinatörü yalnızca kendi ilinin okullarını, danışman öğretmen ise
   // hiç yer seçeneği görmez (tek okulu vardır).
@@ -347,7 +384,114 @@ export default async function OgrencilerSayfasi({
           kaydına yazıldı; öğrenci yeni danışmanına bağlandı.
         </BilgiKutusu>
       )}
+      {gorevDurumu === "danismanlik-alindi" && (
+        <BilgiKutusu cesit="olumlu">
+          GençTek danışman öğretmeni olarak görev aldınız. Okulunuzdaki
+          öğrenciler sizi danışman seçim listesinde görecek.
+        </BilgiKutusu>
+      )}
+      {gorevDurumu &&
+        !["atandi", "kaldirildi", "danismanlik-birakildi", "danismanlik-alindi"].includes(
+          gorevDurumu,
+        ) && <BilgiKutusu cesit="olumlu">{gorevDurumu}</BilgiKutusu>}
       {gorevHatasi && <BilgiKutusu cesit="hata">{gorevHatasi}</BilgiKutusu>}
+
+      {/*
+        GENÇTEK DANIŞMAN ÖĞRETMENLİĞİ (7 Ağustos 2026 · istek: "GençTek
+        Danışman Öğretmenliği Öğrencilerim sekmesine geçsin").
+
+        Panel'den BURAYA taşındı: görev ile bu ekran aynı işin parçası —
+        işareti kaldıran kişi öğrenci listesini de kaybediyor, ikisini ayrı
+        ekranlarda tutmak bu bağı görünmez kılıyordu.
+
+        Yalnızca okulunda görev alabilecek öğretmene basılır; il koordinatörü
+        ve YEĞİTEK personeli danışman olamaz.
+      */}
+      {danismanlikIsaretiGosterilir && (
+        <Kart>
+          <KartBasligi
+            baslik="GençTek danışman öğretmenliği"
+            aciklama="Bu görevi işaretlediğinizde okulunuzdaki öğrencilerin danışman seçim listesinde görünürsünüz. Onay süreci yoktur."
+            Ikon={ShieldCheck}
+          />
+          <form action={danismanlikIsaretiEylemi}>
+            <input
+              type="hidden"
+              name="gorevAlmakIstiyor"
+              value={danismanMi(kullanici) ? "hayir" : "evet"}
+            />
+            <input type="hidden" name="donusYolu" value={donusYolu} />
+            {danismanMi(kullanici) ? (
+              <div className="flex flex-wrap items-center gap-4">
+                <p className="inline-flex items-center gap-2 rounded-full bg-olumlu-zemin px-3 py-1 text-sm font-medium text-olumlu-metin">
+                  <BadgeCheck size={15} aria-hidden />
+                  Danışman öğretmen olarak görev alıyorsunuz.
+                </p>
+                <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                  Görevi bırak
+                </button>
+              </div>
+            ) : (
+              <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                GençTek danışman öğretmeni olarak görev almak istiyorum
+              </button>
+            )}
+          </form>
+          {danismanMi(kullanici) && (
+            <p className="mt-3 text-sm text-metin-yumusak">
+              Görevi bıraktığınızda danışmanlığınızdaki öğrenciler okuldaki
+              diğer danışmanlara ya da il koordinatörüne devredilir.
+            </p>
+          )}
+        </Kart>
+      )}
+
+      {/*
+        DANIŞMANSIZ ÖĞRENCİLER (7 Ağustos 2026 · istek: "Öğrenci ekleme /
+        Danışmanı olduğu öğrencileri seçme").
+
+        Yalnızca KENDİ OKULUNDAKİ ve DANIŞMANSIZ öğrenciler listelenir; var
+        olan bir atamanın üzerine yazılmıyor (gerekçe: eylemler.ts). Liste
+        boşsa bölüm hiç basılmaz — "eklenecek kimse yok" bilgisi zaten
+        öğrenci listesinde görünüyor.
+      */}
+      {danismansizlar.length > 0 && (
+        <Kart>
+          <KartBasligi
+            baslik="Okulumdaki danışmansız öğrenciler"
+            aciklama={`${danismansizlar.length} öğrencinin danışmanı yok. Danışmanlığınıza aldığınızda öğrenciye bildirim gider.`}
+            Ikon={UserPlus}
+          />
+          <ul className="divide-y divide-cizgi">
+            {danismansizlar.map((ogrenci) => (
+              <li
+                key={ogrenci.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <Link
+                    href={`/panel/ogrenciler/${ogrenci.id}`}
+                    className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
+                  >
+                    {ogrenci.ad} {ogrenci.soyad}
+                  </Link>
+                  <p className="text-sm text-metin-yumusak">
+                    {ogrenci.sinif ? `${ogrenci.sinif}. sınıf` : "—"}
+                  </p>
+                </div>
+                <form action={ogrenciyiDanismanligaAlEylemi}>
+                  <input type="hidden" name="ogrenciId" value={ogrenci.id} />
+                  <input type="hidden" name="donusYolu" value={donusYolu} />
+                  <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                    <UserPlus size={15} aria-hidden />
+                    Danışmanı ol
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </Kart>
+      )}
 
       <form
         method="get"

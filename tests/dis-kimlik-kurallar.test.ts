@@ -43,9 +43,100 @@ function girdiYap(
     beyan:
       "Yazılım alanında akran eğitimi vermek ve mezun olduğum okulun öğrencilerine mentorluk yapmak istiyorum.",
     aydinlatmaOnayi: true,
+    mentorlukIstiyor: false,
+    mentorlukKonulari: "",
+    mentorlukGrupIdleri: [],
     ...ozellikler,
   };
 }
+
+/*
+ * MENTÖRLÜK (7 Ağustos 2026).
+ *
+ * İstek: "Paydaş/Mentör başvurusu tek bir formdan yapılacak."
+ * Aynı form üç sıfata da hizmet ediyor; mentörlük mezun ve paydaş tarafından
+ * da işaretlenebiliyor.
+ */
+describe("başvuruda mentörlük", () => {
+  test("MENTOR türünde işaret zorunlu olarak açılır", () => {
+    // Kutu gelmese de: o türü seçen kişi zaten mentörlük istiyor.
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({
+        tur: "MENTOR",
+        mentorlukIstiyor: false,
+        mentorlukKonulari: "Arduino",
+      }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) expect(karar.kayit.mentorlukIstiyor).toBe(true);
+  });
+
+  test("mezun da ayrıca mentörlük isteyebilir", () => {
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({ mentorlukIstiyor: true, mentorlukGrupIdleri: ["3"] }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) {
+      expect(karar.kayit.tur).toBe("MEZUN");
+      expect(karar.kayit.mentorlukGrupIdleri).toEqual([3]);
+    }
+  });
+
+  test("mentörlük isteniyorsa grup ya da konu şart", () => {
+    /*
+     * İkisi de boşsa öğrenci bu kişiye hangi konuda başvuracağını bilemez;
+     * kayıt panoda görünür ama hiçbir ilana eşleşmez.
+     */
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({ tur: "MENTOR", mentorlukKonulari: "  " }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(false);
+  });
+
+  test("mentörlük istenmiyorsa alanlar sessizce düşürülür", () => {
+    // Kutu işaretlenmeden gönderilen konular, istek dışı bir mentörlük
+    // kaydı doğurmamalı.
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({
+        mentorlukIstiyor: false,
+        mentorlukKonulari: "Arduino",
+        mentorlukGrupIdleri: ["3"],
+      }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) {
+      expect(karar.kayit.mentorlukKonulari).toBeNull();
+      expect(karar.kayit.mentorlukGrupIdleri).toEqual([]);
+    }
+  });
+
+  test("tekrarlanan grup kimliğini teke indirir", () => {
+    // Junction tablonun birincil anahtarı çakışırdı.
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({
+        tur: "MENTOR",
+        mentorlukGrupIdleri: ["2", "2", "5"],
+      }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) expect(karar.kayit.mentorlukGrupIdleri).toEqual([2, 5]);
+  });
+
+  test("MENTOR türünde paydaş kurumu sorulmaz", () => {
+    // Mentörün bağı bir kurum üzerinden değil, konular üzerinden kurulur.
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({ tur: "MENTOR", paydasId: "", mentorlukKonulari: "Robotik" }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(true);
+    if (karar.olurMu) expect(karar.kayit.paydasId).toBeNull();
+  });
+});
 
 describe("e-posta normalleştirme", () => {
   test("büyük/küçük harf farkı iki ayrı hesap doğurmaz", () => {

@@ -7,6 +7,7 @@ import { prisma } from "../db";
  * yerde iki farklı yıl sınırı riski demekti; sınırın tek yerde durması modülün
  * adından önemli.
  */
+import { disBasvurudanMentorlukAc } from "../mentor/veri";
 import { egitimOgretimYili } from "../ogretmen/gorev-yillari";
 import { erisimLogla } from "../yetki/log";
 import {
@@ -123,6 +124,11 @@ export async function disBasvuruOlustur(
       gorevUnvani: kayit.gorevUnvani,
       beyan: kayit.beyan,
       aydinlatmaOnayTarihi: simdi,
+      // Mentörlük isteği (7 Ağustos 2026 · tek form). Onayla birlikte
+      // `mentorluk` kaydına taşınır; başvuru satırı dondurulmuş bir belgedir.
+      mentorlukIstiyor: kayit.mentorlukIstiyor,
+      mentorlukKonulari: kayit.mentorlukKonulari,
+      mentorlukGrupIdleri: kayit.mentorlukGrupIdleri,
     },
     select: { id: true, il: { select: { ad: true } } },
   });
@@ -248,6 +254,9 @@ export async function basvuruyuOnayla(
       telefon: true,
       ilKodu: true,
       sifreOzeti: true,
+      mentorlukIstiyor: true,
+      mentorlukKonulari: true,
+      mentorlukGrupIdleri: true,
       durum: true,
     },
   });
@@ -318,6 +327,25 @@ export async function basvuruyuOnayla(
         sifreOzeti: basvuru.sifreOzeti as string,
       },
     });
+
+    /*
+     * MENTÖRLÜK, ONAYLA BİRLİKTE AÇILIR (7 Ağustos 2026).
+     *
+     * Ayrı bir onay adımı YOK: proje yöneticisi başvurunun tamamını zaten
+     * onayladı ve mentörlük isteği o başvurunun içindeydi. İkinci bir kuyruğa
+     * düşürmek, aynı kararı iki kez sormak olurdu.
+     *
+     * Grup kimlikleri burada YENİDEN doğrulanıyor: başvuru ile karar arasında
+     * geçen sürede bir grup pasife alınmış olabilir.
+     */
+    if (basvuru.mentorlukIstiyor) {
+      await disBasvurudanMentorlukAc(islem, {
+        kullaniciId: kullanici.id,
+        kararVerenKullaniciId,
+        konular: basvuru.mentorlukKonulari,
+        grupIdleri: basvuru.mentorlukGrupIdleri,
+      });
+    }
 
     await islem.disKullaniciBasvurusu.update({
       where: { id: basvuru.id },

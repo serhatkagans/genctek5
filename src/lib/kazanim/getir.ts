@@ -1,4 +1,6 @@
+import type { EtkinlikKategorisi, Kapsam } from "@/generated/prisma/enums";
 import { prisma } from "../db";
+import { type KatilimAdayi, katilimlariSuz } from "./katilim-kurallar";
 import {
   type KatilimKaydi,
   katilimOzeti,
@@ -35,46 +37,105 @@ export interface KazanimSonucu extends KatilimGecmisi {
 }
 
 /**
- * Tamamlanmış katılımlar: kişi SEÇİLDİ, tarih geçti, faaliyet iptal edilmedi.
+ * Tamamlanmış katılımlar.
  *
- * Sorgu `katilimciId` üzerinden kurulur — katılımcı öğretmen de olabilir ve
+ * İKİ KAYNAKTAN beslenir (7 Ağustos 2026): adına üretilmiş BELGELER ve —
+ * yalnızca geçiş tarihinden önceki etkinlikler için — SEÇİLMİŞ başvurular.
+ * Hangisinin sayıldığına `katilim-kurallar.ts` karar verir; buradaki iş
+ * yalnızca iki kaynağı toplamak.
+ *
+ * İki sorgu tek sorguya indirilemez: biri `basvuru`, öbürü `faaliyet_belgesi`
+ * tablosundan geliyor ve aynı faaliyet ikisinde birden çıkabiliyor. Birleştirme
+ * `faaliyetId` üzerinde yapılır, yoksa hem seçilmiş hem belgesi olan bir
+ * etkinlik listede iki kez görünürdü.
+ *
+ * Sorgular `katilimciId` üzerinden kurulur — katılımcı öğretmen de olabilir ve
  * kazanım kişinin KENDİ katılımından doğar, adına başvuran kişiden değil.
  */
 export async function katilimGecmisiGetir(
   kullaniciId: number,
   simdi: Date = new Date(),
 ): Promise<KatilimGecmisi> {
-  const basvurular = await prisma.basvuru.findMany({
-    where: {
-      katilimciId: kullaniciId,
-      durum: "SECILDI",
-      faaliyet: {
-        // Gerçekleşmemiş ya da iptal edilmiş etkinlik katılım sayılmaz.
-        tarih: { lt: simdi },
-        durum: "AKTIF",
-      },
-    },
-    select: {
-      faaliyet: {
-        select: {
-          id: true,
-          ad: true,
-          tarih: true,
-          kapsam: true,
-          etkinlikKategorisi: true,
-        },
-      },
-    },
-    orderBy: { faaliyet: { tarih: "desc" } },
-  });
+  /*
+   * Gerçekleşmemiş ya da iptal edilmiş etkinlik katılım sayılmaz — bu koşul
+   * İKİ kaynakta da geçerli. Belge etkinlikten önce üretilmiş olabilir
+   * (yazdırma hazırlığı); tarihi gelmemiş etkinliği "katıldım" diye
+   * göstermek yanlış olurdu.
+   */
+  const faaliyetKosulu = { tarih: { lt: simdi }, durum: "AKTIF" as const };
 
-  const katilimlar = basvurular.map((basvuru) => ({
-    faaliyetId: basvuru.faaliyet.id,
-    ad: basvuru.faaliyet.ad,
-    tarih: basvuru.faaliyet.tarih,
-    kapsam: basvuru.faaliyet.kapsam,
-    etkinlikKategorisi: basvuru.faaliyet.etkinlikKategorisi,
-  }));
+  const faaliyetAlanlari = {
+    id: true,
+    ad: true,
+    tarih: true,
+    kapsam: true,
+    etkinlikKategorisi: true,
+  } as const;
+
+  const [basvurular, belgeler] = await Promise.all([
+    prisma.basvuru.findMany({
+      where: {
+        katilimciId: kullaniciId,
+        durum: "SECILDI",
+        faaliyet: faaliyetKosulu,
+      },
+      select: { faaliyet: { select: faaliyetAlanlari } },
+    }),
+    /*
+     * Belge türü AYIRT EDİLMEZ: katılım belgesi de teşekkür belgesi de
+     * "bu kişi bu etkinlikte vardı" demektir. Teşekkür belgesi çoğunlukla
+     * konuşmacıya ya da destek verene yazılıyor — o da bir katılımdır ve
+     * profilde görünmemesi için bir sebep yok.
+     */
+    prisma.faaliyetBelgesi.findMany({
+      where: { katilimciId: kullaniciId, faaliyet: faaliyetKosulu },
+      select: { faaliyet: { select: faaliyetAlanlari } },
+    }),
+  ]);
+
+  const adaylar = new Map<number, KatilimAdayi>();
+
+  function ekle(
+    faaliyet: {
+      id: number;
+      ad: string;
+      tarih: Date;
+      kapsam: Kapsam;
+      etkinlikKategorisi: EtkinlikKategorisi;
+    },
+    kaynak: "belge" | "secim",
+  ): void {
+    const mevcut = adaylar.get(faaliyet.id);
+    if (mevcut) {
+      // Aynı faaliyet iki kaynaktan geldiyse işaretler BİRLEŞİR; ikinci kayıt
+      // birincinin işaretini silmemeli.
+      if (kaynak === "belge") mevcut.belgeVarMi = true;
+      else mevcut.secildiMi = true;
+      return;
+    }
+    adaylar.set(faaliyet.id, {
+      faaliyetId: faaliyet.id,
+      ad: faaliyet.ad,
+      tarih: faaliyet.tarih,
+      kapsam: faaliyet.kapsam,
+      etkinlikKategorisi: faaliyet.etkinlikKategorisi,
+      belgeVarMi: kaynak === "belge",
+      secildiMi: kaynak === "secim",
+    });
+  }
+
+  for (const belge of belgeler) ekle(belge.faaliyet, "belge");
+  for (const basvuru of basvurular) ekle(basvuru.faaliyet, "secim");
+
+  /*
+   * `belgeVarMi` ve `secildiMi` özet ile rozet hesaplarına GİRMEZ: onların
+   * sorduğu şey "kaç etkinliğe katıldı", katılımın nereden doğduğu değil.
+   * Alanlar burada düşürülüyor ki aşağı katmanlar bu ayrımı taşımak zorunda
+   * kalmasın.
+   */
+  const katilimlar = katilimlariSuz([...adaylar.values()]).map(
+    ({ belgeVarMi: _b, secildiMi: _s, ...katilim }) => katilim,
+  );
 
   return { ozet: katilimOzeti(katilimlar), katilimlar };
 }

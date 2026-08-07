@@ -32,22 +32,60 @@ import {
  * koordinatör bir öğrencinin kazanımını giremez/silemez — bunlar beyandır ve
  * sahibi dışında kimse dokunmaz (çalışma grubu eklemeden farkı budur).
  *
- * Kazanım kaydı ÖĞRETMENE DE AÇIKTIR; CV yalnızca öğrencide kalır (dosya
- * alanları `ogrenci_profil` tablosunda). İkisi bu yüzden ayrı kapılardan geçer.
+ * Kazanım kaydı da CV de ÖĞRETMENE AÇIKTIR (7 Ağustos 2026). CV'nin hangi
+ * profil tablosuna yazılacağı kişinin kendi rolünden okunur, form girdisinden
+ * değil (bkz. cvSahibi).
  */
 
-const YOL = "/panel/profil";
+/**
+ * Formların yaşadığı ekran — dönüş adresi.
+ *
+ * `/panel/profil` DEĞİL (C4 · 7 Ağustos 2026): kayıt ekleme ve CV formları
+ * Panelim'e taşındı, profil salt okunur oldu.
+ *
+ * `bolum` parametresi çıpadan ayrı gönderilir: bölümler katlanabilir
+ * `<details>` öğeleri ve kapalı bir öğenin çapasına inmek, kullanıcıyı az önce
+ * doldurduğu formun kapanmış hâline götürürdü.
+ */
+const YOL = "/panel";
 
-function hataylaDon(mesaj: string): never {
-  redirect(`${YOL}?hata=${encodeURIComponent(mesaj)}`);
+/** Gösterim yüzeyi; yazılan kayıt burada da görünüyor. */
+const PROFIL_YOLU = "/panel/profil";
+
+function panele(capa: string, sorgu: string): never {
+  redirect(`${YOL}?bolum=${capa}&${sorgu}#${capa}`);
 }
 
-async function ogrenciZorunlu() {
-  const kullanici = await oturumKullanicisiZorunlu();
-  if (!ogrenciMi(kullanici)) {
-    throw new YetkiHatasi("CV yalnızca öğrenci profilinde tutulur.");
-  }
-  return kullanici;
+function hataylaDon(mesaj: string): never {
+  panele("kayitlarim", `hata=${encodeURIComponent(mesaj)}`);
+}
+
+/** CV üç yerde görünüyor: panel, profil ve kişinin envanterdeki detayı. */
+function cvYollariniTazele(kullanici: OturumKullanicisi): void {
+  revalidatePath(YOL);
+  revalidatePath(PROFIL_YOLU);
+  revalidatePath(
+    ogrenciMi(kullanici)
+      ? `/panel/ogrenciler/${kullanici.id}`
+      : `/panel/ogretmenler/${kullanici.id}`,
+  );
+}
+
+/** CV, kayıtlardan AYRI bir bölüm; uyarısı da orada görünmeli. */
+function cvHatasi(mesaj: string): never {
+  panele("cvm", `hata=${encodeURIComponent(mesaj)}`);
+}
+
+/**
+ * CV artık ÖĞRETMENDE DE var (7 Ağustos 2026 · istek: öğretmen profilinde
+ * "Özgeçmiş"). Kapı bu yüzden kalktı; yerine "hangi profil tablosuna" sorusu
+ * geldi ve cevabı kişinin kendi rolünden okunuyor — form girdisinden değil.
+ *
+ * Dış kullanıcılar (mezun, paydaş, mentör) de `ogretmen_profil` satırını
+ * kullanıyor; onların da CV'si buraya yazılır.
+ */
+function cvSahibi(kullanici: OturumKullanicisi): "OGRENCI" | "OGRETMEN" {
+  return ogrenciMi(kullanici) ? "OGRENCI" : "OGRETMEN";
 }
 
 /**
@@ -60,6 +98,7 @@ async function ogrenciZorunlu() {
  */
 function kazanimYollariniTazele(kullanici: OturumKullanicisi): void {
   revalidatePath(YOL);
+  revalidatePath(PROFIL_YOLU);
   revalidatePath("/panel/kazanimlarim");
   revalidatePath(
     ogrenciMi(kullanici)
@@ -159,13 +198,14 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
   // Tür adreste taşınır: art arda üç ürün girecek kişi her seferinde sekmeyi
   // yeniden seçmek zorunda kalmasın.
   if (ekUyarisi) {
-    redirect(
-      `${YOL}?tur=${karar.kayit.tip}&hata=${encodeURIComponent(
+    panele(
+      "kayitlarim",
+      `tur=${karar.kayit.tip}&hata=${encodeURIComponent(
         `Kayıt eklendi ancak belge yüklenemedi — ${ekUyarisi}`,
       )}`,
     );
   }
-  redirect(`${YOL}?tur=${karar.kayit.tip}&durum=kazanim-eklendi`);
+  panele("kayitlarim", `tur=${karar.kayit.tip}&durum=kazanim-eklendi`);
 }
 
 /** Var olan bir kazanım kaydına destekleyici belge ekler. */
@@ -204,7 +244,7 @@ export async function kazanimBelgeEkleEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  redirect(`${YOL}?durum=belge-eklendi`);
+  panele("kayitlarim", "durum=belge-eklendi");
 }
 
 /** Destekleyici belgeyi kaldırır. */
@@ -226,7 +266,7 @@ export async function kazanimBelgeSilEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  redirect(`${YOL}?durum=belge-silindi`);
+  panele("kayitlarim", "durum=belge-silindi");
 }
 
 export async function kazanimSilEylemi(veri: FormData): Promise<void> {
@@ -259,23 +299,24 @@ export async function kazanimSilEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  redirect(`${YOL}?durum=kazanim-silindi`);
+  panele("kayitlarim", "durum=kazanim-silindi");
 }
 
 export async function cvYukleEylemi(veri: FormData): Promise<void> {
-  const kullanici = await ogrenciZorunlu();
+  const kullanici = await oturumKullanicisiZorunlu();
 
   const dosya = veri.get("cv");
   if (!(dosya instanceof File) || dosya.size === 0) {
-    hataylaDon("CV dosyası seçilmedi.");
+    cvHatasi("CV dosyası seçilmedi.");
   }
 
   const sonuc = await cvKaydet({
     ogrenciId: kullanici.id,
     dosya,
     sinirlar: await cvSinirlariniGetir(),
+    sahip: cvSahibi(kullanici),
   });
-  if (!sonuc.olurMu) hataylaDon(sonuc.neden ?? "CV yüklenemedi.");
+  if (!sonuc.olurMu) cvHatasi(sonuc.neden ?? "CV yüklenemedi.");
 
   await erisimLogla({
     kullaniciId: kullanici.id,
@@ -285,16 +326,15 @@ export async function cvYukleEylemi(veri: FormData): Promise<void> {
     detay: `CV yüklendi: ${dosya.name}`,
   });
 
-  revalidatePath(YOL);
-  revalidatePath(`/panel/ogrenciler/${kullanici.id}`);
-  redirect(`${YOL}?durum=cv-yuklendi`);
+  cvYollariniTazele(kullanici);
+  panele("cvm", "durum=cv-yuklendi");
 }
 
 export async function cvSilEylemi(): Promise<void> {
-  const kullanici = await ogrenciZorunlu();
+  const kullanici = await oturumKullanicisiZorunlu();
 
-  const silindi = await cvSil(kullanici.id);
-  if (!silindi) hataylaDon("Kaldırılacak bir CV bulunamadı.");
+  const silindi = await cvSil(kullanici.id, cvSahibi(kullanici));
+  if (!silindi) cvHatasi("Kaldırılacak bir CV bulunamadı.");
 
   await erisimLogla({
     kullaniciId: kullanici.id,
@@ -304,7 +344,6 @@ export async function cvSilEylemi(): Promise<void> {
     detay: "CV kaldırıldı",
   });
 
-  revalidatePath(YOL);
-  revalidatePath(`/panel/ogrenciler/${kullanici.id}`);
-  redirect(`${YOL}?durum=cv-silindi`);
+  cvYollariniTazele(kullanici);
+  panele("cvm", "durum=cv-silindi");
 }

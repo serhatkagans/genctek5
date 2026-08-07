@@ -10,6 +10,10 @@ import {
   imzaBilgisiniCoz,
   imzaUnvaniOner,
 } from "@/lib/belge/kurallar";
+import {
+  belgeUretiminiKaydet,
+  secilmisKatilimcilariGetir,
+} from "@/lib/belge/kayit";
 import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
 import { uygulamaYolu } from "@/lib/ortam";
 import { tarihYaz } from "@/lib/tarih";
@@ -26,15 +30,14 @@ export default async function BelgeSayfasi({
   searchParams: Promise<{
     tur?: string;
     ad?: string;
+    katilimciId?: string;
     metin?: string;
     imzaAd?: string;
     imzaUnvan?: string;
   }>;
 }) {
-  const [{ id }, { tur, ad, metin, imzaAd, imzaUnvan }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
+  const [{ id }, { tur, ad, katilimciId, metin, imzaAd, imzaUnvan }] =
+    await Promise.all([params, searchParams]);
   const kullanici = await oturumKullanicisiZorunlu();
 
   const faaliyet = await gorunurFaaliyetGetir(kullanici, Number.parseInt(id, 10));
@@ -42,7 +45,32 @@ export default async function BelgeSayfasi({
   if (!faaliyetRaporuYazabilirMi(kullanici, faaliyetKapsamiCikar(faaliyet))) notFound();
   if (!tur || !belgeTuruMu(tur)) notFound();
 
-  const alici = aliciAdiniCoz(ad ?? "");
+  /*
+   * ALICI İKİ YOLDAN GELİR (7 Ağustos 2026):
+   *
+   *   · `katilimciId` — listedeki bir katılımcı. Ad VERİTABANINDAN çözülür,
+   *     adresten değil: adres çubuğundaki adla basılsaydı kayıt "Ayşe Yılmaz"
+   *     adına düşer, o adın hangi öğrenci olduğu belirsiz kalırdı. Kimliğin
+   *     bu faaliyetin seçilmiş katılımcısına ait olduğu ayrıca doğrulanır.
+   *
+   *   · `ad` — serbest metin. "Listede olmayan biri için" formundan gelir
+   *     (konuşmacı, destek veren kurum). Profili olmadığı için kaydı da
+   *     tutulmaz; belge yine de basılır.
+   */
+  const istenenKimlik = katilimciId
+    ? Number.parseInt(katilimciId, 10)
+    : Number.NaN;
+
+  const katilimci = Number.isInteger(istenenKimlik)
+    ? (await secilmisKatilimcilariGetir(faaliyet.id)).find(
+        (aday) => aday.katilimciId === istenenKimlik,
+      )
+    : undefined;
+
+  // Kimlik verildi ama katılımcı değil: adres elle kurcalanmış demektir.
+  if (Number.isInteger(istenenKimlik) && !katilimci) notFound();
+
+  const alici = aliciAdiniCoz(katilimci?.adSoyad ?? ad ?? "");
   if (!alici.olurMu) notFound();
 
   const belge = belgeMetniUret({
@@ -60,6 +88,19 @@ export default async function BelgeSayfasi({
     hedefId: faaliyet.id,
     detay: `${belge.baslik} üretildi: ${belge.adSoyad}`,
   });
+
+  /*
+   * Üretim kaydı erişim logundan AYRI tutulur: log KVKK saklama süresiyle
+   * siliniyor, oysa katılım geçmişi kalıcı olmalı (bkz. lib/belge/kayit.ts).
+   */
+  if (katilimci) {
+    await belgeUretiminiKaydet({
+      faaliyetId: faaliyet.id,
+      katilimciIdleri: [katilimci.katilimciId],
+      tur,
+      uretenKullaniciId: kullanici.id,
+    });
+  }
 
   /*
    * İMZA ARTIK OTURUM KİŞİSİNDEN GELMİYOR (J5 · 6 Ağustos 2026). Belgeyi

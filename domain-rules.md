@@ -454,19 +454,228 @@ Liste, mevcut `kullanici_kazanim.tip` değerleriyle (DIS_ETKINLIK / URUN / AKRAN
 
 ## 14. Öğrenci profili: kazanımlar, yarışmalar ve CV
 
-Öğrenci profili şu bölümlerden oluşur. İlk üçü sistemden **türetilir**, son ikisi öğrencinin **beyanıdır**:
+### Menü: altı sekme (7 Ağustos 2026)
+
+Menü küçültüldü. Herkeste ortak altı sekme:
+
+**Profil · Panel · Etkinlikler · Bağlantılarım · Pano · Market**
+
+Kalkanlar ve nereye gittikleri:
+
+| Kalkan sekme | Nereye gitti |
+|---|---|
+| Katkılarım | İçeriği profilde (Görevlerim, katılım geçmişi, Katkı Nişanlarım). Sayfa duruyor; öğretmen tarafında kendi kartlarını basıyor. |
+| Algoritmam | Panel'in içinde "Özdeğerlendirme Envanterleri" bölümü. Envanterin kendisi `/panel/algoritmam` ekranında kaldı. |
+| İletişim Onayları | Bağlantılarım sayfasının başında bölüm. |
+
+Yeniden adlandırılanlar: "Panelim" → **Panel**, "Profilim" → **Profil**, "Ürünlerim" → **Market**.
+
+**Yönetim sekmeleri KALDI.** İl koordinatörü ve YEĞİTEK bu altısına ek olarak Öğrenciler, Öğretmenler, Paydaşlar, Görev Rolleri, İl Dışı Başvurular, Rol/Atama Envanteri, Erişim Kayıtları, Duyurular ve Yönetim sekmelerini görmeye devam eder. Onları da kaldırmak, koordinatörün ilindeki öğrenciye ulaşacağı hiçbir giriş bırakmazdı.
+
+**Sekmeyi kaldırmak sayfayı silmek değildir** (5 Ağustos'tan beri yürürlükteki ilke): kaldırılan hiçbir ekran silinmedi, yetkisi olan doğrudan adresle girebilir ve e-postalardaki bağlantılar çalışmaya devam eder.
+
+### Profil bölümleri ve sırası
+
+| Profil | Panel |
+|---|---|
+| Profil Fotoğrafı | Fotoğraf Ekle |
+| Kimlik Bilgileri | *(salt okunur, e-Okul'dan)* |
+| İletişim Bilgileri | İletişim Bilgileri Düzenle |
+| Danışman Öğretmen | Danışman Öğretmenim Ekle/Düzenle |
+| **GençTek Yolculuğum**<br>· Görevlerim (temsilcilikler + görev alınan organizasyonlar)<br>· Verdiğim Akran Eğitimleri<br>· Katıldığım GençTek Etkinlikleri<br>· Çalışma Gruplarım | Çalışma Grubu Ekle |
+| **Bilişim Yolculuğum**<br>· Ürünlerim<br>· Deneyimlerim<br>· Topluluklarım/Ekiplerim | Yeni Kayıt Ekle (üç grup) |
+| Katkı Nişanlarım | *(hesaplanır, girilmez)* |
+| Rotam | Rotam: Hedef Ekle |
+| Özgeçmiş | Özgeçmiş Ekle |
+| — | Özdeğerlendirme Envanterleri (Algoritmam) |
+
+**GençTek Yolculuğum'da öğrencinin seçebildiği tek şey çalışma gruplarıdır.** Görevler atamayla, katılım belgeyle düşer — istek: *"Diğer alanlar katıldığı etkinliğe, görev aldığı rollere göre öğretmen onayı/katılım belgesi aldığında otomatik olarak profiline gelmeli."*
+
+**İstisna: akran eğitimi hâlâ beyandır.** Öğretmen onay akışı bugün yok; kayıt Panel'den girilir ve doğrudan profilde görünür. Onaya bağlanması ayrı bir madde olarak kayıt altına alındı (`YAPILACAKLAR.md` · 7 Ağustos eki).
+
+**"Bilişim Yolculuğum" üç gruba ayrıldı:** Ürünlerim (`URUN`), Deneyimlerim (`DIS_ETKINLIK`, `YARISMA_DERECESI`, `SERTIFIKA`, `DIGER`), Topluluklarım/Ekiplerim (`TOPLULUK`). Gruplar bir **ekran düzenidir**, tipleri değiştirmez: her tipin kendi alan kuralları var (derece yalnızca yarışmada, ürün alanları yalnızca üründe) ve tek tipe indirmek o kuralları kaybettirirdi. Grup ile tip listesinin ayrışmadığı birim testle sınanır (`grupsuzBilisimTipleri`).
+
+### Öğretmen tarafı: profil, panel ve Öğrencilerim (7 Ağustos 2026)
+
+Öğretmen menüsü öğrencininkiyle aynıdır, **tek fark Öğrencilerim sekmesidir**:
+
+**Profil · Panel · Öğrencilerim · Etkinlikler · Bağlantılarım · Pano · Market**
+
+"Öğretmenler" sekmesi danışman öğretmenin menüsünden **kalktı** — sayfa silinmedi, yetki daralmadı; doğrudan adresle görülmeye devam ediyor. Öğretmenin günlük işi kendi öğrencileridir, meslektaş envanteri değil.
+
+| Profil (salt okunur) | Panel (düzenleme) |
+|---|---|
+| Fotoğraf | Fotoğraf ekle |
+| Kimlik bilgileri | *(e-Okul'dan, düzenlenmez)* |
+| İletişim bilgileri | İletişim bilgileri düzenle |
+| **Öğrencilerim** (danışmanlığındakiler) | *(Öğrencilerim ekranında)* |
+| **Mentörlük Alanlarım** | Mentörlük başvurusu |
+| **Katıldığım GençTek etkinlikleri** | *(belgeden türer, girilmez)* |
+| **Ürünlerim · Deneyimlerim · Topluluklarım** | Yeni Kayıt Ekle |
+| **Katkı Nişanlarım** | *(hesaplanır)* |
+| **Rotam** | Rotam: hedef ekle |
+| **Özgeçmiş** | Özgeçmiş ekle |
+
+**Rotam ve Özgeçmiş artık öğretmende de var.** Rotam için kod tarafında engel yoktu — hedef eylemleri zaten rol kısıtı taşımıyordu, eksik olan bölümün basılmasıydı. Özgeçmiş `ogretmen_profil`e beş sütunla eklendi (bkz. `data-model.md`); sınırlar öğrenciyle ortak.
+
+**"GençTek danışman öğretmenliği" işareti Panel'den Öğrencilerim ekranına taşındı.** Görev ile o ekran aynı işin parçası: işareti kaldıran kişi öğrenci listesini de kaybediyor ve ikisini ayrı ekranlarda tutmak bu bağı görünmez kılıyordu.
+
+#### Öğretmen öğrenciyi kendi danışmanlığına alabilir
+
+Talep sahibinin kararıyla, "danışmanı öğrenci seçer" kuralından **bilinçli bir sapma**. Üç sınırı var:
+
+1. **Yalnızca kendi okulu** — danışmanlık kurum kodu eksenlidir.
+2. **Yalnızca danışmansız öğrenci** — var olan atamanın üzerine yazılmaz; yazılsaydı iki öğretmen birbirinin öğrencisini çekip alabilirdi. Devir gereken durumların ayrı akışı var.
+3. **Öğrenci haberdar edilir** — onayı sorulmuyor ama bildirim gidiyor. Kimse hiç haberi olmadan danışman sahibi olmamalı.
+
+Yarış durumunda ikinci yazan, "bir öğrencinin tek aktif danışmanı olur" kısmi unique index'ine takılır; uygulamadaki kontrol kullanıcıya anlamlı mesaj vermek için.
+
+Öğretmen tek bir öğrencinin danışmanlığını **gerekçeyle bırakabilir** (J1, 6 Ağustos) — o akış değişmedi.
+
+### İl koordinatörü: aynı yapı + Öğretmenler
+
+Koordinatörün menüsü öğretmeninkiyle **aynı sırayı** izler; farkı **Öğretmenler** sekmesi ve altındaki yönetim sekmeleridir:
+
+**Profil · Panel · Öğrenciler · Öğretmenler · Etkinlikler · Bağlantılarım · Pano · Market**
+→ Paydaşlar · Görev Rolleri · Mentörlük · İl Dışı Başvurular
+
+**Yönetim sekmeleri KALDI** (karar, 7 Ağustos). Kaldırılsalardı koordinatörün paydaş kaydı açacağı, il/ilçe temsilcisi atayacağı, mentör onaylayacağı ve il dışı başvuruları göreceği hiçbir giriş kalmazdı — dördü de yalnızca onda.
+
+Profilde öğretmenin **"Öğrencilerim"** kartının karşılığı **"İlimdeki kişiler"**dir: koordinatör danışman değildir, danışmanlığında öğrenci yoktur. Kart üç sayı gösterir — öğrenci, öğretmen ve **danışmansız öğrenci** — ve iki ekrana bağlantı verir. Üç yüz kişilik bir listeyi profile basmanın faydası yok; o iş kendi ekranında. "Danışmansız" ayrı sayılır çünkü koordinatörün ilinde eyleme geçmesi gereken tek sayı odur (Değişmezler 2 — öğrenci boşta kalamaz).
+
+### Giriş sonrası herkes profile düşer
+
+**7 Ağustos 2026'dan beri rol ayrımı yok:** öğrenci, öğretmen, koordinatör, merkez personeli ve dış kullanıcılar (mezun, paydaş, mentör) girişten sonra `/panel/profil` ekranına gelir. Önceden yalnızca öğrenci profile düşüyordu (C3), diğerleri panele.
+
+Kural **üç yerde birden** uygulanır ve üçü aynı olmak zorundadır, yoksa aynı kişi hangi kapıdan geldiğine göre farklı ekran görür:
+
+- `app/giris/eylemler.ts` — EBA/mock girişi
+- `app/dis-giris/eylemler.ts` — e-posta/şifre girişi
+- `app/onay/eylemler.ts` — ilk giriş KVKK kapısı aşıldıktan sonra
+- `app/page.tsx` — oturumu açık kullanıcı açılış ekranına geldiğinde
+
+**Danışman seçimi hâlâ önceliklidir:** danışmansız öğrenci `/panel/danisman-secim` ekranına düşer, profil onun arkasındadır.
+
+### Mentörlük (7 Ağustos 2026)
+
+İstek iki parçadan geldi ve **tek kayıtta** toplandı:
+
+> "Öğretmen hesabında 'mentör başvurusu yap' bölümü ekleyelim. hangi çalışma grubunda mentörlük yapabilir seçsin. hatta mümkünse diğer mentörlük konuları ekleyebilsin? yani öğretmen mentör olabilsin"
+>
+> "Paydaş/Mentör başvurusu tek bir formdan yapılacak."
+
+Mentörlük = **çalışma grupları + serbest konular + onay durumu**. Kim olursa olsun aynı şeydir; iki ayrı yerde tutulsaydı panodaki mentör süzgeci iki kaynağı birleştirmek zorunda kalır ve "kimler mentör" sorusunun iki ayrı cevabı olurdu.
+
+| Kim | Nereden başvurur | Kim onaylar |
+|---|---|---|
+| Öğretmen, il koordinatörü, proje yöneticisi, mezun, paydaş temsilcisi | Panel · "Mentörlüğüm" | **İl koordinatörü ya da proje yöneticisi** |
+| Dışarıdan gelen (mezun/paydaş/mentör başvurusu) | Başvuru formu | Proje yöneticisi — dış başvuruyu onayladığı anda mentörlük de açılır |
+
+**Dışarıdan gelende ayrı bir onay adımı yoktur:** proje yöneticisi başvurunun tamamını zaten onayladı ve mentörlük isteği o başvurunun içindeydi. İkinci bir kuyruğa düşürmek, aynı kararı iki kez sormak olurdu.
+
+**Öğrenci mentör olamaz.** Mentörlük, 18 yaş altı bir kullanıcıyla birebir yazışma hakkı doğurur ve o hakkın karşı tarafı yetişkin olmalıdır. Akran desteği için akran eğitimi kaydı ve panodaki ekip arkadaşı ilanı var.
+
+**Kişi başına tek kayıt.** Mentörlük bir *durumdur*, geçmiş tablosu değil: bırakılan mentörlük `BIRAKILDI` olur ve yeniden başvuruda aynı satır `BEKLIYOR`a döner. `BIRAKILDI`, `REDDEDILDI`den ayrıdır — ret bir karardır, bırakma bir vazgeçmedir; tek değerde toplansalardı kendi isteğiyle ayrılan mentör geçmişe dönük "reddedilmiş" görünürdü.
+
+**En az bir alan dolu olmalı** — ya grup ya konu. İkisi de boş bir mentörlük, öğrencinin hangi konuda başvuracağını bilemeyeceği bir kayıttır: panoda görünür ama hiçbir ilana eşleşmez.
+
+**Öğrenciye erişim panodan geçer:** öğrenci "Mentöre sor" ilanı açar, mentör kendi konularındaki ilanları süzer, mevcut **bağlantı onayı + yazışma** akışı aynen işler. Ayrı bir mentör listesi ekranı açılmadı — bu, öğretmen envanterini öğrenciye açmak olurdu. Gizli kanal yoktur kuralı korunur.
+
+**`MENTOR` türünün ayrı bir ROLÜ yoktur.** Rol, kapsam filtrelerinin okuduğu şeydir; mentörün kapsamı paydaş temsilcisininkiyle birebir aynı (öğrenci/öğretmen kişisel verisine erişemez, takvimi ve panoyu görür). Ayrı rol, her kapsam filtresine hiçbir şey değiştirmeyen ikinci bir dal eklemek olurdu. "Bu kişi mentör mü" sorusu `mentorluk` kaydından cevaplanıyor.
+
+### Giriş kapısı: EBA ve E-Devlet
+
+Açılış ekranında iki düğme:
+
+1. **EBA ile Giriş Yap** — öğrenci ve öğretmenlerin tek yolu.
+2. **E-Devlet ile Giriş** — altında "Paydaş/Mentör girişleri için tıklayınız".
+
+**Başvuru formu tektir**, içinde "kim olarak başvuruyorsunuz" seçimi var: Mezun · Paydaş temsilcisi · Mentör. Mezun ve paydaş ayrıca "mentörlük yapmak istiyorum" işaretleyebilir; `MENTOR` türünde işaret zorunlu olarak açıktır (o türü seçen kişi zaten mentörlük istiyor).
+
+**`MEZUN` türü korundu.** "Mezunlar da paydaştan girsin" ifadesi giriş KAPISI hakkındadır; tür kaldırılsaydı mevcut mezun kayıtlarının mezuniyet yılı ve okul bağı anlamsızlaşır, A1'in "mezun bağını sürdürsün" gerekçesi zayıflardı. Değişen şey üçünün de aynı düğmeden ve aynı formdan gelmesi.
+
+**GERÇEK E-DEVLET ENTEGRASYONU HENÜZ YOK.** Düğme bugün mevcut e-posta/şifre ekranına (`/dis-giris`) götürüyor. Entegrasyon için e-Devlet Kapısı kurum başvurusu, test ortamı erişimi ve istemci sertifikası gerekiyor — hiçbiri elde değil; EBA SSO da aynı sebeple bekliyor (SKILL.md · adım 13). Düğmenin adının şimdiden "E-Devlet" olması bilinçli: entegrasyon geldiğinde değişecek tek yer `AuthProvider` uygulamasıdır, bu ekran değil.
+
+### Çalışma Grubu Yöneticisi (yeni görev rolü)
+
+Dördüncü görev rolü: `CALISMA_GRUBU_YONETICISI`. Diğer üçünden farkı **kapsamının türü** — onlar bir YERE (il, ilçe, okul) bağlanır, bu bir **çalışma grubuna** (`ogrenci_gorev_rolu.calisma_grubu_id`). Yer sütunlarına sığdırılsaydı etiket "Atatürk Lisesi Çalışma Grubu Yöneticisi" derdi ve hangi grubun yöneticisi olduğu kaybolurdu.
+
+- **Atama il koordinatöründedir** (il temsilciliğiyle aynı kapı): karar ilin, okulun değil. Danışman öğretmene açmak ayrı bir karardır — aynı grubun okuldan okula birden çok yöneticisi doğardı.
+- **Tekillik grup başınadır, kişi başına değil**: bir öğrenci birden çok grubun yöneticisi olabilir; aynı gruba ikinci yönetici atanması engellenir.
+- **Ek yetki getirmez**, bir unvandır. Yetki eklenecekse `permissions.md` ile birlikte düşünülmeli.
+
+### Pano türleri
+
+İstekteki dört başlık: Destek Talebi · Mentöre sor · Genel · Ekip Arkadaşı arama.
+
+| Enum | Ekrandaki ad | Not |
+|---|---|---|
+| `TEKNIK_DESTEK` | Destek talebi | yalnızca etiket değişti |
+| `MENTORE_SOR` | Mentöre sor | **yeni** |
+| `DUYURU` | Genel | yalnızca etiket değişti |
+| `EKIP_ARKADASI` | Ekip arkadaşı arama | yalnızca etiket değişti |
+| `SPONSOR` | Sponsor | istekteki dörtlüde yok ama **kapatılmadı** |
+
+`MENTORE_SOR`, `TEKNIK_DESTEK`'ten ayrı bir türdür: o bir **sorunu** çözdürmek için açılır ("kodum çalışmıyor"), bu bir **yol** sorar ("hangi alana gitmeliyim"). Tek türde toplansalardı mentor arayan öğrenci teknik soruların arasında kaybolurdu.
+
+Etiket değişiklikleri için **veri taşınmadı**: enum değerleri korundu. Geri alınması pahalı bir işi bedavaya yapmak olurdu. `SPONSOR` de açılmış ilanları türsüz bırakmamak için listede duruyor.
+
+### Profil GÖSTERİR, Panelim DÜZENLER (7 Ağustos 2026)
+
+Profil ekranı (`/panel/profil`) **salt okunurdur**. Bilgi girişi ve düzenlemenin tamamı Panelim (`/panel`) içindeki katlanabilir bölümlerdedir. Ayrım istekten gelir: *"foto ekleme değiştirme panelden yapılsın, profil kısmında sadece foto görünsün, iletişim bilgileri düzenleme panel sekmesine taşınsın, profilden sadece görünsün ... bilgi girişleri ve düzenleme panelden yapılsın"*.
+
+| Bölüm | Profilde | Panelim'de |
+|---|---|---|
+| Fotoğraf | Görünür | Yükle / değiştir / kaldır (`#fotografim`) |
+| İletişim bilgileri ve bağlantılar | Değerler görünür | Form (`#iletisim-bilgilerim`) |
+| Danışman öğretmen | **Yalnızca adı** | Seçim listesi (`#danismanim`) |
+| Danışman öğretmenliği (öğretmen) | Durumu görünür | İşaretleme (`#danismanligim`) |
+| GençTek Yolculuğum · Bilişim Yolculuğum | Kayıtlar görünür | Ekleme + silme + belge (`#kayitlarim`) |
+| Rotam | Hedefler görünür | Ekleme / durum / silme (`#rotam`) |
+| CV | Dosya bağlantısı görünür | Yükle / kaldır (`#cvm`) |
+| KVKK onay belgeleri | **Onay burada verilir** | — |
+
+**Tek istisna KVKK'dır** ve bilinçli: onay bir profil bilgisi değil hukuki bir beyandır ve metnin okunduğu yerde verilmelidir. Panele taşımak onayı onaylanan metinden koparırdı; şerit ve eski `/panel/kvkk` adresi de o çapaya iniyor.
+
+İki yüzey de **aynı bileşenlerden** basılır: kazanım listesi, Rotam kartı ve fotoğraf tek bir yerde tanımlıdır ve düzenleme yetenekleri **isteğe bağlı eylem proplarıdır** — eylem verilmediğinde form hiç basılmaz. Ayrı ayrı yazılsalardı birine eklenen alan öbüründe sessizce eksik kalırdı.
+
+Bölümler Panelim'de **katlı** gelir: orası kullanıcının ilk gördüğü ekran ve asıl işi (başvurusu açık etkinlikler, takvim) yedi formun altında kalmamalı. Eylemler işlem sonrası `?bolum=<çapa>` ile döner ve ilgili bölüm **açık** basılır; çıpa tek başına yetmezdi çünkü kapalı bir `<details>` öğesinin çapasına inmek kullanıcıyı az önce doldurduğu formun kapanmış hâline götürürdü.
+
+### Bölümlerin kaynakları
 
 | Bölüm | Kaynak | Kim düzenler |
 |---|---|---|
 | Kimlik ve okul bilgileri | e-Okul (AuthProvider senkronu) | Hiç kimse — salt okunur |
-| İletişim bilgileri (telefon, e-posta, GitHub, kişisel site, LinkedIn) | Öğrencinin kendi girdisi | Öğrenci |
+| İletişim bilgileri (telefon, e-posta, GitHub, kişisel site, LinkedIn) | Öğrencinin kendi girdisi | Öğrenci (Panelim'den) |
 | Çalışma grupları, görev rolleri, danışman | `ogrenci_calisma_grubu`, `ogrenci_gorev_rolu`, `danisman_atama` | Bkz. Bölüm 3, 4, 5 |
-| **Katıldığı GençTek etkinlikleri** | **Türetilir:** `basvuru.durum=SECILDI` + faaliyet tarihi geçmiş + `faaliyet.durum=AKTIF` | Hiç kimse — elle girilmez |
-| **Kazanım kayıtları** (8 tür) | Öğrenci beyanı, `kullanici_kazanim` | Yalnızca öğrencinin kendisi |
+| **Katıldığı GençTek etkinlikleri** | **Türetilir:** adına üretilmiş belge (`faaliyet_belgesi`) + faaliyet tarihi geçmiş + `faaliyet.durum=AKTIF` | Hiç kimse — elle girilmez |
+| **Kazanım kayıtları** (7 açık tür) | Öğrenci beyanı, `kullanici_kazanim` | Yalnızca öğrencinin kendisi |
 | **Rotam** (hedefler) | Öğrenci beyanı, `kullanici_hedefi` | Yalnızca öğrencinin kendisi — **başkası göremez** |
 | **Özgeçmiş (CV)** | Öğrencinin yüklediği dosya | Yalnızca öğrencinin kendisi |
 
+### Katılım artık BELGEDEN doğar (7 Ağustos 2026)
+
+İstek: *"Düzenlenen GençTek Etkinliği sonunda ismine belge oluşturulan öğrencilerin profiline katıldığı etkinlik düşecek."*
+
+Eski kural "başvurusu SEÇİLDİ + tarihi geçti" idi; yani katılımcı listesine alınan herkes, etkinliğe gelmese bile profilinde katılmış görünüyordu. Belge üretimi, etkinliği yürüten öğretmenin **"bu kişi gerçekten katıldı"** beyanıdır ve seçilmiş olmaktan güçlü bir kanıttır.
+
+Liste iki kaynaktan beslenir ve arada bir **geçiş tarihi** vardır (`BELGE_TEMELLI_KATILIM_BASLANGICI`, 7 Ağustos 2026):
+
+- **Belge üretilmişse sayılır** — geçiş tarihine bakılmaz. Eski bir etkinlik için bugün üretilen belge de katılımdır.
+- **Belgesi yoksa** yalnızca geçiş tarihinden **önceki** etkinliklerde "seçilmiş olmak" yeter.
+- Her iki kaynakta da faaliyetin tarihi geçmiş ve `durum=AKTIF` olmalı: belge etkinlikten önce basılmış olabilir, tarihi gelmemiş etkinliği "katıldım" diye göstermek yanlış olurdu.
+
+**Geçiş tarihi neden var:** o tarihten önce üretilmiş belgelerin kaydı yok ve üretilemez. Kural geriye işletilseydi bugün profilinde katılım görünen herkesin listesi boşalır — ve o listeden hesaplanan rozetler ile "Seferlerim" seviyeleri kazanılmış hâlden kazanılmamış hâle düşerdi. **Nişanın geri alınması, öğrenciye sistemin verdiği en kötü mesajdır.**
+
+Belge **türü ayırt edilmez**: katılım belgesi de teşekkür belgesi de "bu kişi bu etkinlikte vardı" demektir. Teşekkür belgesi çoğunlukla konuşmacıya ya da destek verene yazılır; o da bir katılımdır.
+
+Tekil belge üretimi artık **katılımcı kimliğiyle** çalışır, serbest metin adla değil: ad adresten gelseydi kayıt "Ayşe Yılmaz" adına düşer, o adın hangi öğrenci olduğu belirsiz kalırdı. "Listede olmayan biri için" formu serbest metin almaya devam eder ve **kayıt tutmaz**.
+
 ### Kazanım kayıtları
+
+**"GençTek etkinliği" beyanı KAPATILDI (7 Ağustos 2026).** `GENCTEK_ETKINLIGI` tipi, sisteme hiç girilmemiş eski etkinliklerin elle beyanı içindi. Katılım artık üretilen belgeden doğduğu için beyanın işlevi kalmadı; iki kaynak yan yana dursaydı aynı etkinlik profilde biri doğrulanmış biri beyan olmak üzere iki kez görünebilirdi. Profildeki "Beyan ettiği GençTek etkinlikleri" bölümü de istek gereği kaldırıldı.
+
+Tip **enum'dan silinmedi** ve kayıtlar temizlenmedi: girilmiş beyanlar kullanıcının verisidir, silme kararı ona aittir. Eski kayıtlar Panelim'in "Girdiğim kayıtlar" bölümünde, neden profilde görünmediklerini açıklayan bir notla birlikte durur ve silinebilir. Yeni kayıt **sunucuda** reddedilir — sekmeyi ekrandan kaldırmak, adres çubuğuna `?tur=GENCTEK_ETKINLIGI` yazan birini durdurmaz ve o kayıt hiçbir yerde görünmediği için kullanıcı kaydettiğini sanıp kaybederdi.
 
 Öğrencinin kendi girdiği türler:
 
@@ -479,7 +688,7 @@ Liste, mevcut `kullanici_kazanim.tip` değerleriyle (DIS_ETKINLIK / URUN / AKRAN
 
 Kurallar:
 - Kayıt **öğrenci beyanıdır**: sistem doğrulamaz, onay süreci yoktur, rozet üretmez.
-- Kayıtları **yalnızca sahibi** girer ve siler. Danışman, koordinatör ve proje yöneticisi kapsamındaki öğrencinin kayıtlarını **görür ama düzenlemez** — çalışma grubu eklemeden farkı budur.
+- Kayıtları **yalnızca sahibi** girer ve siler; giriş ve silme yüzeyi Panelim'dedir, profil yalnızca gösterir. Danışman, koordinatör ve proje yöneticisi kapsamındaki öğrencinin kayıtlarını **görür ama düzenlemez** — çalışma grubu eklemeden farkı budur.
 - `derece` alanı yalnızca yarışmalarda, `duzenleyen` alanı ürünler dışında sorulur. Türüne uymayan alan gelirse **sessizce düşürülür**: ekran o alanı hiç göstermediği için değer ancak istek elle kurcalandığında gelir ve bunun kullanıcıya anlatılacak bir tarafı yok.
 - Bağlantı adresinde yalnızca `http`/`https` kabul edilir. `javascript:` ile başlayan bir adres, profile bakan danışmanın tarayıcısında kod çalıştırırdı.
 - **Katıldığı GençTek etkinlikleri bu tabloya yazılmaz.** Türetilebilen veriyi öğrencinin eliyle ikinci kez girmesi hem yanlış hem doğrulanamaz olurdu.
@@ -496,7 +705,7 @@ Etkinliğe dayalı türlerde (dış etkinlik, akran eğitimi, yarışma derecesi
 
 **Ürün taahhütnamesi henüz YOK.** İstekte "ürün ekleme taahhütname imzalaması gerekmekte" yazıyor; onay altyapısı hazır (`kullanici_onayi` + `BELGE_TANIMLARI`) ama **metin gelmedi**. Metin geldiğinde ürün eklemenin önüne kapı olarak konur.
 
-**"Yaptığım ürünler" ayrı bir bölüm olarak da gösterilir** (`/panel/kazanimlarim` ve öğrenci detay ekranı). Ayrı bir tablo değildir — aynı `kullanici_kazanim` kayıtlarının `tip=URUN` olanlarıdır; ikinci bir tablo açmak, aynı kaydın iki yerde yaşamasına ve birinden silinip diğerinde kalmasına yol açardı. Kart ekleme kısayolu verir ama **silme yolu vermez**: silme tek yerde, profil ekranında durur.
+**"Yaptığım ürünler" ayrı bir bölüm olarak da gösterilir** (`/panel/kazanimlarim` ve öğrenci detay ekranı). Ayrı bir tablo değildir — aynı `kullanici_kazanim` kayıtlarının `tip=URUN` olanlarıdır; ikinci bir tablo açmak, aynı kaydın iki yerde yaşamasına ve birinden silinip diğerinde kalmasına yol açardı. Kart ekleme kısayolu verir ama **silme yolu vermez**: silme tek yerde, Panelim'in "Kayıtlarım" bölümünde durur.
 
 ### Öğretmenin kazanım kayıtları
 
@@ -506,13 +715,14 @@ Aynı dört tür **öğretmen için de** açıktır ve aynı tabloya yazılır: 
 
 ### Rotam (hedefler)
 
-Öğrencinin **yapmak istediklerini** yazdığı bölüm; profilin en altında, yolculuk kartlarından sonra durur (yukarısı yapılanlar, burası yapılacaklar).
+Öğrencinin **yapmak istediklerini** yazdığı bölüm; profilde en altta, yolculuk kartlarından sonra görünür (yukarısı yapılanlar, burası yapılacaklar). Hedef ekleme, durum ilerletme ve silme Panelim'dedir.
 
 Serbest metin değil **hedef listesidir**: her hedefin başlığı, isteğe bağlı açıklaması, isteğe bağlı hedef tarihi ve durumu vardır — *Planladım / Üzerinde çalışıyorum / Tamamladım*. Biçim seçimi tek yönlü olduğu için liste seçildi: listeden serbest metne geçiş kayıpsız, tersi değil.
 
 - **Yalnızca kişinin kendisi görür.** Danışman, koordinatör ve proje yöneticisi bu bölümü **göremez** — kazanımlardan ayrıldığı yer burasıdır. İstekte kimsenin göreceği yazmıyor ve dar taraftan başlandı: açmak kolay, öğrenciler özel hedeflerini yazdıktan sonra geri almak değil.
 - Durum **tek tıkla** ilerletilir ("Başladım", "Tamamladım"); geri alma düğmesi yoktur, yanlış işaretlenen hedef silinip yeniden yazılır.
 - **Düzenleme formu yoktur** — aynı gerekçe: kısa satırlardan oluşan bir listede her satırın altına ikinci bir form basmak pahalıydı.
+- Profilde satırlar **düğmesiz** basılır: eylem verilmediğinde kart salt okunur hâle geçer.
 - **Sıralama:** önce süren, sonra planlanan, en sonda tamamlanan; aynı durumda yakın tarih önce, tarihsizler sona. Rota ileriye bakar, biten işler listeyi tıkamaz.
 - Tamamlanma **anı** ayrı tutulur ve hedef zaten tamamlanmışken korunur: başlığı düzeltmek, hedefi bugün tamamlanmış göstermemeli.
 - Kişi başına **30 hedef**; kota değil, taşma koruması.

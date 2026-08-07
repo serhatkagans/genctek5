@@ -44,6 +44,8 @@ duvarında uygulama portu ve 5432 açılmaz.
 10. Doğrulama kontrol listesi
 11. Sürüm güncelleme
 12. Sorun giderme
+13. Canlı kurulum: aiotechs.cloud/genctek
+14. Günlük kullanım: gönder ve yayınla
 
 ---
 
@@ -515,6 +517,100 @@ Betik `git pull --ff-only` kullandığı için dalın uzakta güncel olması ger
 
 ### Yedekleme
 
-Bu sunucuda yedekleme betiği **henüz kurulmadı**. `dagitim/yedek.sh` hazır;
-Bölüm 9'daki adımlarla cron'a eklenmeli. Sistemde 18 yaş altı öğrenci verisi
-tutulacağı için bu, yayına açmadan önce tamamlanması gereken bir maddedir.
+Kuruldu ve çalışıyor (6 Ağustos 2026 doğrulaması). `dagitim/yedek.sh`,
+`/usr/local/bin/genctek-yedek` olarak kurulu ve root cron'unda:
+
+```
+0 2 * * * /usr/local/bin/genctek-yedek >> /var/log/genctek-yedek.log 2>&1
+```
+
+Her gece 02:00'de **iki** dosya üretir — ikisi de gerekli, biri tek başına
+geri yükleme için yetmez:
+
+| Dosya | İçerik |
+|---|---|
+| `veritabani-TARIH-SAAT.dump` | PostgreSQL (`pg_dump -Fc`) |
+| `depolama-TARIH-SAAT.tar.gz` | `/opt/genctek/depolama` — öğrencilerin yüklediği CV ve ekler |
+
+`/var/backups/genctek/` altında, `600 root:root`, 30 günden eskiler silinir
+(`SAKLAMA_GUN` ile değiştirilebilir).
+
+---
+
+## 14. Günlük kullanım: gönder ve yayınla
+
+6 Ağustos 2026'da kurulan akış. Amaç, sunucuya her yayında şifre girmemek ve
+şifreleri hiçbir yerde paylaşmamak.
+
+```
+Yerel makine ──git push (HTTPS)──▶ github.com/serhatkagans/genctek4
+                                            │
+                                            │ git pull (SSH, dağıtım anahtarı)
+                                            ▼
+   ssh genctek genctek-yayinla ─────▶ /opt/genctek → derle → migrate → restart
+```
+
+### Tek komut
+
+```powershell
+.\dagitim\yayinla.ps1
+```
+
+`git push` + sunucuda yayın. Başka bir dal için `-Dal deneme`, yalnızca
+göndermek için `-SadeceGonder`.
+
+Elle yapmak isterseniz aynı şey iki komuttur:
+
+```powershell
+git push origin main
+ssh genctek genctek-yayinla
+```
+
+### Kimlik doğrulama — hiçbir yerde şifre yok
+
+| Bağlantı | Yöntem |
+|---|---|
+| Yerel → GitHub | HTTPS + Git Credential Manager (Windows'ta kayıtlı) |
+| Yerel → sunucu | `~/.ssh/genctek` anahtarı, `~/.ssh/config` içinde `Host genctek` |
+| Sunucu → GitHub | `/opt/genctek/.ssh/id_ed25519` dağıtım anahtarı (salt okunur) |
+
+Root **yalnızca anahtarla** girer; şifreyle SSH kapalıdır
+(`/etc/ssh/sshd_config.d/50-genctek-anahtar.conf`). Global
+`PasswordAuthentication`'a bilinçli olarak dokunulmadı: sunucuda DirectAdmin'in
+yönettiği başka hesaplar var ve hepsini birden kapatmak onları kilitlerdi.
+
+> Dağıtım anahtarı GitHub'da **Deploy keys** altında tanımlıdır ve yazma yetkisi
+> yoktur. Sunucu koda yazamaz; en kötü durumda okur. Anahtarı yenilerseniz
+> GitHub'daki kaydı da değiştirin, yoksa yayın `Permission denied (publickey)`
+> ile ve **hiçbir şeye dokunmadan** düşer.
+
+### `genctek-yayinla` ne yapar
+
+`/usr/local/bin/genctek-yayinla`, sırası bilinçli iki adım:
+
+1. **Yedek** (`genctek-yedek`) — veritabanı + yüklenen dosyalar. Migration geri
+   alınamaz, bu yüzden her yayından önce çalışır.
+2. **Güncelleme** (`guncelle.sh`) — bu sunucuya özel değerlerle:
+   `NODE_BIN_DIZINI=/opt/node24/bin`, `SAGLIK_URL=http://127.0.0.1:3010/genctek`.
+   Bunlar Bölüm 13'teki sapmalardır; betiğe gömülüdür ki her seferinde
+   hatırlamak gerekmesin.
+
+Yayın düşerse betik günlüğü basar ve geri dönüş komutunu yazar:
+
+```bash
+ssh genctek 'journalctl -u genctek -n 50 --no-pager'
+```
+
+### Yedek yol: GitHub erişilemezse
+
+Sunucudaki `paket` uzak deposu, GitHub'dan önce kullanılan git paketini
+gösterir (`/opt/genctek-kaynak/genctek.bundle`) ve **duruyor**. GitHub çökerse
+paketi yerelde üretip elle taşıyabilirsiniz:
+
+```powershell
+git bundle create genctek.bundle main
+scp genctek.bundle genctek:/tmp/
+ssh genctek 'install -o genctek -g genctek -m 644 /tmp/genctek.bundle /opt/genctek-kaynak/genctek.bundle && rm /tmp/genctek.bundle'
+ssh genctek 'cd /opt/genctek && sudo -u genctek git fetch paket && sudo -u genctek git merge --ff-only paket/main'
+ssh genctek genctek-yayinla
+```

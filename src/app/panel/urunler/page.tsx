@@ -1,4 +1,4 @@
-import { Eye, ExternalLink, Info, Package, Users } from "lucide-react";
+import { Eye, ExternalLink, Info, Package, ScrollText, Users } from "lucide-react";
 import Link from "next/link";
 import { BilgiKutusu, Kart, SayfaBasligi } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
@@ -94,19 +94,20 @@ export default async function MarketSayfasi({
       <BilgiKutusu>
         <span className="flex flex-wrap items-center gap-1.5">
           <Info size={15} aria-hidden />
-          <strong>Ürün eklemek için:</strong> ürünlerinizi profilden
-          ekleyebilirsiniz.
+          <strong>Ürün eklemek için:</strong> ürünlerinizi Panel
+          ekranındaki &quot;Kayıtlarım&quot; bölümünden ekleyebilirsiniz.
           {/*
-            ADRESTEKİ İKİ PARÇA DA GEREKLİ:
-              · `?tur=URUN` → "Yeni kayıt ekle" formunu Ürünlerim sekmesinde açar
+            ADRESTEKİ ÜÇ PARÇA DA GEREKLİ (7 Ağustos 2026'da Panel'e taşındı):
+              · `?tur=URUN` → kayıt formunu Ürünlerim sekmesinde açar
                 (form sekmeli ve varsayılan sekme ürün değil).
-              · `#kayit-ekle` → profil uzun bir sayfa; çıpasız bağlantı kişiyi
+              · `#kayitlarim` → Panel uzun bir sayfa; çıpasız bağlantı kişiyi
                 tepeye bırakıyor ve form ekranda görünmüyordu.
-            Çıpanın adı profildeki karttan gelir (`id="kayit-ekle"`) — burada
+              · Bölüm KATLI geldiği için `?tur=` aynı zamanda onu AÇIK basar.
+            Çıpanın adı Panel'deki bölümden gelir (`capa="kayitlarim"`) —
             uydurulmuş bir ad kullanılırsa bağlantı sessizce tepeye düşer.
           */}
           <Link
-            href="/panel/profil?tur=URUN#kayit-ekle"
+            href="/panel?tur=URUN#kayitlarim"
             className="font-medium text-vurgu-metin underline underline-offset-2"
           >
             Ürün ekleme formuna git
@@ -258,6 +259,40 @@ export default async function MarketSayfasi({
             ölçüm bu.
           </li>
         </ul>
+      </Kart>
+
+      {/*
+        TAAHHÜTNAME (7 Ağustos 2026 · istek: "Market → Ürün Listele ·
+        Taahhütname").
+
+        METİN HENÜZ GELMEDİ (→ SORULAR.md · S12). Bölüm yine de basılıyor ve
+        neyin beklendiğini söylüyor — DİLİM süzgecindeki ilkeyle aynı: eksik
+        olanı gizlemek, unutulduğu izlenimi verirdi.
+
+        UYDURULMUŞ BİR METİN KONULMADI. Taahhütname hukuki bir beyandır ve
+        kullanıcıların çoğu 18 yaş altı; onaylatılan metin sonradan
+        değiştirilirse verilmiş onay da geçersizleşir. Metin geldiğinde
+        yapılacak iş `lib/kvkk/kurallar.ts` içindeki BELGE_TANIMLARI'na bir
+        satır eklemek ve ürün paylaşımının önüne kapı olarak koymak; onay
+        altyapısı (`kullanici_onayi`) zaten hazır.
+      */}
+      <Kart>
+        <h2 className="flex items-center gap-2 text-base font-semibold text-baslik">
+          <ScrollText size={16} className="text-metin-yumusak" />
+          Ürün paylaşım taahhütnamesi
+        </h2>
+        <p className="mt-2 text-sm text-metin-yumusak">
+          Markette ürün paylaşan herkesin onaylayacağı taahhütname{" "}
+          <strong className="text-uyari-metin">henüz yayımlanmadı</strong>.
+          Metin geldiğinde ürün paylaşımı bu onayın arkasına alınacak ve
+          buradan okunabilecek. Bugün paylaşılan ürünler için ek bir onay
+          istenmiyor.
+        </p>
+        <p className="mt-2 text-sm text-metin-yumusak">
+          Şu an geçerli olan koruma, vitrinin <strong>ekosistem içine
+          kapalı</strong> olmasıdır: ürünleri yalnızca GençTek&apos;e girmiş
+          kullanıcılar görür.
+        </p>
       </Kart>
     </div>
   );

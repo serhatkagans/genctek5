@@ -12,7 +12,8 @@ import { aktifTema } from "@/lib/tema";
  * İKİ GİRİŞ YOLU VARDIR ve ikisi eşit değildir:
  *   1. EBA ile giriş — öğrenci ve öğretmenlerin TEK yolu. Kimlik EBA'dan
  *      gelir, şifre diye bir kavram yoktur ve olmayacaktır.
- *   2. Mezun ve paydaş girişi — EBA hesabı olmayanlar için, e-posta ve
+ *   2. E-Devlet ile Giriş (mezun, paydaş, mentör) — EBA hesabı olmayanlar için,
+ *      bugün e-posta ve
  *      şifreyle. Kendiliğinden kayıt DEĞİLDİR: başvuru proje yöneticisinin
  *      onayından geçmeden hesap açılmaz.
  *
@@ -35,7 +36,13 @@ export default async function AcilisSayfasi() {
 
   // Oturumu açık olan kapıda bekletilmez.
   if (kullanici) {
-    redirect("/panel");
+    /*
+     * Oturumu açık kullanıcı kapıda bekletilmez. Hedef PROFİLDİR, panel değil
+     * (7 Ağustos 2026 · istek: "tüm kullanıcı grupları için ilk açılınca
+     * profil sekmesi ile başlasın"); giriş eylemiyle aynı yere düşmeli, yoksa
+     * aynı kişi nereden geldiğine göre farklı ekran görürdü.
+     */
+    redirect("/panel/profil");
   }
 
   const mockMu = ortam.AUTH_PROVIDER === "mock";
@@ -89,14 +96,30 @@ export default async function AcilisSayfasi() {
             Öğrenci ve öğretmen kimlik bilgileri EBA üzerinden alınır.
           </p>
 
+          {/*
+            "E-DEVLET İLE GİRİŞ" (7 Ağustos 2026 · istek).
+            Düğmenin adı e-Devlet, gittiği yer bugün e-posta/şifre ekranı.
+
+            GERÇEK E-DEVLET ENTEGRASYONU HENÜZ YOK ve yazılamaz: e-Devlet
+            Kapısı kurum başvurusu, test ortamı erişimi ve istemci sertifikası
+            gerektiriyor — hiçbiri elimizde değil. EBA SSO da aynı sebeple
+            bekliyor (SKILL.md · adım 13).
+
+            Düğmenin adının şimdiden e-Devlet olması BİLİNÇLİ: kullanıcıya
+            gösterilecek kapı bu ve entegrasyon geldiğinde değişecek tek yer
+            `AuthProvider` uygulaması olacak — bu ekran değil.
+          */}
           <div className="mt-6 border-t border-ust-bar-cizgi pt-6">
             <Link
               href="/dis-giris"
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-ust-bar-cizgi py-2.5 text-sm font-medium text-ust-bar-metin transition hover:bg-ust-bar-cizgi/30"
             >
               <Users size={16} aria-hidden />
-              Mezun ve paydaş girişi
+              E-Devlet ile Giriş
             </Link>
+            <p className="mt-2 text-xs text-ust-bar-metin-yumusak">
+              Paydaş/Mentör girişleri için tıklayınız.
+            </p>
             <p className="mt-3 text-xs text-ust-bar-metin-yumusak">
               EBA hesabınız yoksa{" "}
               <Link href="/basvuru" className="font-medium underline">

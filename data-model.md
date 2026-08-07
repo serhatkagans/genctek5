@@ -346,6 +346,28 @@ Yorum listesi sorgusu her zaman `WHERE faaliyet_id = ? ORDER BY olusturma_tarihi
 
 `IPTAL_EDILDI`, faaliyet iptal edildiğinde **sistem tarafından** yazılır; öğrencinin kendi geri çekmesinden (`GERI_CEKILDI`) ayrı tutulur.
 
+### Üretilen belgenin kaydı (7 Ağustos 2026)
+
+**faaliyet_belgesi**
+| Alan | Tip | Not |
+|---|---|---|
+| id | serial, PK | |
+| faaliyet_id | int, FK | ON DELETE CASCADE |
+| katilimci_id | int, FK | Belgenin sahibi; üretim anında faaliyetin SEÇİLMİŞ katılımcısı olduğu doğrulanır |
+| tur | enum | KATILIM / TESEKKUR — `lib/belge/kurallar.ts` içindeki `BELGE_TURLERI` ile aynı değerler |
+| uretim_tarihi | timestamptz | |
+| ureten_kullanici_id | int, FK | Belgeyi basan yetkili |
+
+`UNIQUE (faaliyet_id, katilimci_id, tur)` · `INDEX (katilimci_id)`
+
+**Belgenin METNİ burada tutulmaz.** İçerik eskisi gibi her istekte faaliyet kayıtlarından üretilir; metin saklansaydı faaliyetin adı düzeltildiğinde basılmış belgeler eski adı göstermeye devam ederdi. Bu tablonun tuttuğu tek şey **üretildiği olgusudur**.
+
+**Neden yine de bir tablo:** "ismine belge oluşturulan öğrencinin profiline katıldığı etkinlik düşsün" kuralı belge üretimini kişi hakkında **kalıcı** bir olguya çevirdi. Bu bilgi daha önce yalnızca erişim kaydının serbest metnindeydi (`detay = "Katılım Belgesi üretildi: Ayşe Yılmaz"`) ve iki nedenle kullanılamazdı: erişim kayıtları **KVKK saklama süresiyle siliniyor** (öğrencinin katılım geçmişi aylık bakım işi çalıştığında sessizce boşalırdı) ve serbest metin ad, aynı adlı iki öğrenciyi ayıramazdı.
+
+Benzersizlik kısıtı **veritabanında**, uygulamada değil: belge sayfası bir GET isteğiyle açılıyor ve sayfa yenilendiğinde ya da iki sekmeden aynı anda açıldığında aynı istek tekrar geliyor. "Önce bak sonra yaz" yarış durumunda ikinci satırı engelleyemez ve öğrencinin profiline aynı etkinlik iki kez düşerdi.
+
+**Sistemde kaydı olmayan kişi için satır açılmaz.** Belgeler ekranındaki "listede olmayan biri için" formu serbest metin ad alır (konuşmacı, destek veren kurum); profili olmadığı için düşecekleri bir yer de yok.
+
 ### Kontenjan modeli
 
 Kontenjan **aktif başvuru sayısını** sınırlar, yalnızca seçilenleri değil. Aktif başvuru = `durum NOT IN ('GERI_CEKILDI','REDDEDILDI','IPTAL_EDILDI')`, yani BEKLIYOR + SECILDI + YEDEK.
@@ -361,6 +383,48 @@ WHERE faaliyet_id = ?
 ```
 
 Statik sayaç tutulursa red/geri çekme sonrası açılan yerler sistemde "dolu" görünmeye devam eder. Sayım, kaydın açıldığı transaction'ın **içinde** yapılmalı; aksi halde eşzamanlı iki başvuru kontenjanı aşar.
+
+---
+
+### Öğretmen özgeçmişi (7 Ağustos 2026)
+
+`ogretmen_profil` beş sütun kazandı: `cv_dosya_adi`, `cv_depolama_yolu`, `cv_mime_tipi`, `cv_boyut_bayt`, `cv_yuklenme_tarihi` — `ogrenci_profil`dekilerle birebir aynı.
+
+**Alanlar kopyalandı, ortak bir CV tablosu açılmadı.** Ortak tablo iki profil satırının yaşam döngüsünü birbirine bağlardı: öğrenci mezun olduğunda öğrenci profili kapanır, öğretmeninki kapanmaz. Beş sütunluk tekrar, o bağı kurmaktan ucuz.
+
+`ck_ogretmen_cv_butunlugu`: dosya varsa adı ve tipi de dolu olmalı — eksik satır, indirme rotasında sessizce 404'e düşen ve sebebi anlaşılmayan bir kayıt bırakırdı.
+
+Sınırlar **ortak** (`IZINLI_CV_TIPLERI`, `CV_MAKS_BAYT`): aynı türde dosya, aynı depolama. İndirme `/panel/ogretmenler/:id/cv` rotasından, kapsam kontrolüyle. Kişinin **kendi kaydı ayrıca ele alınır**: `ogretmenKapsamFiltresi` öğrencininkinin aksine "yalnızca kendisi" filtresi üretmiyor (görev almamış öğretmen ve dış kullanıcılar hiçbir öğretmen kaydı görmüyor). Kapsam filtresine "kendisi" dalı eklenmedi çünkü o filtre aynı zamanda öğretmen **envanterini** süzüyor; oraya dokunmak görev almamış her öğretmeni kendi envanter listesinde tek satır olarak görür hâle getirirdi.
+
+---
+
+### Mentörlük (7 Ağustos 2026)
+
+**mentorluk** — `kullanici_id` (PK, FK), `durum` (BEKLIYOR/ONAYLANDI/REDDEDILDI/BIRAKILDI), `konular` (text), `basvuru_tarihi`, `karar_veren_kullanici_id`, `karar_tarihi`, `ret_gerekcesi`
+
+**mentorluk_calisma_grubu** — `mentorluk_kullanici_id` + `calisma_grubu_id`, bileşik PK
+
+**KİŞİ BAŞINA TEK SATIR.** Mentörlük bir *durumdur*, geçmiş tablosu değil: bırakılan mentörlük `BIRAKILDI` olur, yeniden başvuruda aynı satır `BEKLIYOR`a döner. Her başvuru yeni satır açsaydı "şu an mentör mü" sorusu her seferinde tarih sıralaması gerektirirdi ve pano süzgeci yanlış cevap verebilirdi.
+
+İki CHECK kısıtı veritabanında durur çünkü karar **iki ayrı ekrandan** verilebiliyor (mentör onay kuyruğu ve dış başvuru kuyruğu) ve uygulama katmanındaki kontrol birinde unutulabilir:
+- `ck_mentorluk_ret_gerekcesi` — reddedilen kayıtta gerekçe zorunlu
+- `ck_mentorluk_karar_butunlugu` — karara bağlanmış kayıtta karar veren ve tarih birlikte dolu
+
+`dis_kullanici_basvurusu` üç sütun kazandı: `mentorluk_istiyor`, `mentorluk_konulari`, `mentorluk_grup_idleri` (INTEGER[]). Dizi bilinçli — değerler yalnızca karar anına kadar yaşıyor ve onayla `mentorluk_calisma_grubu`na taşınıyor; junction tablo, onay sonrası boşalan ve kimsenin sorgulamadığı satırlar bırakırdı. Kimlikler onay anında yeniden doğrulanıyor (pasife alınmış grup elenir), bu yüzden yabancı anahtar da gerekmiyor.
+
+`DisKullaniciTuru` enum'una `MENTOR` eklendi. **Ayrı bir RolKodu eklenmedi:** mentörün kapsamı paydaş temsilcisininkiyle aynı, ayrı rol her kapsam filtresine hiçbir şey değiştirmeyen bir dal eklerdi.
+
+---
+
+### Görev rolleri: dördüncü rol (7 Ağustos 2026)
+
+`ogrenci_gorev_rolu` tablosuna `calisma_grubu_id` sütunu eklendi ve `GorevRolKodu` enum'una `CALISMA_GRUBU_YONETICISI` girdi.
+
+Diğer üç rol kapsamını bir **yerden** alır (`il_kodu` / `ilce_kodu` / `kurum_kodu`); bu rol bir **çalışma grubundan**. Yer sütunlarına sığdırmak mümkündü ama `gorevRolAdi()` etiketi yanlış yazardı: kurum adına düşüp "Atatürk Lisesi Çalışma Grubu Yöneticisi" derdi ve hangi grubun yöneticisi olduğu kaybolurdu.
+
+Tekillik **grup başınadır**, kişi başına değil: bir öğrenci birden çok grubun yöneticisi olabilir. Diğer üç rolün kısmi unique index'lerinin buradaki karşılığı uygulama katmanındaki "bu gruba zaten yönetici atanmış" kontrolüdür.
+
+`TalepTuru` enum'una `MENTORE_SOR` eklendi. `SPONSOR` **kaldırılmadı**: açılmış ilanları türsüz bırakmamak için duruyor. `TEKNIK_DESTEK` ve `DUYURU` yalnızca **ekran etiketi** olarak yeniden adlandırıldı ("Destek talebi", "Genel") — enum değerleri korundu, veri taşınmadı.
 
 ---
 

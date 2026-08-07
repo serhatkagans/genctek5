@@ -62,6 +62,39 @@ export function disBasvuruYonetebilirMi(kullanici: OturumKullanicisi): boolean {
   return projeYoneticisiMi(kullanici);
 }
 
+/**
+ * Mentörlük başvurusu YAPABİLİR mi? (7 Ağustos 2026)
+ *
+ * ÖĞRENCİ DIŞINDA herkes: öğretmen, il koordinatörü, proje yöneticisi, mezun
+ * ve paydaş temsilcisi. Dışarıdan gelenler bunu başvuru formundan istiyor;
+ * içerideki kullanıcılar Panel'den başvuruyor.
+ *
+ * ÖĞRENCİ HARİÇ ve bu bilinçli: mentörlük, 18 yaş altı bir kullanıcıyla
+ * birebir yazışma hakkı doğurur ve o hakkın karşı tarafı yetişkin olmalıdır.
+ * Akran desteği için "akran eğitimi" kaydı ve panodaki ekip arkadaşı ilanı
+ * zaten var.
+ */
+export function mentorlukBasvurabilirMi(kullanici: OturumKullanicisi): boolean {
+  return !ogrenciMi(kullanici) && kullanici.roller.length > 0;
+}
+
+/**
+ * Mentörlük başvurusunu ONAYLAYABİLİR mi?
+ *
+ * İl koordinatörü ve proje yöneticisi. Koordinatör kendi ilindeki başvuruları
+ * görür; proje yöneticisinin il sınırı yoktur (istek: "proje yöneticisi de
+ * onaylayabilir mentörü").
+ *
+ * KAPSAM AYRIMI BURADA DEĞİL sorguda yapılır (`mentorlukKapsamFiltresi`):
+ * bu fonksiyon "ekranı görebilir mi" sorusuna cevap veriyor, "hangi satırları
+ * görür" sorusuna değil — projedeki her yetki kararında olduğu gibi.
+ */
+export function mentorlukOnaylayabilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici);
+}
+
 /** İl koordinatörünün sorumlu olduğu il. Rol yoksa null. */
 export function koordinatorIlKodu(
   kullanici: OturumKullanicisi,

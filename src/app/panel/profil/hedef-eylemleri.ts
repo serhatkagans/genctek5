@@ -28,7 +28,20 @@ import { BulunamadiHatasi } from "@/lib/yetki/tipler";
  * hedef tutmasını gereksizce engellerdi.
  */
 
-const YOL = "/panel/profil";
+/**
+ * Formun yaşadığı ekran — `/panel/profil` DEĞİL (C4 · 7 Ağustos 2026).
+ * Rotam bölümünün düzenleme yüzeyi Panelim'e taşındı; profilde yalnızca
+ * hedeflerin listesi görünüyor.
+ */
+const YOL = "/panel";
+
+/** Gösterim yüzeyi; hedefler profilde de listeleniyor. */
+const PROFIL_YOLU = "/panel/profil";
+
+function yollariTazele(): void {
+  revalidatePath(YOL);
+  revalidatePath(PROFIL_YOLU);
+}
 
 /**
  * BAŞARIDA YÖNLENDİRME YOK — bilerek.
@@ -49,12 +62,17 @@ function hataylaDon(mesaj: string): never {
   /*
    * `revalidatePath` HATA YOLUNDA DA gerekli. İstemci yönlendirme
    * önbelleği girdiyi YOLA göre tutuyor, sorgu dizesine göre değil: yalnızca
-   * `?hata=` ekleyip yönlendirmek, tarayıcının `/panel/profil` için elindeki
-   * ESKİ kopyayı yeniden basmasına yol açıyordu. Adres çubuğunda uyarı
-   * görünüyor, ekranda görünmüyordu.
+   * `?hata=` ekleyip yönlendirmek, tarayıcının elindeki ESKİ kopyayı yeniden
+   * basmasına yol açıyordu. Adres çubuğunda uyarı görünüyor, ekranda
+   * görünmüyordu.
    */
-  revalidatePath(YOL);
-  redirect(`${YOL}?hata=${encodeURIComponent(mesaj)}#rotam`);
+  yollariTazele();
+  /*
+   * `bolum` çıpadan AYRI: Rotam artık katlanabilir bir bölüm ve kapalı bir
+   * `<details>` öğesinin çapasına inmek, kullanıcıyı uyarının görünmediği
+   * kapalı bir başlığa götürürdü.
+   */
+  redirect(`${YOL}?bolum=rotam&hata=${encodeURIComponent(mesaj)}#rotam`);
 }
 
 /**
@@ -121,7 +139,7 @@ export async function hedefEkleEylemi(veri: FormData): Promise<void> {
     detay: `Rotaya hedef eklendi: ${karar.kayit.baslik}`,
   });
 
-  revalidatePath(YOL);
+  yollariTazele();
 }
 
 /**
@@ -151,7 +169,7 @@ export async function hedefDurumuEylemi(veri: FormData): Promise<void> {
     },
   });
 
-  revalidatePath(YOL);
+  yollariTazele();
 }
 
 export async function hedefSilEylemi(veri: FormData): Promise<void> {
@@ -168,5 +186,5 @@ export async function hedefSilEylemi(veri: FormData): Promise<void> {
     detay: `Rotadan hedef silindi: ${hedef.baslik}`,
   });
 
-  revalidatePath(YOL);
+  yollariTazele();
 }

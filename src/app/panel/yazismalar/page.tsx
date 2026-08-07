@@ -1,10 +1,21 @@
-import { MessagesSquare } from "lucide-react";
+import { MessagesSquare, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { BilgiKutusu, Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
+import {
+  BilgiKutusu,
+  Kart,
+  KartBasligi,
+  SayfaBasligi,
+  SINIF_IKINCIL_BUTON,
+} from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { GIZLILIK_UYARISI } from "@/lib/iletisim/kurallar";
 import { tarihSaatYaz } from "@/lib/tarih";
+import {
+  danismanMi,
+  ilKoordinatoruMu,
+  projeYoneticisiMi,
+} from "@/lib/yetki/izinler";
 import { yazismaKapsamFiltresi } from "@/lib/yetki/kapsam";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +30,11 @@ export const dynamic = "force-dynamic";
  */
 export default async function YazismalarSayfasi() {
   const kullanici = await oturumKullanicisiZorunlu();
+
+  const onayGorebilir =
+    danismanMi(kullanici) ||
+    ilKoordinatoruMu(kullanici) ||
+    projeYoneticisiMi(kullanici);
 
   const yazismalar = await prisma.yazisma.findMany({
     where: yazismaKapsamFiltresi(kullanici),
@@ -49,6 +65,28 @@ export default async function YazismalarSayfasi() {
       />
 
       <BilgiKutusu cesit="uyari">{GIZLILIK_UYARISI}</BilgiKutusu>
+
+      {/*
+        İLETİŞİM ONAYLARI GİRİŞİ (7 Ağustos 2026 · menü küçültme). Sekme
+        menüden kalktı; istek onayları "Bağlantılarım"ın alt başlıklarından
+        biri sayıyor. Ekran silinmedi, girişi buraya taşındı — sekme olarak
+        kalsaydı menüde neredeyse aynı adlı iki giriş yan yana dururdu.
+
+        Yalnızca onay verebilenlere basılır: öğrencinin onaylayacağı bir istek
+        yok, bağlantı kararını danışmanı/koordinatörü veriyor.
+      */}
+      {onayGorebilir && (
+        <Kart>
+          <KartBasligi
+            baslik="İletişim onayları"
+            aciklama="Öğrencilerin gönderdiği bağlantı istekleri burada karara bağlanır."
+            Ikon={ShieldCheck}
+          />
+          <Link href="/panel/baglantilar" className={SINIF_IKINCIL_BUTON}>
+            Bekleyen istekleri aç
+          </Link>
+        </Kart>
+      )}
 
       <Kart>
         <KartBasligi baslik="Mesajlar" Ikon={MessagesSquare} />

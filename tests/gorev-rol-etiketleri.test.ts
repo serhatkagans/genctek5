@@ -11,12 +11,38 @@ import {
  */
 
 describe("görev rolü etiketleri", () => {
-  it("üç temsilciliği de adlandırır", () => {
+  it("dört görevi de adlandırır", () => {
+    /*
+     * CALISMA_GRUBU_YONETICISI 7 Ağustos 2026'da eklendi (istek: "Görevlerim
+     * (İl Temsilcisi/Okul Temsilcisi/Çalışma Grubu Yöneticisi ...)").
+     * Diğer üçünden farkı kapsamının bir YER değil bir GRUP olmasıdır.
+     */
     expect(Object.keys(GOREV_ROL_ETIKETLERI).sort()).toEqual([
+      "CALISMA_GRUBU_YONETICISI",
       "ILCE_TEMSILCISI",
       "IL_TEMSILCISI",
       "OKUL_TEMSILCISI",
     ]);
+  });
+
+  it("çalışma grubu yöneticiliğini GRUP adıyla yazar", () => {
+    /*
+     * Kurum adına düşseydi etiket "Atatürk Lisesi Çalışma Grubu Yöneticisi"
+     * derdi ve hangi grubun yöneticisi olduğu kaybolurdu.
+     */
+    expect(
+      gorevRolAdi({
+        rolKodu: "CALISMA_GRUBU_YONETICISI",
+        calismaGrubu: { ad: "Robotik" },
+        kurum: { ad: "Atatürk Lisesi" },
+      }),
+    ).toBe("Robotik Çalışma Grubu Yöneticisi");
+  });
+
+  it("grubu bilinmeyen yöneticilikte yalnızca unvanı yazar", () => {
+    expect(gorevRolAdi({ rolKodu: "CALISMA_GRUBU_YONETICISI" })).toBe(
+      "Çalışma Grubu Yöneticisi",
+    );
   });
 });
 

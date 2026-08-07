@@ -72,7 +72,7 @@ Kısa hâli: `git clone` → `.env` doldur → `npm ci && npm run build` →
 |---|---|
 | `npm run dev` | Geliştirme sunucusu |
 | `npm run build` / `npm start` | Üretim derlemesi ve sunucu |
-| `npm test` | Birim testler (576 test) |
+| `npm test` | Birim testler (720 test) |
 | `npm run test:duman` | Gerçek veritabanında uçtan uca doğrulama (40 kontrol) |
 | `npm run test:eposta` | E-posta kopyasının bildirim akışına doğru bağlandığını sınar (4 kontrol) |
 | `npm run senaryo:goruntu` | Yetki senaryolarını ve faaliyet akışını tarayıcıda gezer, ekran görüntüsü alır (`--tema=b` ile diğer tema) |
@@ -392,21 +392,37 @@ src/app/basvuru/         EBA dışı giriş başvurusu (iki adımlı form + ayd�
 src/app/sifre-sifirlama/ parola sıfırlama (yalnızca dış kullanıcılar)
 src/app/onay/            ilk giriş onay kapısı (belgeler onaylanmadan panele girilemez)
 src/app/panel/           Next.js ekranları ve sunucu eylemleri
-  faaliyetler/           liste, açma formu, detay + başvuru + değerlendirme + paydaş
+  page.tsx               Panelim: özet, takvim, bildirimler + PROFİL DÜZENLEME bölümleri
+  profil/                kendi profili — SALT OKUNUR gösterim + KVKK onayı
+  etkinlikler/           liste, açma formu, detay + başvuru + değerlendirme + paydaş
+  etkinlikler/[id]/belge(ler)/  katılım ve teşekkür belgesi üretimi (tekil + toplu)
+  etkinlikler/[id]/rapor/       faaliyet raporu ve indirme
   gorev-rolleri/         İl Temsilcisi / Okul Temsilcisi atama
   rol-envanteri/         il koordinatörü / danışman boşlukları + koordinatör atama
   dis-basvurular/        EBA dışı giriş başvurularının onay kuyruğu (proje yöneticisi)
+  il-disi-basvurular/    kaynak ilin ikinci onayı
   ogrenciler/            öğrenci envanteri, filtreler ve CSV çıktısı
   ogrenciler/[id]/       tekil öğrenci profili, çalışma grubu ekleme, CV indirme
   ogretmenler/           öğretmen envanteri, filtreler ve CSV çıktısı
   ogretmenler/[id]/      tekil öğretmen kaydı: görev yılları, etkinlikleri, kazanımları
   paydaslar/             il bazlı paydaş envanteri + CSV
   paydaslar/[id]/        tekil paydaş kaydı ve düzenleme
-  profil/                kendi profili: iletişim, kazanım girişi, CV yükleme
   kazanimlarim/          katılım geçmişi, katkı kartı ve nişanlar (öğrenci + öğretmen)
-  kvkk/                  onay belgelerinin kalıcı ekranı (metin + onay durumu)
+  algoritmam/            envanterler ve sonuçları (yalnızca öğrenci, kişiye özel)
+  urunler/               GençTek Market vitrini, süzgeçler ve ürün detayı
+  talepler/              Pano — dört talep türü
+  yazismalar/            Bağlantılarım: yazışma ve mesajlar
+  baglantilar/           İletişim Onayları (danışman / koordinatör / merkez)
+  calisma-gruplari/      grup seçimi (menüde yok, Panelim'de bölüm)
+  danisman-secim/        danışman seçimi + danışmansız öğrencinin giriş kapısı
+  raporlar/ belgeler/    toplu rapor ve belge ekranları (menüde yok)
+  duyurular/ ayarlar/    toplu duyuru ve sistem ayarları (proje yöneticisi)
+  erisim-loglari/        KVKK denetim kaydı (yalnızca merkez)
+  kazanim-ekleri/[ekId]/ destekleyici belge indirme (kapsam kontrollü)
+  taahhut/ kvkk/         profildeki KVKK bölümüne kalıcı yönlendirme
 src/app/globals.css      iki temanın renk değişkenleri
 src/components/          ortak arayüz parçaları (kart, buton, rol etiketi)
+  ProfilDuzenleme.tsx    Panelim'deki düzenleme bölümleri (foto, iletişim, kayıt, CV)
 tests/                   birim testler
 scripts/                 gecelik senkron, duman testi
 ```
@@ -428,7 +444,7 @@ Skill'deki 13 adımlık geliştirme sırasına göre:
 | 9 | Başvuru ve değerlendirme | Tamam |
 | 10 | Raporlama ve filtreleme | Tamam (filtreler + CSV dışa aktarma) |
 | 11 | KVKK onay belgeleri (aydınlatma, açık rıza, taahhütname, gizlilik sözleşmesi), ilk giriş kapısı ve saklama süresi | Tamam |
-| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (519 test) |
+| 12 | Birim testler | 3, 5, 6, 7, 8, 9, 10 ve 11 için tamam (720 test) |
 | 13 | Gerçek EBA SSO entegrasyonu | Erişim bekleniyor |
 | 14 | Danışman öğretmen envanteri (analiz Bölüm 2) | Tamam |
 | 15 | İl bazlı paydaş bilgi sistemi (analiz Bölüm 3) | Tamam |
@@ -809,22 +825,179 @@ Aynı kart, danışman/koordinatör/YEĞİTEK'in gördüğü tekil öğrenci pro
 basılır; yalnızca metinler ("Katkı kartım" / "Katkı kartı") ve düzenleme
 kısayolları değişir.
 
+### Menü: altı sekme
+
+**7 Ağustos 2026'da menü küçültüldü.** Herkeste ortak altı sekme:
+
+**Profil · Panel · Etkinlikler · Bağlantılarım · Pano · Market**
+
+| Kalkan sekme | Nereye gitti |
+|---|---|
+| Katkılarım | içeriği profilde; sayfa duruyor (öğretmen kartları) |
+| Algoritmam | Panel içinde "Özdeğerlendirme Envanterleri" bölümü |
+| İletişim Onayları | Bağlantılarım sayfasının başında bölüm |
+
+Yeniden adlandırılanlar: Panelim → **Panel**, Profilim → **Profil**, Ürünlerim → **Market**.
+
+**İl koordinatörü** öğretmenle aynı sırayı izler, farkı **Öğretmenler**
+sekmesidir:
+`Profil · Panel · Öğrenciler · Öğretmenler · Etkinlikler · Bağlantılarım ·
+Pano · Market` + yönetim sekmeleri. Profilinde öğretmenin "Öğrencilerim"
+kartının karşılığı **"İlimdeki kişiler"** özetidir (öğrenci · öğretmen ·
+danışmansız öğrenci sayıları).
+
+İl koordinatörü ve YEĞİTEK bu altısına ek olarak kendi yönetim sekmelerini
+(Öğrenciler, Öğretmenler, Paydaşlar, Görev Rolleri, İl Dışı Başvurular,
+Rol/Atama Envanteri, Erişim Kayıtları, Duyurular, Yönetim) görmeye devam eder.
+Onları da kaldırmak, koordinatörün ilindeki öğrenciye ulaşacağı hiçbir giriş
+bırakmazdı.
+
+### Mentörlük
+
+Bir kişinin belirli **çalışma gruplarında** ve serbestçe yazdığı **konularda**
+öğrencilere yol gösterebileceği beyanı — ve bunun onaylanmış hâli. Kim olursa
+olsun aynı kayıt (`mentorluk`); iki ayrı yerde tutulsaydı panodaki mentör
+süzgeci iki kaynağı birleştirmek zorunda kalır ve "kimler mentör" sorusunun
+iki ayrı cevabı olurdu.
+
+| Kim | Nereden başvurur | Kim onaylar |
+|---|---|---|
+| Öğretmen, koordinatör, proje yöneticisi, mezun, paydaş | Panel → **Mentörlüğüm** | İl koordinatörü **veya** proje yöneticisi |
+| Dışarıdan gelen | Başvuru formu | Proje yöneticisi — dış başvuruyu onayladığı anda mentörlük de açılır |
+
+Dışarıdan gelende **ayrı bir onay adımı yoktur**: proje yöneticisi başvurunun
+tamamını zaten onayladı ve mentörlük isteği onun içindeydi.
+
+- **Öğrenci mentör olamaz** — mentörlük 18 yaş altı bir kullanıcıyla birebir
+  yazışma hakkı doğurur, karşı taraf yetişkin olmalı. Akran desteği için akran
+  eğitimi kaydı ve panodaki ekip arkadaşı ilanı var.
+- **Kişi başına tek kayıt.** Mentörlük bir *durumdur*: bırakılan mentörlük
+  `BIRAKILDI` olur, yeniden başvuruda aynı satır `BEKLIYOR`a döner.
+  `BIRAKILDI` ile `REDDEDILDI` ayrı — ret bir karardır, bırakma bir vazgeçme.
+- **En az bir alan dolu olmalı** (grup ya da konu): ikisi de boş bir mentörlük
+  panoda görünür ama hiçbir ilana eşleşmez.
+- **Erişim panodan geçer:** öğrenci "Mentöre sor" ilanı açar, mentör kendi
+  konularındaki ilanları süzer, mevcut bağlantı onayı + yazışma akışı işler.
+  Ayrı bir mentör listesi ekranı açılmadı — o, öğretmen envanterini öğrenciye
+  açmak olurdu.
+- **`MENTOR` türünün ayrı bir rolü yoktur:** kapsamı paydaş temsilcisininkiyle
+  birebir aynı, ayrı rol her kapsam filtresine hiçbir şey değiştirmeyen bir dal
+  eklerdi.
+
+### Giriş kapısı: EBA ve E-Devlet
+
+Açılış ekranında iki düğme: **EBA ile Giriş Yap** ve **E-Devlet ile Giriş**
+(altında "Paydaş/Mentör girişleri için tıklayınız").
+
+Başvuru formu **tektir**, içinde "kim olarak başvuruyorsunuz" seçimi var:
+Mezun · Paydaş temsilcisi · Mentör. Mezun ve paydaş ayrıca "mentörlük yapmak
+istiyorum" işaretleyebilir; `MENTOR` türünde işaret zorunlu olarak açıktır.
+
+`MEZUN` türü **korundu** — "mezunlar da paydaştan girsin" ifadesi giriş
+*kapısı* hakkındadır. Tür kaldırılsaydı mevcut mezunların mezuniyet yılı ve
+okul bağı anlamsızlaşırdı.
+
+> **Gerçek e-Devlet entegrasyonu henüz YOK.** Düğme bugün mevcut e-posta/şifre
+> ekranına götürüyor. Entegrasyon için e-Devlet Kapısı kurum başvurusu, test
+> ortamı erişimi ve istemci sertifikası gerekiyor — hiçbiri elde değil; EBA SSO
+> da aynı sebeple bekliyor (adım 13). Düğmenin adının şimdiden "E-Devlet"
+> olması bilinçli: entegrasyon geldiğinde değişecek tek yer `AuthProvider`
+> uygulamasıdır, bu ekran değil.
+
+### Giriş sonrası herkes profile düşer
+
+**7 Ağustos 2026'dan beri rol ayrımı yok.** Öğrenci, öğretmen, koordinatör,
+merkez personeli ve dış kullanıcılar girişten sonra `/panel/profil` ekranına
+gelir; önceden yalnızca öğrenci profile düşüyordu.
+
+Kural dört yerde birden uygulanır ve dördü aynı olmak zorundadır (`giris`,
+`dis-giris`, `onay` ve açılış ekranı) — yoksa aynı kişi hangi kapıdan geldiğine
+göre farklı ekran görür. **Danışman seçimi hâlâ önceliklidir:** danışmansız
+öğrenci önce seçim ekranına düşer.
+
+### Profil gösterir, Panelim düzenler
+
+**7 Ağustos 2026'da profil salt okunur oldu.** `Panel → Profilim` artık hiçbir
+form taşımaz; bilgi girişi ve düzenlemenin tamamı **Panelim** (`/panel`)
+içindeki katlanabilir bölümlerdedir.
+
+| Bölüm | Profilde | Panelim'de (çapa) |
+|---|---|---|
+| Fotoğraf | görünür | yükle / değiştir / kaldır (`#fotografim`) |
+| İletişim bilgileri ve bağlantılar | değerler görünür | form (`#iletisim-bilgilerim`) |
+| Danışman öğretmen | **yalnızca adı** | seçim listesi (`#danismanim`) |
+| Danışman öğretmenliği (öğretmen) | durumu görünür | işaretleme (`#danismanligim`) |
+| GençTek / Bilişim Yolculuğum | kayıtlar görünür | ekle + sil + belge (`#kayitlarim`) |
+| Rotam | hedefler görünür | ekle / durum / sil (`#rotam`) |
+| CV | dosya bağlantısı görünür | yükle / kaldır (`#cvm`) |
+| KVKK onay belgeleri | **onay burada verilir** | — |
+
+**Tek istisna KVKK'dır ve bilinçli:** onay bir profil bilgisi değil hukuki bir
+beyandır ve metnin okunduğu yerde verilmelidir. Panele taşımak onayı onaylanan
+metinden koparırdı; üstelik uyarı şeridi ve eski `/panel/kvkk` adresi o çapaya
+iniyor.
+
+İki yüzey de **aynı bileşenlerden** basılır. Düzenleme yetenekleri isteğe bağlı
+eylem proplarıdır — eylem verilmediğinde form hiç basılmaz
+(`KazanimEylemleri`, `RotamKarti`). Ayrı ayrı yazılsalardı birine eklenen alan
+öbüründe sessizce eksik kalırdı.
+
+Bölümler Panelim'de **katlı** gelir: orası öğrencinin ilk gördüğü ekran ve asıl
+işi (başvurusu açık etkinlikler, takvim) yedi formun altında kalmamalı. Eylemler
+işlem sonrası `?bolum=<çapa>` ile döner ve ilgili bölüm **açık** basılır — çıpa
+tek başına yetmezdi, kapalı bir `<details>` öğesinin çapasına inmek kullanıcıyı
+az önce doldurduğu formun kapanmış hâline götürürdü.
+
 ### Öğrenci profili: kazanımlar, yarışmalar ve CV
 
-**Panel → Profilim** öğrenci için üç bölüm daha taşır:
+Profil öğrenci için üç bölüm daha taşır:
 
 | Bölüm | Kaynak | Kim düzenler |
 |---|---|---|
-| **Katıldığı GençTek etkinlikleri** | Türetilir: seçildiği + tarihi geçmiş + iptal edilmemiş faaliyetler | Hiç kimse — elle girilmez |
+| **Katıldığı GençTek etkinlikleri** | Türetilir: **adına belge üretilmiş** + tarihi geçmiş + iptal edilmemiş faaliyetler | Hiç kimse — elle girilmez |
 | **Kazanımlar ve üretimler** | Kullanıcı beyanı (`kullanici_kazanim`) | Yalnızca kullanıcının kendisi |
 | **Özgeçmiş (CV)** | Öğrencinin yüklediği pdf/doc/docx | Yalnızca öğrencinin kendisi |
 
-Kazanım kayıtları dört türdür ve öğrenci **Yeni kayıt ekle** kartındaki sekmelerden
-seçer: **GençTek dışı etkinlikler**, **yaptığı ürünler** (web sitesi, uygulama,
-oyun, film), **verdiği akran eğitimleri**, **derece aldığı yarışmalar**. Alanlar
+Kazanım kayıtları yedi türdür ve kullanıcı Panelim'deki **Kayıtlarım**
+bölümünün sekmelerinden seçer: **GençTek dışı etkinlikler**, **yaptığı ürünler**
+(web sitesi, uygulama, oyun, film), **verdiği akran eğitimleri**, **derece
+aldığı yarışmalar**, **sertifikaları**, **toplulukları** ve **diğer**. Alanlar
 türe göre değişir — `derece` yalnızca yarışmada, `duzenleyen` ürünler dışında
 sorulur. Form sunucuda basılır (tür adresten gelir), istemci tarafı JavaScript
 gerekmez.
+
+**"GençTek etkinliği" beyanı 7 Ağustos 2026'da kapatıldı.** Katılım artık
+üretilen belgeden doğduğu için beyanın işlevi kalmadı ve profildeki "Beyan
+ettiği GençTek etkinlikleri" bölümü kaldırıldı. Tip enum'dan silinmedi: girilmiş
+kayıtlar kullanıcının verisidir ve Panelim'de, neden profilde görünmediklerini
+açıklayan bir notla birlikte durup silinebilirler.
+
+### Katılım belgeden doğar
+
+> **İstek:** "Düzenlenen GençTek Etkinliği sonunda ismine belge oluşturulan
+> öğrencilerin profiline katıldığı etkinlik düşecek."
+
+Eski kural "başvurusu **seçildi** + tarihi geçti" idi; katılımcı listesine alınan
+herkes, etkinliğe gelmese bile profilinde katılmış görünüyordu. Belge üretimi,
+etkinliği yürüten öğretmenin *"bu kişi gerçekten katıldı"* beyanıdır.
+
+Belge bugüne kadar **hiçbir yerde kalıcı değildi** — içerik her istekte üretiliyor,
+izi yalnızca erişim kaydının serbest metninde duruyordu. O kayıtlar KVKK saklama
+süresiyle siliniyor, yani katılım geçmişi aylık bakım işi çalıştığında sessizce
+boşalırdı. Bu yüzden `faaliyet_belgesi` tablosu açıldı: belgenin **metnini değil,
+üretildiği olgusunu** tutar.
+
+Liste iki kaynaktan beslenir, arada bir **geçiş tarihi** vardır
+(`BELGE_TEMELLI_KATILIM_BASLANGICI`):
+
+- **belge üretilmişse** sayılır — geçiş tarihine bakılmaz;
+- **belgesi yoksa** yalnızca geçiş tarihinden önceki etkinliklerde "seçilmiş
+  olmak" yeter.
+
+Geçiş tarihi olmasaydı bugün profilinde katılım görünen herkesin listesi boşalır
+ve o listeden hesaplanan rozetler ile **Seferlerim** seviyeleri kazanılmış hâlden
+kazanılmamış hâle düşerdi. Nişanın geri alınması, öğrenciye sistemin verdiği en
+kötü mesajdır.
 
 Etkinliğe dayalı türlerde üç alan daha var:
 
@@ -1001,15 +1174,17 @@ görüntüleme yetkisi vermez.
 
 ### Profildeki iletişim bilgileri
 
-**Panel → Profilim** ekranında telefon ve e-posta alanları **her rolde**
-düzenlenebilir: öğrenci, danışman öğretmen, il koordinatörü ve proje yöneticisi.
+**Panelim → İletişim bilgilerim** bölümünde telefon ve e-posta alanları **her
+rolde** düzenlenebilir: öğrenci, danışman öğretmen, il koordinatörü ve proje
+yöneticisi. Girilen değerler profilde salt okunur olarak görünür.
 İletişim bilgisi kimlik bilgisi değildir — e-Okul'dan gelmez, senkron üzerine
 yazmaz ve sahibinden başkası giremez. İzinli alan listesi role göre değişmez
 (`src/app/panel/profil/eylemler.ts`); rol farkı yalnızca bilginin hangi profil
 tablosuna yazıldığındadır (`ogrenci_profil` / `ogretmen_profil`).
 
-Bilgi işe yarar: öğrenci, profilindeki *Danışman öğretmenim* kartında
-danışmanının girdiği e-posta ve telefonu görür. Bildirim e-postaları da bu
+Bilgi işe yarar: öğrenci, Panelim'deki *Danışman öğretmenim* bölümünde
+danışmanının girdiği e-posta ve telefonu görür — profildeki kart 7 Ağustos
+2026'dan beri **yalnızca adı** gösteriyor (istek). Bildirim e-postaları da bu
 adrese gider.
 
 Öğrencide üç alan daha var: **GitHub**, **kişisel site** ve **LinkedIn**. Bunlar

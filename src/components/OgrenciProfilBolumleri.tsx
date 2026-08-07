@@ -16,6 +16,7 @@ import type { KazanimSonucu } from "@/lib/kazanim/getir";
 import type { RozetDurumu, SeferDurumu } from "@/lib/kazanim/rozetler";
 import { uygulamaYolu } from "@/lib/ortam";
 import {
+  bilisimYolculuguGruplari,
   KATILIM_BICIMI_ETIKETLERI,
   type KazanimSahibi,
   kazanimTipiTanimi,
@@ -350,6 +351,85 @@ export function KazanimBolumleri({
 }
 
 /**
+ * "Bilişim Yolculuğum" — üç alt başlık altında gruplanmış kayıtlar
+ * (7 Ağustos 2026).
+ *
+ * `KazanimBolumleri`'nden farkı bir GRUPLAMA katmanı olması: orada her tip
+ * kendi başlığını alır, burada tipler "Ürünlerim / Deneyimlerim /
+ * Topluluklarım-Ekiplerim" başlıkları altında toplanır (istek). Tip başlıkları
+ * grup içinde ikinci düzey olarak korunuyor — bir sertifika ile bir yarışma
+ * derecesi aynı başlık altında ayırt edilemez hâle gelmemeli.
+ *
+ * Tek bir tipten oluşan grupta (Ürünlerim, Topluluklarım) tip başlığı BASILMAZ:
+ * "Ürünlerim → Yaptığım ürünler" iki kez aynı şeyi söylerdi.
+ */
+export function KazanimGruplari({
+  kazanimlar,
+  sahip = "OGRENCI",
+  ...eylemler
+}: {
+  kazanimlar: KazanimSatiri[];
+  sahip?: KazanimSahibi;
+} & KazanimEylemleri) {
+  return (
+    <div className="space-y-8">
+      {bilisimYolculuguGruplari(sahip).map(({ grup, tanimlar }) => {
+        const grupKayitlari = kazanimlar.filter((kazanim) =>
+          grup.tipler.includes(kazanim.tip),
+        );
+        const tekTip = tanimlar.length === 1;
+
+        return (
+          <div key={grup.kod}>
+            <h3 className="flex items-center gap-2 text-base font-semibold text-baslik">
+              {grup.baslik}
+              <span className="font-normal text-metin-yumusak">
+                {grupKayitlari.length}
+              </span>
+            </h3>
+            <p className="mt-1 text-sm text-metin-yumusak">{grup.aciklama}</p>
+
+            {grupKayitlari.length === 0 ? (
+              <p className="mt-2 text-sm text-metin-yumusak">
+                Henüz kayıt yok.
+              </p>
+            ) : tekTip ? (
+              <div className="mt-3">
+                <KazanimListesi kazanimlar={grupKayitlari} {...eylemler} />
+              </div>
+            ) : (
+              <div className="mt-3 space-y-4">
+                {tanimlar.map((tanim) => {
+                  const kayitlar = grupKayitlari.filter(
+                    (kazanim) => kazanim.tip === tanim.tip,
+                  );
+                  // Grup içinde BOŞ tip başlığı basılmaz: grubun kendi sayacı
+                  // zaten "burada bir şey yok" bilgisini veriyor.
+                  if (kayitlar.length === 0) return null;
+                  return (
+                    <div key={tanim.tip}>
+                      <h4 className="text-sm font-semibold text-metin">
+                        {tanim.baslik}
+                        <span className="ml-2 font-normal text-metin-yumusak">
+                          {kayitlar.length}
+                        </span>
+                      </h4>
+                      <div className="mt-1.5">
+                        <KazanimListesi kazanimlar={kayitlar} {...eylemler} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * "Yaptığım ürünler" — kazanım kayıtlarının URUN tipi, kendi kartında.
  *
  * Aynı veri profildeki dört bölümlü listede de duruyor ama orada bir satır
@@ -389,7 +469,7 @@ export function UrunlerKarti({
                 Henüz ürün eklemedin. Geliştirdiğin bir site, uygulama, oyun ya
                 da film varsa{" "}
                 <Link
-                  href="/panel/profil?tur=URUN"
+                  href="/panel?tur=URUN#kayitlarim"
                   className="font-medium text-vurgu-metin underline underline-offset-2"
                 >
                   profilinden ekleyebilirsin
@@ -401,7 +481,7 @@ export function UrunlerKarti({
                 Henüz ürün eklemediniz. Geliştirdiğiniz bir site, uygulama, ders
                 materyali ya da film varsa{" "}
                 <Link
-                  href="/panel/profil?tur=URUN"
+                  href="/panel?tur=URUN#kayitlarim"
                   className="font-medium text-vurgu-metin underline underline-offset-2"
                 >
                   profilinizden ekleyebilirsiniz
@@ -454,7 +534,7 @@ export function UrunlerKarti({
 
       {kendiMi && urunler.length > 0 && (
         <Link
-          href="/panel/profil?tur=URUN"
+          href="/panel?tur=URUN#kayitlarim"
           className="mt-4 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
         >
           Yeni ürün ekle
@@ -467,9 +547,9 @@ export function UrunlerKarti({
 /**
  * Katıldığı GençTek etkinlikleri.
  *
- * Bu liste kazanım kayıtlarından FARKLIDIR: beyan değil, başvuru geçmişinden
- * türetilir (seçildiği ve tarihi geçmiş, iptal edilmemiş faaliyetler). Bu yüzden
- * elle eklenip silinemez.
+ * Bu liste kazanım kayıtlarından FARKLIDIR: beyan değil, TÜRETİLİR — kişinin
+ * adına belge üretilmiş, iptal edilmemiş ve tarihi geçmiş etkinlikler
+ * (bkz. lib/kazanim/katilim-kurallar.ts). Bu yüzden elle eklenip silinemez.
  */
 export function KatildigiEtkinlikler({
   kazanim,
@@ -554,7 +634,7 @@ export function KatilimKarti({
     <Kart>
       <KartBasligi
         baslik="Katıldığı GençTek etkinlikleri"
-        aciklama={`${kazanim.ozet.toplamKatilim} etkinlik · başvuru geçmişinden türetilir, elle girilmez.`}
+        aciklama={`${kazanim.ozet.toplamKatilim} etkinlik · adına üretilen belgelerden türetilir, elle girilmez.`}
         Ikon={CalendarCheck}
       />
       <KatildigiEtkinlikler
@@ -566,9 +646,15 @@ export function KatilimKarti({
 }
 
 /**
- * "Seferlerim" — eski adıyla katkı nişanları (D7 · 6 Ağustos 2026).
+ * "Katkı Nişanlarım" (D7 · 6 Ağustos 2026 · başlık 7 Ağustos'ta geri alındı).
  *
- * PROFİLE TAŞINDI ve Katkılarım ekranında da duruyor: ikisi de aynı bileşenden
+ * D7'de "Seferlerim" adını almıştı; istek başlığı **Katkı Nişanlarım**'a
+ * döndürdü. Seviyelerin iç adı ("sefer") KODDA KALDI: `SeferDurumu`,
+ * `seferDurumlari` ve envanter tanımlarındaki gönderme aynı kavramı
+ * gösteriyor ve yeniden adlandırmak, görünen bir şeyi değiştirmeyen geniş bir
+ * fark üretirdi.
+ *
+ * PROFİLDE ve Katkılarım ekranında duruyor: ikisi de aynı bileşenden
  * basılıyor, ayrı yazılsalardı biri ötekinden ayrışırdı.
  *
  * Nişanlar HESAPLANIR, tabloda tutulmaz: başvuru ve etkinlik kayıtlarından
@@ -580,7 +666,7 @@ export function KatilimKarti({
  * gösterdiği bir etiket değil bir HESAPLAMA KURALIDIR; ölçüt gelmeden
  * eklenirse öğrenciye yanlış bir derece gösterilir ve geri alınması gerekir.
  */
-export function SeferlerimKarti({
+export function KatkiNisanlariKarti({
   rozetler,
   seferler = [],
   bosMesaji,
@@ -596,7 +682,7 @@ export function SeferlerimKarti({
   return (
     <Kart>
       <KartBasligi
-        baslik="Seferlerim"
+        baslik="Katkı Nişanlarım"
         aciklama="Katılım ve düzenleme geçmişinden otomatik hesaplanır; başvuru gerektirmez."
         Ikon={Award}
       />

@@ -47,6 +47,8 @@ export interface KatkiGorevi {
   il?: { ad: string } | null;
   ilce?: { ad: string } | null;
   kurum?: { ad: string } | null;
+  /** CALISMA_GRUBU_YONETICISI rolünün kapsamı (7 Ağustos 2026). */
+  calismaGrubu?: { ad: string } | null;
 }
 
 export interface KatkiGrubu {
@@ -109,16 +111,13 @@ export function KatkiKarti({
   katilim?: KazanimSonucu | null;
   /**
    * Kişinin beyan ettiği kazanım kayıtları. Bunlardan yalnızca GençTek
-   * tarafındakiler (GENCTEK_ETKINLIGI, AKRAN_EGITIMI) burada gösterilir;
-   * gerisi "Bilişim Yolculuğum" bölümüne aittir.
+   * tarafındaki (AKRAN_EGITIMI) burada gösterilir; gerisi "Bilişim
+   * Yolculuğum" bölümüne aittir.
    */
   kazanimlar?: KazanimSatiri[];
 } & KazanimEylemleri) {
   const akranEgitimleri = (kazanimlar ?? []).filter(
     (kazanim) => kazanim.tip === "AKRAN_EGITIMI",
-  );
-  const beyanEdilenEtkinlikler = (kazanimlar ?? []).filter(
-    (kazanim) => kazanim.tip === "GENCTEK_ETKINLIGI",
   );
 
   return (
@@ -127,54 +126,190 @@ export function KatkiKarti({
         baslik={kendiMi ? "GençTek Yolculuğum" : "GençTek yolculuğu"}
         aciklama={
           kendiMi
-            ? "GençTek içindeki geçmişin: temsilciliklerin, çalışma grupların, düzenlediğin ve katıldığın etkinlikler. Temsilcilikleri koordinatörün ya da danışmanın verir; grup seçimini sen yaparsın."
-            : "Öğrencinin GençTek içindeki geçmişi: temsilcilikleri, çalışma grupları, düzenlediği ve katıldığı etkinlikler."
+            ? "GençTek içindeki geçmişin: görevlerin, verdiğin akran eğitimleri, katıldığın etkinlikler ve çalışma grupların. Buradaki tek seçimin çalışma gruplarıdır; gerisi görev aldıkça ve adına belge üretildikçe kendiliğinden düşer."
+            : "Öğrencinin GençTek içindeki geçmişi: görevleri, verdiği akran eğitimleri, katıldığı etkinlikler ve çalışma grupları."
         }
         Ikon={Sparkles}
       />
 
       <div className="space-y-6">
+        {/*
+          GÖREVLERİM (7 Ağustos 2026 · istek): "Görevlerim (İl Temsilcisi/Okul
+          Temsilcisi/Çalışma Grubu Yöneticisi / Görev Aldığı GençTek
+          Organizasyonları)".
+
+          İki liste TEK BAŞLIK altında toplandı: verilen temsilcilikler ve
+          görev alınan organizasyonlar. Ayrı başlıklarda dururken ikisi de
+          "bu kişiye ne görev verilmiş" sorusunun yarısını cevaplıyordu.
+          İçeride ayrı alt listeler olarak duruyorlar çünkü kaynakları farklı:
+          biri atama kaydı, öbürü etkinlik kaydı.
+
+          İKİSİ DE OTOMATİKTİR: temsilcilik koordinatör/danışman tarafından
+          atanır, organizasyon etkinlik açıldığında düşer. Öğrenci bu bölüme
+          elle bir şey ekleyemez (istek: "Diğer alanlar ... otomatik olarak
+          profiline gelmeli").
+        */}
         <div>
           <BolumBasligi
             Ikon={BadgeCheck}
-            baslik="Temsilcilikler"
-            adet={gorevler.length}
+            baslik={kendiMi ? "Görevlerim" : "Görevleri"}
+            adet={gorevler.length + faaliyetler.length}
           />
-          {gorevler.length === 0 ? (
-            <p className="mt-1.5 text-sm text-metin-yumusak">
-              {kendiMi
-                ? "Henüz bir temsilciliğin yok."
-                : "Temsilcilik görevi verilmemiş."}
-            </p>
-          ) : (
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {gorevler.map((gorev) => (
-                <li
-                  key={`${gorev.rolKodu}-${gorev.egitimOgretimYili}`}
-                  className={SINIF_ROZET}
-                >
-                  <BadgeCheck size={14} aria-hidden />
-                  {gorevRolAdi(gorev)}
-                  {/*
-                   * Geçmiş dönem görevi silinmez, dönemiyle birlikte durur:
-                   * "geçen yıl il temsilcisiydi" bir katkıdır ve kartın işi
-                   * tam olarak bunu göstermektir.
-                   */}
-                  {gorev.egitimOgretimYili !== egitimOgretimYili && (
-                    <span className="text-xs opacity-80">
-                      {gorev.egitimOgretimYili}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+
+          <div className="mt-2">
+            <h4 className="text-sm font-medium text-metin">Temsilcilikler</h4>
+            {gorevler.length === 0 ? (
+              <p className="mt-1 text-sm text-metin-yumusak">
+                {kendiMi
+                  ? "Henüz bir temsilciliğin yok."
+                  : "Temsilcilik görevi verilmemiş."}
+              </p>
+            ) : (
+              <ul className="mt-1.5 flex flex-wrap gap-2">
+                {gorevler.map((gorev) => (
+                  <li
+                    key={`${gorev.rolKodu}-${gorev.egitimOgretimYili}`}
+                    className={SINIF_ROZET}
+                  >
+                    <BadgeCheck size={14} aria-hidden />
+                    {gorevRolAdi(gorev)}
+                    {/*
+                     * Geçmiş dönem görevi silinmez, dönemiyle birlikte durur:
+                     * "geçen yıl il temsilcisiydi" bir katkıdır ve kartın işi
+                     * tam olarak bunu göstermektir.
+                     */}
+                    {gorev.egitimOgretimYili !== egitimOgretimYili && (
+                      <span className="text-xs opacity-80">
+                        {gorev.egitimOgretimYili}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <h4 className="flex items-center gap-1.5 text-sm font-medium text-metin">
+              <CalendarPlus size={14} className="text-vurgu-metin" aria-hidden />
+              Görev aldığı GençTek organizasyonları
+            </h4>
+            {faaliyetler.length === 0 ? (
+              <p className="mt-1 text-sm text-metin-yumusak">
+                {kendiMi
+                  ? "Henüz bir organizasyonda görev almadın. Bir etkinlik kurmak istersen önerin il koordinatörüne ve YEĞİTEK'e onaya gider."
+                  : "Henüz bir organizasyonda görev almamış."}
+              </p>
+            ) : (
+              <ul className="mt-1.5 divide-y divide-cizgi">
+                {faaliyetler.map((faaliyet) => (
+                  <li key={faaliyet.id} className="py-2.5 first:pt-0 last:pb-0">
+                    <Link
+                      href={`/panel/etkinlikler/${faaliyet.id}`}
+                      className="font-medium text-metin transition hover:text-vurgu-metin"
+                    >
+                      {faaliyet.ad}
+                    </Link>
+                    <p className="mt-0.5 text-sm text-metin-yumusak">
+                      {tarihYaz(faaliyet.tarih)} ·{" "}
+                      {faaliyet.durum === "IPTAL_EDILDI"
+                        ? "İptal edildi"
+                        : ONAY_DURUMU_ETIKETLERI[faaliyet.onayDurumu]}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {kendiMi && (
+              <Link
+                href="/panel/etkinlikler/yeni"
+                className="mt-2 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
+              >
+                Yeni etkinlik öner
+              </Link>
+            )}
+          </div>
         </div>
 
+        {/*
+          AKRAN EĞİTİMLERİ KATILIMDAN ÖNCE (istekteki sıra). Bu bölüm hâlâ
+          kişinin BEYANIDIR — öğretmen onayına bağlanması ayrı bir madde olarak
+          kayıt altına alındı (YAPILACAKLAR.md · 7 Ağustos eki).
+        */}
+        {kazanimlar && (
+          <div>
+            <BolumBasligi
+              Ikon={GraduationCap}
+              baslik={kendiMi ? "Verdiğim akran eğitimleri" : "Verdiği akran eğitimleri"}
+              adet={akranEgitimleri.length}
+            />
+            {akranEgitimleri.length === 0 ? (
+              <p className="mt-1.5 text-sm text-metin-yumusak">
+                {kendiMi
+                  ? "Henüz akran eğitimi kaydı girmedin."
+                  : "Akran eğitimi kaydı girilmemiş."}
+              </p>
+            ) : (
+              <div className="mt-2">
+                <KazanimListesi
+                  kazanimlar={akranEgitimleri}
+                  {...kazanimEylemleri}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/*
+          Katıldığı etkinlikler TÜRETİLMİŞ listedir, beyan değil: kişinin adına
+          BELGE üretildiğinde düşer (7 Ağustos 2026 · lib/kazanim/
+          katilim-kurallar.ts). Elle eklenip silinemez.
+        */}
+        {katilim && (
+          <div>
+            <BolumBasligi
+              Ikon={CalendarCheck}
+              baslik="Katıldığı GençTek etkinlikleri"
+              adet={katilim.katilimlar.length}
+            />
+            <p className="mt-1 text-sm text-metin-yumusak">
+              Etkinlik sonunda adına belge üretildiğinde kendiliğinden düşer.
+            </p>
+            <div className="mt-2">
+              <KatildigiEtkinlikler kazanim={katilim} />
+            </div>
+          </div>
+        )}
+
+        {/*
+          "BEYAN ETTİĞİ GENÇTEK ETKİNLİKLERİ" KALDIRILDI (7 Ağustos 2026).
+          İstek: "Beyan Ettiği GençTek Etkinlikleri kaldırılacak".
+
+          Bölüm, sisteme hiç girilmemiş eski etkinliklerin elle beyanını
+          gösteriyordu. Katılım artık ÜRETİLEN BELGEDEN doğuyor (yukarıdaki
+          "Katıldığı GençTek etkinlikleri"), dolayısıyla beyan ikinci ve
+          doğrulanmamış bir kaynak olarak kalıyordu: aynı etkinlik profilde
+          biri doğrulanmış biri beyan olmak üzere iki kez görünebiliyordu.
+
+          Tip de kapatıldı (lib/kazanim/kurallar.ts · ARSIVLENMIS_TIPLER);
+          girilmiş eski kayıtlar SİLİNMEDİ, Panelim'in düzenleme bölümünde
+          görünüp silinebiliyorlar.
+        */}
+
+
+        {/*
+          ÇALIŞMA GRUPLARIM EN SONDA (7 Ağustos 2026 · istekteki sıra:
+          Görevlerim · Verdiğim Akran Eğitimleri · Katıldığım GençTek
+          Etkinlikleri · Çalışma Gruplarım).
+
+          Bu bölüm, GençTek Yolculuğum içinde öğrencinin KENDİ SEÇTİĞİ tek
+          şeydir; gerisi otomatik düşer (istek: "Öğrenci sadece çalışma grubu
+          seçimi yapabilmeli"). Düzenleme bağlantısı bu yüzden Panel'e iner.
+        */}
         <div>
           <BolumBasligi
             Ikon={Layers}
-            baslik="Çalışma grupları"
+            baslik={kendiMi ? "Çalışma gruplarım" : "Çalışma grupları"}
             adet={gruplar.length}
           />
           {gruplar.length === 0 ? (
@@ -207,118 +342,13 @@ export function KatkiKarti({
           )}
           {kendiMi && (
             <Link
-              href="/panel/calisma-gruplari"
+              href="/panel#calisma-gruplarim"
               className="mt-2 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
             >
-              Grup seçimimi düzenle
+              Grup seçimimi Panel&apos;den düzenle →
             </Link>
           )}
         </div>
-
-        <div>
-          <BolumBasligi
-            Ikon={CalendarPlus}
-            baslik="Düzenlediği etkinlikler"
-            adet={faaliyetler.length}
-          />
-          {faaliyetler.length === 0 ? (
-            <p className="mt-1.5 text-sm text-metin-yumusak">
-              {kendiMi
-                ? "Henüz etkinlik önermedin. Bir etkinlik kurmak istersen önerin il koordinatörüne ve YEĞİTEK'e onaya gider."
-                : "Öğrenci henüz etkinlik önermedi."}
-            </p>
-          ) : (
-            <ul className="mt-2 divide-y divide-cizgi">
-              {faaliyetler.map((faaliyet) => (
-                <li key={faaliyet.id} className="py-2.5 first:pt-0 last:pb-0">
-                  <Link
-                    href={`/panel/etkinlikler/${faaliyet.id}`}
-                    className="font-medium text-metin transition hover:text-vurgu-metin"
-                  >
-                    {faaliyet.ad}
-                  </Link>
-                  <p className="mt-0.5 text-sm text-metin-yumusak">
-                    {tarihYaz(faaliyet.tarih)} ·{" "}
-                    {faaliyet.durum === "IPTAL_EDILDI"
-                      ? "İptal edildi"
-                      : ONAY_DURUMU_ETIKETLERI[faaliyet.onayDurumu]}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-          {kendiMi && (
-            <Link
-              href="/panel/etkinlikler/yeni"
-              className="mt-2 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
-            >
-              Yeni etkinlik öner
-            </Link>
-          )}
-        </div>
-
-        {/*
-          Katıldığı etkinlikler TÜRETİLMİŞ listedir (seçildiği ve tarihi geçmiş
-          etkinlikler); altındaki beyan listesi ise kişinin elle girdiği eski
-          kayıtlardır. İkisi ayrı başlıkta duruyor çünkü biri kanıtlı, öbürü
-          beyan — tek listede toplamak ikisini de "sistemin doğruladığı kayıt"
-          gibi gösterirdi.
-        */}
-        {katilim && (
-          <div>
-            <BolumBasligi
-              Ikon={CalendarCheck}
-              baslik="Katıldığı GençTek etkinlikleri"
-              adet={katilim.katilimlar.length}
-            />
-            <div className="mt-2">
-              <KatildigiEtkinlikler kazanim={katilim} />
-            </div>
-          </div>
-        )}
-
-        {kazanimlar && beyanEdilenEtkinlikler.length > 0 && (
-          <div>
-            <BolumBasligi
-              Ikon={CalendarCheck}
-              baslik="Beyan ettiği GençTek etkinlikleri"
-              adet={beyanEdilenEtkinlikler.length}
-            />
-            <p className="mt-1 text-sm text-metin-yumusak">
-              Sisteme girilmemiş eski etkinlikler; kişinin kendi beyanıdır.
-            </p>
-            <div className="mt-2">
-              <KazanimListesi
-                kazanimlar={beyanEdilenEtkinlikler}
-                {...kazanimEylemleri}
-              />
-            </div>
-          </div>
-        )}
-
-        {kazanimlar && (
-          <div>
-            <BolumBasligi
-              Ikon={GraduationCap}
-              baslik={kendiMi ? "Verdiğim akran eğitimleri" : "Verdiği akran eğitimleri"}
-              adet={akranEgitimleri.length}
-            />
-            {akranEgitimleri.length === 0 ? (
-              <p className="mt-1.5 text-sm text-metin-yumusak">
-                {kendiMi
-                  ? "Henüz akran eğitimi kaydı girmedin."
-                  : "Akran eğitimi kaydı girilmemiş."}
-              </p>
-            ) : (
-              <div className="mt-2">
-                <KazanimListesi
-                  kazanimlar={akranEgitimleri}
-                  {...kazanimEylemleri}
-                />
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </Kart>
   );

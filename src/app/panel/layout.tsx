@@ -16,6 +16,7 @@ import {
   disBasvuruYonetebilirMi,
   disKullaniciMi,
   ilKoordinatoruMu,
+  mentorlukOnaylayabilirMi,
   ogrenciMi,
   paydasEkleyebilirMi,
   projeYoneticisiMi,
@@ -60,10 +61,66 @@ export default async function PanelDuzeni({
     (durum) => durum.gerekiyorMu,
   );
 
+  /*
+   * MENÜ KÜÇÜLDÜ (7 Ağustos 2026 · istek: "menü sayısı azalacak").
+   *
+   * Öğrencide altı sekme kaldı: Profil · Panel · Etkinlikler · Bağlantılarım ·
+   * Pano · Market. Kalkanlar:
+   *
+   *   · "Katkılarım" — içeriğinin tamamı artık profilde (Görevlerim, katılım
+   *     geçmişi, Katkı Nişanlarım). Sayfa SİLİNMEDİ; öğretmen tarafında hâlâ
+   *     kendi kartlarını basıyor ve profilden bağlantı veriliyor.
+   *   · "Algoritmam" — Panel'in içinde bölüm oldu ("Özdeğerlendirme
+   *     Envanterleri"). Sayfa duruyor, envanter çözme oradan yürüyor.
+   *
+   * Yeniden adlandırılanlar: "Panelim" → "Panel", "Profilim" → "Profil",
+   * "Ürünlerim" → "Market" (istek listesindeki başlıklar).
+   *
+   * SIRA İSTEKTEKİ SIRA: Profil önce geliyor. Panel açılış ekranı olmaya
+   * devam ediyor — sıradaki yeri, hangi sayfanın açıldığını değiştirmiyor.
+   *
+   * YÖNETİM SEKMELERİ KALDI: altı sekme herkeste ortak, koordinatör ve merkez
+   * bunlara ek olarak kendi ekranlarını görmeye devam ediyor. Onları da
+   * kaldırmak, koordinatörün ilindeki öğrenciye ulaşacağı hiçbir giriş
+   * bırakmazdı.
+   */
   const baglantilar: GezinmeBaglantisi[] = [
-    { yol: "/panel", etiket: "Panelim" },
-    { yol: "/panel/profil", etiket: "Profilim" },
+    { yol: "/panel/profil", etiket: "Profil" },
+    { yol: "/panel", etiket: "Panel" },
   ];
+
+  /*
+   * ÖĞRENCİLERİM PANEL'DEN HEMEN SONRA (7 Ağustos 2026 · istek: "sekmeler bu
+   * şekilde öğrencininki gibi, farklı olarak öğrencilerim sekmesi olacak").
+   *
+   * Danışman öğretmende "Öğrencilerim", koordinatör ve merkezde "Öğrenciler":
+   * ad kapsamı anlatıyor. Öğretmenler sekmesi ise aşağıda, yönetim
+   * sekmeleriyle birlikte kaldı — öğretmenin günlük işi değil.
+   */
+  if (
+    danismanMi(kullanici) ||
+    ilKoordinatoruMu(kullanici) ||
+    projeYoneticisiMi(kullanici)
+  ) {
+    baglantilar.push({
+      yol: "/panel/ogrenciler",
+      etiket: danismanMi(kullanici) ? "Öğrencilerim" : "Öğrenciler",
+    });
+  }
+
+  /*
+   * ÖĞRETMENLER, ÖĞRENCİLER'İN HEMEN ARDINDA (7 Ağustos 2026 · istek: "il
+   * koordinatörleri için de öğretmen ile benzer yapıyı kur, ek olarak
+   * öğretmenler sekmesi olacak").
+   *
+   * Koordinatörün menüsü öğretmeninkiyle aynı sırayı izler; farkı bu sekme ve
+   * altındaki yönetim sekmeleridir. DANIŞMAN ÖĞRETMENDE YOK — öğretmenin
+   * günlük işi kendi öğrencileri, meslektaş envanteri değil; sayfa yine de
+   * silinmedi ve yetkisi daralmadı.
+   */
+  if (ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici)) {
+    baglantilar.push({ yol: "/panel/ogretmenler", etiket: "Öğretmenler" });
+  }
 
   /*
    * "Çalışma Gruplarım" ve "Danışmanım" MENÜDE YOK (B3/C1 · 5 Ağustos 2026).
@@ -74,51 +131,41 @@ export default async function PanelDuzeni({
    */
 
   /*
-   * Katkılarım ekranı iki role de açıktır ve aynı adreste ikisine farklı
-   * kartlar basar (öğrencide temsilcilik/çalışma grubu, öğretmende görev
-   * geçmişi/danışmanlık). Dışarıda kalanlar: proje yöneticisi (YEĞİTEK
-   * personelinin ne danışmanlığı ne katılımcılığı olur) ve dış kullanıcılar
-   * (ekranın beslendiği kayıtların hiçbiri onlarda yok — sürekli boş görünür).
-   */
-  if (!projeYoneticisiMi(kullanici) && !disKullaniciMi(kullanici)) {
-    baglantilar.push({ yol: "/panel/kazanimlarim", etiket: "Katkılarım" });
-  }
-
-  /*
-   * ALGORITMAM yalnızca ÖĞRENCİDE (E · 6 Ağustos 2026). İstek bölümü öğrenci
-   * paneli için tarif ediyor ("öğrenciler kendilerini geliştirebilecekleri
-   * alanları keşfeder") ve envanterlerin madde metinleri de öğrenciye yazıldı
-   * ("arkadaşım takıldığında", "grup çalışmasında üstüme düşeni").
+   * "KATKILARIM" ve "ALGORITMAM" SEKMELERİ KALKTI (7 Ağustos 2026).
    *
-   * Öğretmene ve koordinatöre BAŞKASININ sonucunu gösteren bir giriş de yok:
-   * envanter sonuçları kişiye özeldir ve hiçbir yetkili ekranında görünmez
-   * (bkz. app/panel/algoritmam/eylemler.ts).
-   */
-  if (ogrenciMi(kullanici)) {
-    baglantilar.push({ yol: "/panel/algoritmam", etiket: "Algoritmam" });
-  }
-
-  /*
-   * ÜRÜNLERİM (GençTek Market) HERKESE AÇIK (I · 6 Ağustos 2026).
+   * Katkılarım'ın içeriği profile taşındı: Görevlerim, katılım geçmişi ve
+   * Katkı Nişanlarım orada. Ekran silinmedi — öğretmen tarafında kendi
+   * kartlarını basmaya devam ediyor ve profilden bağlantı veriliyor.
    *
-   * İstekteki sekme adı "Ürünlerim" ama içerik bir vitrindir: öğrenci
-   * ürünleri, öğretmen ürünleri ve kişinin kendi ürünleri aynı ekranda
-   * süzgeçle ayrılıyor. Bu yüzden Algoritmam gibi tek role bağlanmadı —
-   * öğretmenin de ürünü olabiliyor ve istekte "Öğretmen Ürünleri" ayrı bir
-   * süzgeç olarak sayılmış.
-   *
-   * DIŞ KULLANICILAR da görüyor: mezunun ekosistemde göreceği ilk şey buydu
-   * ve market, A1'in gerekçesindeki "mezun bağını sürdürsün" beklentisine
-   * karşılık gelen tek ekran. Vitrin ekosistem içine kapalı; dışarıya açık
-   * bir ürün sayfası ayrı bir karardır (pano ile aynı ilke · S21).
+   * Algoritmam, Panel'in içinde "Özdeğerlendirme Envanterleri" bölümü oldu.
+   * Sayfa duruyor ve envanterler oradan çözülüyor; yalnızca menüdeki satır
+   * kalktı. Envanter sonuçları hâlâ KİŞİYE ÖZELDİR: hiçbir yetkili ekranında
+   * görünmez (bkz. app/panel/algoritmam/eylemler.ts).
    */
-  baglantilar.push({ yol: "/panel/urunler", etiket: "Ürünlerim" });
 
   // Faaliyetler herkese açıktır; kimin ne göreceğini kapsam filtresi belirler.
   // Görev almamış öğretmen de okulunun ve ulusal faaliyetleri görür; mezun ve
   // paydaş temsilcisi ulusal ve kendi ilindeki etkinlikleri takvim olarak görür
   // ama başvuramaz (bkz. basvuruYapabilirMi).
   baglantilar.push({ yol: "/panel/etkinlikler", etiket: "Etkinlikler" });
+
+  /*
+   * "Bağlantılarım" (eski adı Yazışmalar) herkese açık; kimin ne göreceğini
+   * kapsam filtresi belirler. Öğrenci kendi yazışmalarını, danışman
+   * öğrencilerininkini, koordinatör ilindekileri görür.
+   *
+   * İSTEKTEKİ ALT BAŞLIKLAR: "Mesajlar · Sohbet · Bağlantılarım". Mesajlar ve
+   * bağlantı onayları bu ekranın içinde; **Sohbet (grup) HENÜZ YOK** — G
+   * maddesi S19/S20 cevaplarını bekliyor (bkz. YAPILACAKLAR.md).
+   */
+  baglantilar.push({ yol: "/panel/yazismalar", etiket: "Bağlantılarım" });
+
+  /*
+   * "İLETİŞİM ONAYLARI" SEKMESİ KALKTI (7 Ağustos 2026 · menü küçültme).
+   * İstek onayları Bağlantılarım'ın alt başlıklarından biri sayıyor; ekran
+   * silinmedi, girişi Bağlantılarım sayfasının başına taşındı. Sekme olarak
+   * kalsaydı menüde neredeyse aynı adlı iki giriş yan yana dururdu.
+   */
 
   /*
    * Pano (eski adıyla Talep Panosu) öğrenci, öğretmen ve dış kullanıcılara
@@ -135,25 +182,20 @@ export default async function PanelDuzeni({
   }
 
   /*
-   * "Bağlantılarım" (eski adı Yazışmalar) herkese açık; kimin ne göreceğini
-   * kapsam filtresi belirler. Öğrenci kendi yazışmalarını, danışman
-   * öğrencilerininkini, koordinatör ilindekileri görür.
+   * ÜRÜNLERİM (GençTek Market) HERKESE AÇIK (I · 6 Ağustos 2026).
+   *
+   * İstekteki sekme adı "Ürünlerim" ama içerik bir vitrindir: öğrenci
+   * ürünleri, öğretmen ürünleri ve kişinin kendi ürünleri aynı ekranda
+   * süzgeçle ayrılıyor. Bu yüzden Algoritmam gibi tek role bağlanmadı —
+   * öğretmenin de ürünü olabiliyor ve istekte "Öğretmen Ürünleri" ayrı bir
+   * süzgeç olarak sayılmış.
+   *
+   * DIŞ KULLANICILAR da görüyor: mezunun ekosistemde göreceği ilk şey buydu
+   * ve market, A1'in gerekçesindeki "mezun bağını sürdürsün" beklentisine
+   * karşılık gelen tek ekran. Vitrin ekosistem içine kapalı; dışarıya açık
+   * bir ürün sayfası ayrı bir karardır (pano ile aynı ilke · S21).
    */
-  baglantilar.push({ yol: "/panel/yazismalar", etiket: "Bağlantılarım" });
-
-  /*
-   * Onay ekranının adı "İletişim Onayları" (B2 · S13 · 5 Ağustos 2026). Eski
-   * adı "Bağlantı İstekleri"ydi ve yazışma sekmesi "Bağlantılarım" olunca
-   * menüde neredeyse aynı iki giriş yan yana düşüyordu; öğretmen ve koordinatör
-   * ikisini birden görüyor.
-   */
-  if (
-    danismanMi(kullanici) ||
-    ilKoordinatoruMu(kullanici) ||
-    projeYoneticisiMi(kullanici)
-  ) {
-    baglantilar.push({ yol: "/panel/baglantilar", etiket: "İletişim Onayları" });
-  }
+  baglantilar.push({ yol: "/panel/urunler", etiket: "Market" });
 
   if (
     danismanMi(kullanici) ||
@@ -167,16 +209,6 @@ export default async function PanelDuzeni({
      * ülke geneli. "Öğrencilerim" demek koordinatöre yanlış bir sahiplik
      * duygusu verirdi.
      */
-    baglantilar.push(
-      {
-        yol: "/panel/ogrenciler",
-        etiket: danismanMi(kullanici) ? "Öğrencilerim" : "Öğrenciler",
-      },
-      // Öğretmen envanteri öğrenciyle aynı kapıdan geçmez ama aynı kişilere
-      // açıktır; kapsamı ogretmenKapsamFiltresi belirler.
-      { yol: "/panel/ogretmenler", etiket: "Öğretmenler" },
-    );
-
     /*
      * PAYDAŞLAR ve GÖREV ROLLERİ danışman öğretmenin menüsünden kalktı
      * (B3/J2/J4 · 5 Ağustos 2026); ikisi de kayıt AÇMA ekranı ve iki iş de
@@ -211,6 +243,16 @@ export default async function PanelDuzeni({
      * Sayfalar SİLİNMEDİ: `/panel/raporlar` ve `/panel/belgeler` doğrudan
      * adresle çalışmaya devam ediyor.
      */
+  }
+
+  /*
+   * MENTÖRLÜK ONAY KUYRUĞU (7 Ağustos 2026). İl koordinatörü kendi ilindeki,
+   * proje yöneticisi tüm başvuruları görür ("proje yöneticisi de onaylayabilir
+   * mentörü"). Danışman öğretmene gösterilmez — mentörlük il düzeyinde bir
+   * karardır.
+   */
+  if (mentorlukOnaylayabilirMi(kullanici)) {
+    baglantilar.push({ yol: "/panel/mentorluk", etiket: "Mentörlük" });
   }
 
   /*

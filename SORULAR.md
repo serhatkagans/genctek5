@@ -17,9 +17,9 @@ cevaptır — "evet, öyle olsun" demeniz yeter.
 
 | Öncelik | Sorular | Neden |
 |---|---|---|
-| ✅ Cevaplandı | S1, S3, S4, S6, S7, S8, S10, S11, S13, S14, S15, S17, S18, S21, S23, S24, S25 | 5–6 Ağustos — A1, C3, A2, C1, B2, B3, C2, D3, D4, D5(kısmi), D6, D7, H, J1–J5 |
-| 🔴 Önce bunlar | S2, S16 | Cevap gelmeden mimari/veri modeli kararı verilemiyor |
-| 🟡 Yakında | S9, S12, S19 | İlgili madde başlamadan gerekli |
+| ✅ Cevaplandı | S1, S3, S4, S6, S7, S8, S9, S10, S11, S13, S14, S15, S17, S18, S21, S23, S24, S25 | 5–7 Ağustos — A1, C3, A2, C1, B2, B3, C2, **C4**, D3, D4, D5(kısmi), D6, D7, H, J1–J5 |
+| 🔴 Önce bunlar | S2, S16, **S26** | Cevap gelmeden mimari/veri modeli kararı verilemiyor |
+| 🟡 Yakında | S12, S19 | İlgili madde başlamadan gerekli |
 | 🟢 Sonra | S5, S20, S22 | Küçük ya da geç sıradaki maddeler |
 
 ---
@@ -335,31 +335,61 @@ Varsayım onaylandı ve uygulandı:
 
 ---
 
-## 🟡 S9 — "Profil bölümlerinin düzenleme sayfası" ne demek?
+## ✅ S9 — "Profil bölümlerinin düzenleme sayfası" ne demek? — CEVAPLANDI
 
-**İlgili madde:** C4
+**İlgili madde:** C4 · **Durum:** cevaplandı ve uygulandı (7 Ağustos 2026)
+
+> **Cevap:** Üçüncü bir okuma seçildi — ne ayrı sayfalar ne satır içi
+> düzenleme. **Profil GÖSTERİR, Panelim DÜZENLER:** `/panel/profil` salt
+> okunur hâle geldi, düzenlemenin tamamı Panelim içindeki katlanabilir
+> bölümlere taşındı. Kapsam öğrenciyle sınırlı tutulmadı, **öğretmen tarafına
+> da** uygulandı: tek düzen, tek davranış.
 
 > **Talepte yazan:** "Panelde profil kısmında gözükecek bölümlerin
 > düzenleme/ekleme/silme sayfası olacak"
 
-**Anladığım.** Profilde görünen içerikleri kullanıcının yönetebileceği bir yer
-olacak.
+İsteğin sonraki hâli bunu netleştirdi: *"foto ekleme değiştirme panelden
+yapılsın, profil kısmında sadece foto görünsün, iletişim bilgileri düzenleme
+panel sekmesine taşınsın, profilden sadece görünsün, profildeki danışman ekleme
+düzenleme panel kısmına taşınsın, profilde sadece danışmanın adı gözüksün,
+GençTek Yolculuğum Bilişim Yolculuğum ve Rotam bölümlerinin sadece bilgileri
+profilde görünsün, bilgi girişleri ve düzenleme panelden yapılsın."*
 
-**Emin olamadığım.** İki farklı okuma var:
+Ayrı sayfalar açılmadı çünkü kullanıcıyı aynı içeriğin iki ayrı görünümü
+arasında gidip getirirdi; satır içi düzenleme de kalmadı çünkü istek profilin
+salt görüntüleme olmasını söylüyor. Uygulama ayrıntısı: `README.md` · "Profil
+gösterir, Panelim düzenler".
 
-- **(a)** Profildeki **her bölüm için ayrı bir yönetim ekranı**
-  ("Sertifikalarım" → kendi ekle/düzenle/sil sayfası, "Topluluklarım" → kendi
-  sayfası…).
-- **(b)** Bugünkü gibi profil sayfası üzerinde **satır içi** düzenleme, ama
-  eksik olan **silme** ve **düzenleme** işlemleri tamamlanacak.
+**Tek istisna KVKK onayıdır** ve bilinçli: onay bir profil bilgisi değil hukuki
+bir beyandır, metnin okunduğu yerde verilmelidir.
 
-**Soru:** Ayrı bir "profilimi yönet" sayfası mı istiyorsunuz, yoksa profildeki
-her kartın kendi ekle/düzenle/sil düğmeleri mi olsun?
+---
 
-**Cevap gelmezse varsayımım:** (b) — profil kartlarının üzerinde düzenle/sil
-düğmeleri. Ayrı sayfa, kullanıcıyı aynı içeriğin iki ayrı görünümü arasında
-gidip getirir.
-**Yanlışsa etkisi:** Orta — ekran sayısı değişir, veri modeli değişmez.
+## 🔴 S26 — E-Devlet entegrasyonu için erişim bilgileri
+
+**İlgili madde:** 7 Ağustos eki · giriş kapısı · **Durum:** AÇIK, kod yazılamıyor
+
+> **Talepte yazan:** "Giriş sayfası — 1. EBA ile Giriş, 2. E-Devlet ile Giriş
+> (açıklama: Paydaş/Mentör Girişleri için tıklayınız)"
+
+**Yapılan.** Açılış ekranındaki düğme ve açıklama istendiği gibi duruyor;
+bugün mevcut e-posta/şifre ekranına (`/dis-giris`) götürüyor.
+
+**Yapılamayan.** Gerçek e-Devlet Kapısı entegrasyonu. Üç şey gerekiyor ve
+hiçbiri elde değil:
+
+1. **Kurum başvurusu** — e-Devlet Kapısı'na kurum olarak kayıt ve onay
+2. **Test ortamı erişimi** — entegrasyon uçları ve örnek kimlikler
+3. **İstemci sertifikası / anahtar** — imzalama ve doğrulama için
+
+**Soru:** Bu üçü ne zaman sağlanabilir? Kurum başvurusu yapıldı mı, hangi
+aşamada?
+
+**Cevap gelmezse varsayımım:** Düğme mevcut hâliyle kalır. Mimari bu geçişe
+hazır — değişecek tek yer `AuthProvider` uygulamasıdır, ekranlar değil
+(SKILL.md · Değişmezler 1). EBA SSO da tam olarak aynı sebeple bekliyor.
+**Yanlışsa etkisi:** Yok — bugünkü akış çalışıyor, entegrasyon eklendiğinde
+kullanıcı tarafında görünen hiçbir şey değişmiyor.
 
 ---
 
