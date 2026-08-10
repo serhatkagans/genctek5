@@ -72,12 +72,12 @@ for (const [kisi, etiket] of [
     }`,
   );
 
+  // Etkinlik CSV'si de öğrenciye kapandı (10 Ağustos 2026): ekrandaki bağlantı
+  // kalktı, adres çubuğundan gelen istek de 404 almalı.
   const faaliyetCsv = await csvIndir(sayfa, "/panel/etkinlikler/disa-aktar");
   rapor.push(
-    `Öğrenci · faaliyet CSV: HTTP ${faaliyetCsv.durum} · ${
-      faaliyetCsv.durum === 200
-        ? `${veriSatiriSayisi(faaliyetCsv.govde)} satır (kendi kapsamı)`
-        : "indirilemedi"
+    `Öğrenci · faaliyet CSV: HTTP ${faaliyetCsv.durum} → ${
+      faaliyetCsv.durum === 404 ? "engellendi (beklenen)" : "*** ERİŞTİ ***"
     }`,
   );
   await baglam.close();

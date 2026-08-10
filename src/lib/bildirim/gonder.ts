@@ -1,4 +1,7 @@
-import type { GonderimKanali } from "@/generated/prisma/enums";
+import type {
+  BildirimHedefTipi,
+  GonderimKanali,
+} from "@/generated/prisma/enums";
 import { prisma } from "../db";
 
 /**
@@ -18,11 +21,24 @@ import { smsKopyasiGonder } from "./sms-kopyasi";
 export { BILDIRIM_KODLARI, sablonuDoldur };
 export type { BildirimKodu };
 
+/**
+ * Bildirimin gidilecek kaydı — panelde "Etkinliğe git" düğmesine dönüşür.
+ *
+ * İSTEĞE BAĞLI: hedefi olmayan bildirim (danışman değişikliği, toplu duyuru)
+ * olağandır. Verildiğinde bildirimle birlikte YAZILIR; okuma tarafında metinden
+ * çıkarılmaya çalışılmaz (bkz. migration 20260810130000_bildirim_hedefi).
+ */
+export interface BildirimHedefi {
+  tip: BildirimHedefTipi;
+  id: number;
+}
+
 export interface BildirimIstegi {
   kullaniciId: number;
   kod: BildirimKodu;
   degiskenler?: Record<string, string>;
   kanal?: GonderimKanali;
+  hedef?: BildirimHedefi;
 }
 
 export async function bildirimGonder(istek: BildirimIstegi): Promise<void> {
@@ -70,6 +86,8 @@ export async function bildirimGonder(istek: BildirimIstegi): Promise<void> {
       tip: istek.kod,
       baslik,
       icerik,
+      hedefTip: istek.hedef?.tip ?? null,
+      hedefId: istek.hedef?.id ?? null,
       gonderimKanali: istek.kanal ?? "SISTEM",
     },
     select: { id: true },
@@ -103,6 +121,7 @@ export async function bildirimGonder(istek: BildirimIstegi): Promise<void> {
 export async function projeYoneticilerineBildir(
   kod: BildirimKodu,
   degiskenler: Record<string, string> = {},
+  hedef?: BildirimHedefi,
 ): Promise<void> {
   const yoneticiler = await prisma.kullaniciRol.findMany({
     where: { rolKodu: "PROJE_YONETICISI", bitisTarihi: null },
@@ -114,6 +133,7 @@ export async function projeYoneticilerineBildir(
       kullaniciId: yonetici.kullaniciId,
       kod,
       degiskenler,
+      hedef,
     });
   }
 }
@@ -134,6 +154,7 @@ export async function ilKoordinatorlerineBildir(
   ilKodu: string | null,
   kod: BildirimKodu,
   degiskenler: Record<string, string> = {},
+  hedef?: BildirimHedefi,
 ): Promise<number> {
   if (!ilKodu) return 0;
 
@@ -147,6 +168,7 @@ export async function ilKoordinatorlerineBildir(
       kullaniciId: koordinator.kullaniciId,
       kod,
       degiskenler,
+      hedef,
     });
   }
 

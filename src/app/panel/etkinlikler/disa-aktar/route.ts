@@ -14,6 +14,7 @@ import {
 } from "@/lib/faaliyet/kurallar";
 import { csvBelgesi, csvYaniti } from "@/lib/rapor/csv";
 import { tarihYaz } from "@/lib/tarih";
+import { faaliyetDisaAktarabilirMi } from "@/lib/yetki/izinler";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import type { SorguParametreleri } from "../../ogrenciler/filtreler";
 import { faaliyetFiltreleriniCoz, faaliyetListeFiltresi } from "../filtreler";
@@ -51,6 +52,11 @@ const BASLIKLAR = [
 export async function GET(istek: Request) {
   const kullanici = await oturumKullanicisi();
   if (!kullanici) {
+    return new Response("Bulunamadı", { status: 404 });
+  }
+  // CSV öğrencide yok; ekrandaki bağlantıyı gizlemek yetmez, adres çubuğundan
+  // gelen istek de dosyayı almamalı (bkz. faaliyetDisaAktarabilirMi).
+  if (!faaliyetDisaAktarabilirMi(kullanici)) {
     return new Response("Bulunamadı", { status: 404 });
   }
 

@@ -857,10 +857,10 @@ açılmıyor.
 
 ---
 
-## 🟡 S22 — Market: "DİLİM" nedir, "indirilme sayısı" neyi sayacak? — KISMEN CEVAPLANDI
+## ✅ S22 — Market: "DİLİM" nedir, "indirilme sayısı" neyi sayacak? — CEVAPLANDI
 
-**İlgili madde:** I · **Durum:** Market yapıldı; **DİLİM'in tanımı bekleniyor**
-(aşağıda "Kısmî karar")
+**İlgili madde:** I · **Durum:** Market yapıldı; DİLİM 10 Ağustos 2026'da
+kaldırıldı (aşağıda "Kısmî karar")
 
 > **Talepte yazan:** "Ürün Listele: Kendi Ürünlerim, Öğrenci ürünleri, Öğretmen
 > Ürünleri, **DİLİM** vb" · "Ürünlerin görüntülenme sayıları, indirilme sayıları
@@ -911,16 +911,25 @@ bağlantısına gitmektir.
 > bir sütun olur; bu sayaç anlamını korur. **Soru hâlâ açık:** başka bir şey
 > sayılması isteniyorsa değişecek yer iki sütun ve market ekranıdır.
 
-**1 ve 2 — DİLİM HÂLÂ AÇIK.** Ne olduğu çözülemedi; sistemde böyle bir kavram
-yok. Diğer üç süzgeç kaydın SAHİBİNE bakarak süzüyor, DİLİM ise bir rol değil
-program/kategori adı gibi duruyor. Öyleyse ürüne bir kategori alanı gerekir —
-ama hangi kategoriler olduğu, kimin atadığı ve zorunlu olup olmadığı bilinmeden
-o alan açılamaz; uydurma bir kategori sonradan elle temizlenecek veri üretirdi.
+**1 ve 2 — KAPANDI (10 Ağustos 2026): DİLİM KALDIRILDI.**
 
-Süzgeç **listede duruyor ama seçilemiyor**, nedeni ekranda yazılı. Gizlenseydi
-istekte sayılmış bir başlık unutulmuş gibi görünürdü. Tanım geldiğinde
-`MARKET_SUZGECLERI` içindeki bayrak kalkıyor ve `urunleriSuz`'e bir dal
-ekleniyor — "vb" ile kastedilen başka listeler varsa aynı yerden ekleniyor.
+İstek: *"dilim kalkacak, kendi ürünlerim ürünlerim olacak, öğrenci ve öğretmen
+ürünleri ayrı olmayacak."*
+
+Ne olduğu hiç tanımlanmadı ve süzgeç aylarca "tanım bekleniyor" etiketiyle
+ekranda durdu; beklemeye devam etmek yerine kaldırıldı. Aynı turda rol bazlı
+iki süzgeç de (Öğrenci ürünleri / Öğretmen ürünleri) kalktı: market bir ÜRÜN
+vitrinidir, bir uygulamanın işe yarayıp yaramaması onu yazanın öğrenci mi
+öğretmen mi olduğuna bakmaz; ayrım ayrıca mezun/paydaş ürününü iki sekmenin de
+dışında bırakıyordu.
+
+**Kalan iki süzgeç:** "Tüm ürünler" ve "Ürünlerim". Kaydın sahibi kartın
+üstünde yazmaya devam ediyor (ad + "Öğrenci/Öğretmen/Ekosistem ürünü") —
+bilgi duruyor, vitrini bölen süzgeç kalkıyor. Eski `?suzgec=` adresleri
+sessizce vitrine düşüyor.
+
+DİLİM'in tanımı bir gün gelirse iş, ürüne bir kategori alanı açmak ve
+`MARKET_SUZGECLERI`'ne yeni bir satır eklemektir.
 
 ---
 

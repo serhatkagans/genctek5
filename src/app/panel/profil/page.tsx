@@ -814,19 +814,20 @@ export default async function ProfilSayfasi({
           aciklama={
             ogrenci
               ? "GençTek dışında yaptıkların: ürünlerin, deneyimlerin ve toplulukların."
-              : "GençTek dışı etkinlikler, geliştirdiğiniz ürünler, verdiğiniz eğitimler ve derece aldığınız yarışmalar."
+              : "Geliştirdiğiniz uygulama, materyal ve diğer üretimleriniz."
           }
           Ikon={Sparkles}
         />
         {/*
-          ÜÇ GRUP, İKİ ROLDE DE (7 Ağustos 2026): Ürünlerim · Deneyimlerim ·
-          Topluluklarım/Ekiplerim. Yedi tip bu üç başlık altında toplanıyor;
-          tipler birleştirilmedi, yalnızca gruplandı (bkz.
-          lib/kazanim/kurallar.ts · BILISIM_YOLCULUGU_GRUPLARI).
+          ÜÇ GRUP ÖĞRENCİDE, TEK GRUP ÖĞRETMENDE (10 Ağustos 2026 · istek:
+          "bu bölümde sadece ürünlerim olsun, öğretmen için Deneyimlerim ve
+          Topluluklarım / Ekiplerim kalksın").
 
-          Öğretmen listesinde de aynı gruplama var çünkü istek öğretmen
-          profilinde de "Ürünlerim"i ayrı bir başlık olarak sayıyor; etiketler
-          `sahip` ile öğretmene göre değişiyor.
+          Hangi grubun kime gösterildiği TEK YERDE duruyor
+          (lib/kazanim/kurallar.ts · BILISIM_YOLCULUGU_GRUPLARI · `sahipler`),
+          burada ayrıca dallanma yok: aynı liste Panelim'deki giriş formunu da
+          besliyor ve iki yerde ayrı ayrı süzülseydi biri diğerinden ayrışıp
+          "girebildiğim ama profilimde göremediğim kayıt" durumunu doğururdu.
         */}
         <KazanimGruplari kazanimlar={kayit.kazanimlar} sahip={kazanimSahibi} />
         <PaneldenDuzenleBaglantisi
@@ -834,6 +835,46 @@ export default async function ProfilSayfasi({
           etiket="Kayıtlarımı Panelim'den düzenle →"
         />
       </Kart>
+
+      {/*
+        MENTÖRLÜĞÜM — 10 Ağustos 2026 · istek: "panelde mentörlük ekleme var,
+        yaptığı mentörlükler profilde gözüksün, Ürünlerim ve katkılarım
+        kısmının altına gelsin".
+
+        Kart profilin SONUNDAYDI (Rotam'dan da sonra) ve pratikte kimse oraya
+        kadar inmiyordu. Yeri artık burası: mentörlük de kişinin ekosisteme
+        verdiği bir katkı, ürünlerin hemen ardından okunması doğru.
+
+        Yalnızca kaydı olanda basılır. Hiç başvurmamış birine boş bir kart
+        göstermek, doldurulacak bir şey varmış izlenimi verirdi; başvurunun
+        yeri zaten Panel.
+      */}
+      {mentorluk && (
+        <Kart>
+          <KartBasligi
+            baslik={ogrenci ? "Mentörlüğüm" : "Mentörlük Alanlarım"}
+            aciklama="Bildiğiniz konularda öğrencilere yol gösterirsiniz. Panodaki 'Mentöre sor' ilanlarında görünürsünüz."
+            Ikon={GraduationCap}
+          />
+          <p className="flex flex-wrap items-center gap-2 text-metin">
+            <span
+              className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${MENTORLUK_DURUM_SINIFLARI[mentorluk.durum]}`}
+            >
+              {MENTORLUK_DURUM_ETIKETLERI[mentorluk.durum]}
+            </span>
+            {mentorKapsamiYaz(mentorluk.grupAdlari, mentorluk.konular) || "—"}
+          </p>
+          {mentorluk.durum === "REDDEDILDI" && mentorluk.retGerekcesi && (
+            <p className="mt-2 text-sm text-hata-metin">
+              Gerekçe: {mentorluk.retGerekcesi}
+            </p>
+          )}
+          <PaneldenDuzenleBaglantisi
+            capa="mentorlugum"
+            etiket="Mentörlüğümü Panel'den düzenle →"
+          />
+        </Kart>
+      )}
 
       {/*
         KATKI NİŞANLARIM — öğretmende de basılır (7 Ağustos 2026).
@@ -897,38 +938,6 @@ export default async function ProfilSayfasi({
         "Rotam" — istekteki profil sırasının SONUNCUSU. Yolculuk kartlarından
         sonra gelmesi anlamlı: yukarısı yapılanlar, burası yapılacaklar.
       */}
-      {/*
-        MENTÖRLÜĞÜM — yalnızca kaydı olanda basılır. Hiç başvurmamış birine boş
-        bir kart göstermek, doldurulacak bir şey varmış izlenimi verirdi;
-        başvurunun yeri zaten Panel.
-      */}
-      {mentorluk && (
-        <Kart>
-          <KartBasligi
-            baslik={ogrenci ? "Mentörlüğüm" : "Mentörlük Alanlarım"}
-            aciklama="Bildiğiniz konularda öğrencilere yol gösterirsiniz. Panodaki 'Mentöre sor' ilanlarında görünürsünüz."
-            Ikon={GraduationCap}
-          />
-          <p className="flex flex-wrap items-center gap-2 text-metin">
-            <span
-              className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${MENTORLUK_DURUM_SINIFLARI[mentorluk.durum]}`}
-            >
-              {MENTORLUK_DURUM_ETIKETLERI[mentorluk.durum]}
-            </span>
-            {mentorKapsamiYaz(mentorluk.grupAdlari, mentorluk.konular) || "—"}
-          </p>
-          {mentorluk.durum === "REDDEDILDI" && mentorluk.retGerekcesi && (
-            <p className="mt-2 text-sm text-hata-metin">
-              Gerekçe: {mentorluk.retGerekcesi}
-            </p>
-          )}
-          <PaneldenDuzenleBaglantisi
-            capa="mentorlugum"
-            etiket="Mentörlüğümü Panel'den düzenle →"
-          />
-        </Kart>
-      )}
-
       <RotamKarti hedefler={hedefler} duzenlemeYolu="/panel#rotam" />
 
       {/*

@@ -10,6 +10,7 @@ import {
   paydasGorebilirMi,
   paydasYonetebilirMi,
   faaliyetAcabilirMi,
+  faaliyetDisaAktarabilirMi,
   faaliyetGorunurMu,
   faaliyetIptalEdebilirMi,
   faaliyetOnayGerekiyorMu,
@@ -507,6 +508,22 @@ describe("faaliyet iptali", () => {
   });
 });
 
+describe("etkinlik listesinin CSV çıktısı", () => {
+  // 10 Ağustos 2026 · istek: "öğrenci etkinliklerinde CSV indir kalkacak".
+  it("öğrenci etkinlik listesini dışa aktaramaz", () => {
+    expect(faaliyetDisaAktarabilirMi(ogrenciYap())).toBe(false);
+  });
+
+  it("öğretmen, koordinatör, merkez ve dış kullanıcı dışa aktarabilir", () => {
+    expect(faaliyetDisaAktarabilirMi(danismanYap())).toBe(true);
+    expect(faaliyetDisaAktarabilirMi(rolsuzOgretmenYap())).toBe(true);
+    expect(faaliyetDisaAktarabilirMi(koordinatorYap())).toBe(true);
+    expect(faaliyetDisaAktarabilirMi(projeYoneticisiYap())).toBe(true);
+    expect(faaliyetDisaAktarabilirMi(mezunYap())).toBe(true);
+    expect(faaliyetDisaAktarabilirMi(paydasTemsilcisiYap())).toBe(true);
+  });
+});
+
 describe("rol ve görev atama", () => {
   it("il koordinatörünü yalnızca proje yöneticisi atar", () => {
     expect(ilKoordinatorAtayabilirMi(projeYoneticisiYap())).toBe(true);
@@ -516,9 +533,31 @@ describe("rol ve görev atama", () => {
 
   it("okul temsilcisini danışman yalnızca kendi okulunda atar", () => {
     const danisman = danismanYap({ kurumKodu: 750001 });
-    expect(okulTemsilcisiAtayabilirMi(danisman, 750001)).toBe(true);
-    expect(okulTemsilcisiAtayabilirMi(danisman, 750002)).toBe(false);
-    expect(okulTemsilcisiAtayabilirMi(koordinatorYap(), 750001)).toBe(false);
+    expect(okulTemsilcisiAtayabilirMi(danisman, 750001, true)).toBe(true);
+    expect(okulTemsilcisiAtayabilirMi(danisman, 750002, true)).toBe(false);
+    expect(okulTemsilcisiAtayabilirMi(koordinatorYap(), 750001, true)).toBe(
+      false,
+    );
+  });
+
+  /*
+   * 10 AĞUSTOS 2026 · istek: "danışmanı olmadığı öğrenciyi okul temsilcisi
+   * yapabiliyor, bu bir tezat."
+   *
+   * Öğretmen okulundaki danışmansız öğrencileri de listeliyor; GÖRMEK ile
+   * GÖREV VERMEK ayrı yetkiler.
+   */
+  it("danışman, danışmanlığında olmayan öğrenciye okul temsilciliği veremez", () => {
+    const danisman = danismanYap({ kurumKodu: 750001 });
+    expect(okulTemsilcisiAtayabilirMi(danisman, 750001, false)).toBe(false);
+  });
+
+  it("proje yöneticisine danışmanlık koşulu sorulmaz", () => {
+    // Merkezin danışmanlığı yoktur; okulda danışman kalmadığında düzeltmeyi
+    // yapabilecek tek kişi odur.
+    expect(okulTemsilcisiAtayabilirMi(projeYoneticisiYap(), 750001, false)).toBe(
+      true,
+    );
   });
 
   it("il temsilcisini koordinatör yalnızca kendi ilinde atar", () => {

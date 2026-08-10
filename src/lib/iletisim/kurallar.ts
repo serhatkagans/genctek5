@@ -74,6 +74,25 @@ export const TALEP_TURU_ETIKETLERI: Record<TalepTuru, string> = {
 /** Türü olmayan eski ilanlar için filtre ve rozet etiketi. */
 export const TALEP_TURU_BELIRTILMEMIS = "Tür belirtilmemiş";
 
+/**
+ * PANODAN AÇILABİLEN TÜRLER (10 Ağustos 2026 · istek: panoda "alt alta iki
+ * alan olacak … biri destek talebi aç diğeri mentör talebi aç").
+ *
+ * Ekranda tür seçimi kalmadı: iki ayrı form var ve türü form belirliyor. Gizli
+ * form alanı kurcalanabilir bir alandır, o yüzden kapı sunucuda da duruyor —
+ * ekrandan kaldırılan bir seçeneğin istekle geri gelebilmesi, kaldırılmamış
+ * olması demektir.
+ *
+ * KALAN TÜRLER OKUNMAYA DEVAM EDER: ekip arkadaşı, genel ve sponsor ilanları
+ * panoda listeleniyor, rozetleri basılıyor ve tür süzgecinde seçilebiliyor;
+ * yalnızca YENİSİ açılamıyor. Bu ayrım bilinçli — açılmış ilanları görünmez
+ * yapmak, sahiplerinin beklediği bağlantıyı sessizce keserdi.
+ */
+export const PANODAN_ACILABILIR_TURLER: TalepTuru[] = [
+  "TEKNIK_DESTEK",
+  "MENTORE_SOR",
+];
+
 export function talepTuruGecerliMi(deger: string): deger is TalepTuru {
   return (TALEP_TURLERI as string[]).includes(deger);
 }
@@ -114,6 +133,14 @@ export function talebiCoz(girdi: TalepGirdisi, simdi: Date): TalepKarari {
     return { olurMu: false, neden: "Talep türü anlaşılamadı." };
   }
   const tur: TalepTuru = ham;
+  // Ekranda seçim yok; tür gizli alandan geliyor ve kapı burada duruyor
+  // (bkz. PANODAN_ACILABILIR_TURLER).
+  if (!PANODAN_ACILABILIR_TURLER.includes(tur)) {
+    return {
+      olurMu: false,
+      neden: "Panodan yalnızca destek talebi ve mentör talebi açılabilir.",
+    };
+  }
 
   if (!baslik) return { olurMu: false, neden: "İlan başlığı boş bırakılamaz." };
   if (baslik.length > TALEP_BASLIK_MAKS) {

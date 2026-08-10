@@ -1,5 +1,13 @@
-import { Filter, Handshake, Megaphone, Plus, X } from "lucide-react";
+import {
+  Filter,
+  GraduationCap,
+  Handshake,
+  LifeBuoy,
+  Megaphone,
+  X,
+} from "lucide-react";
 import Link from "next/link";
+import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import {
   BilgiKutusu,
   Kart,
@@ -19,7 +27,7 @@ import {
   TALEP_TURU_ETIKETLERI,
   talepTuruGecerliMi,
 } from "@/lib/iletisim/kurallar";
-import type { TalepTuru } from "@/generated/prisma/enums";
+import type { RolKodu, TalepTuru } from "@/generated/prisma/enums";
 import { girdiTarihi, tarihYaz } from "@/lib/tarih";
 import { talepPanosuGorebilirMi } from "@/lib/yetki/izinler";
 import { baglantiIstegiGonderEylemi } from "../baglantilar/eylemler";
@@ -30,9 +38,13 @@ export const dynamic = "force-dynamic";
 /**
  * Pano (eski adıyla Talep Panosu) — analiz isteği Bölüm 6, Aşama 1.
  *
- * İLAN PANOSUDUR, mesajlaşma değil: öğrenci "şu alan için takım arkadaşı
- * arıyorum" diye ilan açar, kapsamındakiler görür. Kişiden kişiye temas
+ * İLAN PANOSUDUR, mesajlaşma değil: kullanıcı "şu konuda desteğe ihtiyacım
+ * var" diye talep açar, panoyu gören herkes okur. Kişiden kişiye temas
  * içermediği için modülün en düşük riskli parçası ve tek başına işe yarıyor.
+ *
+ * 10 AĞUSTOS 2026'DAN İTİBAREN İKİ TALEP TÜRÜ AÇILIR: destek talebi ve mentör
+ * talebi (bkz. PANODAN_ACILABILIR_TURLER). Daha önce açılmış ekip arkadaşı,
+ * genel ve sponsor ilanları listede ve tür süzgecinde durmaya devam eder.
  *
  * Pano KAPSAM FİLTRESİZ: ilanlar ülke genelinde görünür. Amaç zaten farklı
  * illerden öğrencilerin birbirini bulması; il sınırı konsaydı pano kendi
@@ -40,8 +52,101 @@ export const dynamic = "force-dynamic";
  * bilgisi bağlantı onaylanmadan paylaşılmaz.
  */
 
+/**
+ * Talebi açanın rol kodları — aynı rolden birden fazla kayıt varsa (ör. iki
+ * okulda danışmanlık) rozet iki kez basılmasın diye tekilleştirilir.
+ */
+function acanRolleri(roller: { rolKodu: RolKodu }[]): RolKodu[] {
+  return [...new Set(roller.map((rol) => rol.rolKodu))];
+}
+
+/**
+ * Panodaki talep formu. Aynı gövde iki kartta kullanılıyor; türü kart
+ * belirliyor ve gizli alanla gönderiliyor.
+ *
+ * TÜR SEÇİMİ KALKTI (10 Ağustos 2026 · istek: "Talep türü kalkacak … alt alta
+ * iki alan olacak, ikisi birleşik olmayacak, biri destek talebi aç diğeri
+ * mentör talebi aç"). Sadeleşmenin özü bu: kullanıcı "hangi türü seçmeliyim"
+ * sorusuna hiç girmiyor, doldurduğu kart cevabı zaten veriyor.
+ *
+ * ÇALIŞMA ALANI DA KALKTI (aynı istek). Sütun ve rozet duruyor — daha önce
+ * alanı seçilmiş ilanlar panoda etiketli görünmeye devam ediyor — yalnızca
+ * yeni talepte sorulmuyor.
+ *
+ * BUNUN SONUCU: panodan artık yalnızca bu iki tür talep açılabiliyor. Ekip
+ * arkadaşı / genel / sponsor ilanları açılmıyor; var olanlar listede ve tür
+ * süzgecinde duruyor (10 Ağustos 2026'da açıkça böyle istendi).
+ */
+function TalepFormu({
+  tur,
+  baslik,
+  aciklama,
+  Ikon,
+  yerTutucu,
+  dugmeMetni,
+  simdi,
+}: {
+  tur: TalepTuru;
+  baslik: string;
+  aciklama: string;
+  Ikon: React.ComponentType<{ size?: number; className?: string }>;
+  yerTutucu: string;
+  dugmeMetni: string;
+  simdi: Date;
+}) {
+  return (
+    <Kart>
+      <KartBasligi baslik={baslik} aciklama={aciklama} Ikon={Ikon} />
+      <form action={talepAcEylemi} className="space-y-4">
+        <input type="hidden" name="tur" value={tur} />
+        <label className="block">
+          <span className="text-sm font-medium text-metin">Başlık</span>
+          <input
+            type="text"
+            name="baslik"
+            required
+            maxLength={200}
+            className={SINIF_GIRDI}
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium text-metin">Talep metni</span>
+          <textarea
+            name="icerik"
+            required
+            rows={4}
+            maxLength={2000}
+            placeholder={yerTutucu}
+            className={SINIF_GIRDI}
+          />
+          <span className="mt-1 block text-sm text-metin-yumusak">
+            Telefon numarası, adres gibi iletişim bilgilerinizi metne YAZMAYIN.
+            Bağlantı onaylandığında sistem üzerinden yazışırsınız.
+          </span>
+        </label>
+        <label className="block sm:w-64">
+          <span className="text-sm font-medium text-metin">Son geçerlilik</span>
+          <input
+            type="date"
+            name="sonGecerlilik"
+            required
+            defaultValue={girdiTarihi(
+              new Date(simdi.getTime() + 30 * 86_400_000),
+            )}
+            className={SINIF_GIRDI}
+          />
+        </label>
+        <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+          <Ikon size={16} />
+          {dugmeMetni}
+        </button>
+      </form>
+    </Kart>
+  );
+}
+
 const DURUM_MESAJLARI: Record<string, string> = {
-  acildi: "İlanınız panoya eklendi.",
+  acildi: "Talebiniz panoya eklendi.",
   "istek-gonderildi":
     "Bağlantı isteğiniz gönderildi. Danışman öğretmeniniz ya da il koordinatörünüz onayladığında yazışma açılır.",
   kapatildi: "İlanınız kapatıldı; listede görünmüyor.",
@@ -116,6 +221,17 @@ export default async function TaleplerSayfasi({
             brans: true,
             kurum: { select: { ad: true } },
             il: { select: { ad: true } },
+            /*
+              TALEBİ KİM AÇTI (10 Ağustos 2026 · istek: "talebi öğretmen mi
+              öğrenci mi açmış görünsün"). Sınıf/branş alanı dolaylı bir
+              ipucuydu ve ikisi de boşsa hiçbir şey söylemiyordu; rol açıkça
+              yazılıyor. Yalnızca SÜREN roller — görevi bitmiş bir öğretmeni
+              hâlâ danışman diye göstermek yanlış olurdu.
+            */
+            roller: {
+              where: { bitisTarihi: null },
+              select: { rolKodu: true },
+            },
           },
         },
       },
@@ -222,101 +338,33 @@ export default async function TaleplerSayfasi({
         </button>
       </form>
 
+      {/*
+        İKİ AYRI FORM, ALT ALTA (10 Ağustos 2026 · istek: "burada alt alta iki
+        alan olacak ikisi birleşik olmayacak"). Tek formda tür seçtirmek,
+        kullanıcıyı talebini yazmadan önce bir sınıflandırma kararına
+        zorluyordu; iki kart bu kararı ortadan kaldırıyor.
+      */}
       {acabilir && (
-        <Kart>
-          <KartBasligi
-            baslik="Yeni ilan"
-            aciklama={`En fazla ${TALEP_AZAMI_GUN} gün geçerli olur; süresi dolunca panodan düşer.`}
-            Ikon={Plus}
+        <>
+          <TalepFormu
+            tur="TEKNIK_DESTEK"
+            baslik="Destek talebi aç"
+            aciklama={`Takıldığınız bir konuda yardım isteyin. En fazla ${TALEP_AZAMI_GUN} gün geçerli olur; süresi dolunca panodan düşer.`}
+            Ikon={LifeBuoy}
+            yerTutucu="Hangi konuda desteğe ihtiyacınız olduğunu yazın."
+            dugmeMetni="Destek talebi aç"
+            simdi={simdi}
           />
-          <form action={talepAcEylemi} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              {/*
-                Tür ZORUNLU (yeni ilanlarda). Seçilemez bir yer tutucu
-                kullanılıyor: `required` tek başına, ilk seçenek geçerli bir
-                değer olduğunda hiçbir şey yapmaz. Eski ilanlar etkilenmez,
-                sütun NULL kabul etmeye devam ediyor.
-              */}
-              <label className="block">
-                <span className="text-sm font-medium text-metin">
-                  Talep türü
-                </span>
-                <select
-                  name="tur"
-                  required
-                  defaultValue=""
-                  className={SINIF_GIRDI}
-                >
-                  <option value="" disabled>
-                    Seçiniz
-                  </option>
-                  {TALEP_TURLERI.map((deger) => (
-                    <option key={deger} value={deger}>
-                      {TALEP_TURU_ETIKETLERI[deger]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-metin">Başlık</span>
-                <input
-                  type="text"
-                  name="baslik"
-                  required
-                  maxLength={200}
-                  className={SINIF_GIRDI}
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-metin">
-                  Çalışma alanı{" "}
-                  <span className="text-metin-yumusak">(isteğe bağlı)</span>
-                </span>
-                <select name="calismaGrubuId" defaultValue="" className={SINIF_GIRDI}>
-                  <option value="">Seçilmedi</option>
-                  {gruplar.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.ad}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="block">
-              <span className="text-sm font-medium text-metin">İlan metni</span>
-              <textarea
-                name="icerik"
-                required
-                rows={4}
-                maxLength={2000}
-                placeholder="Ne yapmak istediğinizi ve nasıl bir arkadaş aradığınızı yazın."
-                className={SINIF_GIRDI}
-              />
-              <span className="mt-1 block text-sm text-metin-yumusak">
-                Telefon numarası, adres gibi iletişim bilgilerinizi ilan metnine
-                YAZMAYIN. Bağlantı onaylandığında sistem üzerinden yazışırsınız.
-              </span>
-            </label>
-            <label className="block sm:w-64">
-              <span className="text-sm font-medium text-metin">
-                Son geçerlilik
-              </span>
-              <input
-                type="date"
-                name="sonGecerlilik"
-                required
-                defaultValue={girdiTarihi(
-                  new Date(simdi.getTime() + 30 * 86_400_000),
-                )}
-                className={SINIF_GIRDI}
-              />
-            </label>
-            <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-              <Megaphone size={16} aria-hidden />
-              İlanı yayınla
-            </button>
-          </form>
-        </Kart>
+          <TalepFormu
+            tur="MENTORE_SOR"
+            baslik="Mentör talebi aç"
+            aciklama={`Yol gösterecek bir mentöre sorun. En fazla ${TALEP_AZAMI_GUN} gün geçerli olur; süresi dolunca panodan düşer.`}
+            Ikon={GraduationCap}
+            yerTutucu="Hangi alanda yol göstermesini istediğinizi yazın."
+            dugmeMetni="Mentör talebi aç"
+            simdi={simdi}
+          />
+        </>
       )}
 
       {kendiTalepleri.length > 0 && (
@@ -360,7 +408,9 @@ export default async function TaleplerSayfasi({
           </p>
         ) : (
           <ul className="space-y-4">
-            {talepler.map((talep) => (
+            {talepler.map((talep) => {
+              const roller = acanRolleri(talep.acan.roller);
+              return (
               <li key={talep.id} className="rounded-kart border border-cizgi p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="font-semibold text-baslik">{talep.baslik}</h3>
@@ -386,15 +436,31 @@ export default async function TaleplerSayfasi({
                 <p className="mt-2 whitespace-pre-line text-metin">
                   {talep.icerik}
                 </p>
-                <p className="mt-3 text-sm text-metin-yumusak">
-                  {talep.acan.ad} {talep.acan.soyad}
-                  {" · "}
-                  {talep.acan.sinif ?? talep.acan.brans ?? "—"}
-                  {" · "}
-                  {talep.acan.kurum?.ad ?? talep.acan.il?.ad ?? "—"}
-                  {" · "}
-                  {tarihYaz(talep.sonGecerlilik)} tarihine kadar
-                </p>
+                {/*
+                  Rol rozeti adın YANINDA duruyor, satırın sonunda değil:
+                  panoda okunan ilk şey "bunu kim yazmış" ve bir öğrencinin
+                  destek talebiyle öğretmenin talebi aynı ağırlıkta değil.
+                  Rolsüz öğretmen de nötr bir etiketle görünür — etiketsiz
+                  bırakılsaydı öğrenci sanılırdı.
+                */}
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-metin-yumusak">
+                  {roller.length > 0 ? (
+                    roller.map((rolKodu) => (
+                      <RolEtiketi key={rolKodu} rolKodu={rolKodu} />
+                    ))
+                  ) : (
+                    <RolsuzEtiketi />
+                  )}
+                  <span>
+                    {talep.acan.ad} {talep.acan.soyad}
+                    {" · "}
+                    {talep.acan.sinif ?? talep.acan.brans ?? "—"}
+                    {" · "}
+                    {talep.acan.kurum?.ad ?? talep.acan.il?.ad ?? "—"}
+                    {" · "}
+                    {tarihYaz(talep.sonGecerlilik)} tarihine kadar
+                  </span>
+                </div>
 
                 {/*
                   Kendi ilanına istek gönderilmez. İletişim bilgisi burada
@@ -427,7 +493,8 @@ export default async function TaleplerSayfasi({
                   </form>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </Kart>

@@ -4,12 +4,21 @@ import {
   Download,
   FileText,
   Filter,
+  LayoutGrid,
+  List,
   MapPin,
   Plus,
   Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
+import type {
+  BasvuruDurumu,
+  EtkinlikKategorisi,
+  FaaliyetDurumu,
+  Kapsam,
+  OnayDurumu,
+} from "@/generated/prisma/enums";
 import {
   BasvuruRozeti,
   FaaliyetDurumuRozeti,
@@ -23,7 +32,6 @@ import {
   Kart,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
-  SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
@@ -35,13 +43,16 @@ import {
   faaliyetAcmaYetkisiVarMi,
   KAPSAM_ETIKETLERI,
   KAPSAMLAR,
+  type KontenjanDurumu,
   kontenjanDurumu,
+  type PencereDurumu,
 } from "@/lib/faaliyet/kurallar";
 import { tarihYaz } from "@/lib/tarih";
 import {
   basvuruYapabilirMi,
   danismanMi,
   disKullaniciMi,
+  faaliyetDisaAktarabilirMi,
   ilKoordinatoruMu,
   ogrenciMi,
   projeYoneticisiMi,
@@ -50,6 +61,7 @@ import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import {
   type SorguParametreleri,
   sorguMetni,
+  tekil,
 } from "../ogrenciler/filtreler";
 import {
   faaliyetFiltreleriniCoz,
@@ -68,9 +80,271 @@ export const dynamic = "force-dynamic";
  * ya da kapsam dışı bir faaliyeti görünür yapmaz.
  */
 
+/**
+ * Kırmızı düğme — bu sayfanın başlık düğmeleri için (10 Ağustos 2026).
+ *
+ * ui.tsx'e genel bir varyant olarak EKLENMEDİ: kırmızı bu projede "hata" ve
+ * "geri alınamaz işlem" rengi; paylaşılan bir düğme sınıfı hâline gelseydi
+ * silme düğmeleriyle aynı dili konuşan bir gezinme düğmesi ortaya çıkardı.
+ * Burada istenen şey vurgu, uyarı değil — o yüzden yerel kalıyor.
+ */
+const SINIF_KIRMIZI_BUTON =
+  "inline-flex items-center gap-2 rounded-md border border-hata-cizgi bg-hata-zemin px-4 py-2 text-sm font-semibold text-hata-metin transition hover:border-hata-metin";
+
 const SINIF_ETIKET = "text-sm font-medium text-metin-yumusak";
 const SINIF_SECIM =
   "mt-1 w-full rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu";
+
+/**
+ * İki görünümün paylaştığı kart verisi.
+ *
+ * Kontenjan, pencere ve "raporu bekliyor" hesapları listeyle ızgarada AYNI
+ * olmalı; sorgudan çıkan satır iki yerde ayrı ayrı yorumlansaydı, aynı
+ * etkinlik iki görünümde farklı rozet gösterebilirdi. Bu yüzden hesap bir kez
+ * yapılır ve iki görünüm de bu yapıyı alır.
+ */
+interface EtkinlikKarti {
+  id: number;
+  ad: string;
+  aciklama: string;
+  tarih: Date;
+  duzenleyenBirim: string;
+  kapsam: Kapsam;
+  etkinlikKategorisi: EtkinlikKategorisi;
+  durum: FaaliyetDurumu;
+  onayDurumu: OnayDurumu;
+  calismaGruplari: { id: number; ad: string }[];
+  /** Silinmemiş kapak; yoksa null (ızgarada başlık afişin yerine geçer). */
+  kapak: { id: number; dosyaAdi: string } | null;
+  kontenjan: KontenjanDurumu;
+  pencere: PencereDurumu;
+  benimBasvurum: BasvuruDurumu | null;
+  raporBekliyor: boolean;
+  benimActigim: boolean;
+}
+
+function RaporRozeti() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-uyari-zemin px-2.5 py-0.5 text-xs font-medium text-uyari-metin">
+      <FileText size={12} aria-hidden />
+      Raporu bekliyor
+    </span>
+  );
+}
+
+/** Rozet şeridi; iki görünümde de aynı sırayla basılır. */
+function Rozetler({ kart }: { kart: EtkinlikKarti }) {
+  return (
+    <>
+      <KategoriRozeti kategori={kart.etkinlikKategorisi} />
+      <KapsamRozeti kapsam={kart.kapsam} />
+      <FaaliyetDurumuRozeti durum={kart.durum} />
+      <OnayRozeti onayDurumu={kart.onayDurumu} />
+      <PencereRozeti pencere={kart.pencere} />
+      {kart.benimBasvurum && <BasvuruRozeti durum={kart.benimBasvurum} />}
+      {/*
+        RAPOR ROZETİ (J3): "raporu bekleyenler" filtresi açıkken hangi kaydın
+        neden listelendiği görünmeli; filtresiz listede de bitmiş ama raporsuz
+        etkinlik gözden kaçmasın. Yalnızca rapor yazabilenlere basılır
+        (koşul kartı hazırlarken uygulandı).
+      */}
+      {kart.raporBekliyor && <RaporRozeti />}
+    </>
+  );
+}
+
+/**
+ * IZGARA GÖRÜNÜMÜ — varsayılan (10 Ağustos 2026 · istek: "etkinlikler
+ * Instagram profilindeki gibi yan yana alt alta görünsün, üstüne gelince
+ * yazısı açıklaması çıksın").
+ *
+ * AFİŞ KIRPILMIYOR: kare kutunun içinde object-contain duruyor, object-cover
+ * değil. Aynı gün alınmış "resim banner gibi görünmesin, afişin tamamı
+ * gözüksün" kararı ızgarada da geçerli — Instagram kareyi kırpar, buradaki
+ * görseller ise üstünde tarih ve başlık yazan afişler; kırpılan köşe bilgi
+ * kaybıdır. Artan yer zemin rengiyle dolar.
+ *
+ * ÜSTÜNE GELİNCE açıklama katmanı açılır. Katman fare olmayan cihazda hiç
+ * açılmaz; o yüzden kapaklı kartın altında başlık ŞERİDİ her zaman durur ve
+ * dokunmatikte açıklamaya erişmenin iki yolu kalır: karta dokunup detaya
+ * gitmek ya da liste görünümüne geçmek.
+ */
+function IzgaraGorunumu({ kartlar }: { kartlar: EtkinlikKarti[] }) {
+  return (
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+      {kartlar.map((kart) => (
+        <li key={kart.id}>
+          <Link
+            href={`/panel/etkinlikler/${kart.id}`}
+            className="group relative block aspect-square overflow-hidden rounded-kart border border-cizgi bg-zemin transition hover:border-vurgu focus-visible:border-vurgu"
+          >
+            {kart.kapak ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={uygulamaYolu(
+                    `/panel/etkinlikler/${kart.id}/ekler/${kart.kapak.id}`,
+                  )}
+                  alt=""
+                  className="h-full w-full object-contain p-2"
+                />
+                {/*
+                  Başlık şeridi aria-hidden: aynı başlık açıklama katmanında da
+                  var, ekran okuyucu bağlantıyı iki kez okumasın.
+                */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-kart via-kart/85 to-transparent px-3 pb-3 pt-8 transition-opacity group-hover:opacity-0"
+                >
+                  <p className="line-clamp-2 text-sm font-semibold text-baslik">
+                    {kart.ad}
+                  </p>
+                </div>
+              </>
+            ) : (
+              /* Kapaksız etkinlikte kutu boş kalmaz: başlığın kendisi afiştir. */
+              <div
+                aria-hidden
+                className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center"
+              >
+                <CalendarDays size={26} className="text-vurgu-metin" aria-hidden />
+                <p className="line-clamp-3 text-sm font-semibold text-baslik">
+                  {kart.ad}
+                </p>
+                <p className="text-xs text-metin-yumusak">
+                  {tarihYaz(kart.tarih)}
+                </p>
+              </div>
+            )}
+
+            {/*
+              Katman SAYDAM DEĞİL: afişlerin çoğu koyu kırmızı zeminli ve
+              yarı saydam bir örtünün altında metin okunmuyordu. Rozetler de
+              tema renkleriyle basılıyor — arkasında görsel kalırsa kontrast
+              garantisi biter.
+            */}
+            <div className="absolute inset-0 flex flex-col gap-1.5 overflow-hidden bg-kart p-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+              <div className="flex flex-wrap gap-1">
+                <Rozetler kart={kart} />
+              </div>
+              <h3 className="line-clamp-2 text-sm font-semibold text-baslik">
+                {kart.ad}
+              </h3>
+              <p className="line-clamp-4 text-xs text-metin-yumusak">
+                {kart.aciklama}
+              </p>
+              <div className="mt-auto flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-metin-yumusak">
+                <span className="inline-flex items-center gap-1">
+                  <CalendarDays size={13} aria-hidden />
+                  {tarihYaz(kart.tarih)}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Users size={13} aria-hidden />
+                  {kart.kontenjan.aktifBasvuru}/{kart.kontenjan.kontenjan}
+                </span>
+                {kart.benimActigim && <span>· sizin açtığınız</span>}
+              </div>
+            </div>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * LİSTE GÖRÜNÜMÜ — ızgaradan önceki hâl, `?gorunum=liste` ile açılır.
+ *
+ * Silinmedi çünkü ızgara TARAMA için iyi, DENETİM için değil: "hangi
+ * etkinliğin raporu eksik", "hangisi onay bekliyor" sorusunun cevabı ızgarada
+ * kart kart üstüne gelmeyi gerektirir. Koordinatör ve merkez o soruyu bir
+ * ekranda görmek zorunda; dokunmatik cihazda açıklamayı okumanın yolu da bu.
+ */
+function ListeGorunumu({ kartlar }: { kartlar: EtkinlikKarti[] }) {
+  return (
+    <ul className="space-y-3">
+      {kartlar.map((kart) => (
+        <li key={kart.id}>
+          <Link
+            href={`/panel/etkinlikler/${kart.id}`}
+            className="block overflow-hidden rounded-kart border border-cizgi bg-kart transition hover:border-vurgu"
+          >
+            {/*
+              AFİŞ, BANNER DEĞİL (10 Ağustos 2026 · istek: "resim banner
+              gibi görünüyor, büyük afiş gözüksün"). Önceki hâl sabit
+              yükseklik + object-cover idi: afişin ortasından yatay bir
+              şerit kesiyor, afişin asıl bilgisini (başlık, tarih, logo)
+              kırpıyordu. object-contain kırpmaz — görsel kendi
+              oranında, dik afişlerde yükseklik sınırına, yatay
+              görsellerde genişlik sınırına oturur; artan yer zemin
+              rengiyle dolar.
+            */}
+            {kart.kapak && (
+              <div className="flex justify-center bg-zemin p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={uygulamaYolu(
+                    `/panel/etkinlikler/${kart.id}/ekler/${kart.kapak.id}`,
+                  )}
+                  alt={kart.kapak.dosyaAdi}
+                  className="block max-h-[30rem] w-auto max-w-full rounded-md object-contain"
+                />
+              </div>
+            )}
+            <div className="p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Rozetler kart={kart} />
+                {kart.benimActigim && (
+                  <span className="text-xs text-metin-yumusak">
+                    · sizin açtığınız
+                  </span>
+                )}
+              </div>
+
+              <h3 className="mt-2 text-lg font-semibold text-baslik">
+                {kart.ad}
+              </h3>
+              <p className="mt-1 line-clamp-2 text-sm text-metin-yumusak">
+                {kart.aciklama}
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-metin-yumusak">
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarDays size={15} aria-hidden />
+                  {tarihYaz(kart.tarih)}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin size={15} aria-hidden />
+                  {kart.duzenleyenBirim}
+                </span>
+                {/* Kontenjan aktif başvuruyu sınırlar, yalnızca
+                    seçilenleri değil; sayaç da ona göre gösterilir. */}
+                <span className="inline-flex items-center gap-1.5">
+                  <Users size={15} aria-hidden />
+                  {kart.kontenjan.aktifBasvuru}/{kart.kontenjan.kontenjan}{" "}
+                  kontenjan
+                </span>
+              </div>
+
+              {kart.calismaGruplari.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {kart.calismaGruplari.map((grup) => (
+                    <span
+                      key={grup.id}
+                      className="rounded-full bg-vurgu-zemin px-2.5 py-0.5 text-xs text-vurgu-metin"
+                    >
+                      {grup.ad}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default async function FaaliyetlerSayfasi({
   searchParams,
@@ -166,10 +440,57 @@ export default async function FaaliyetlerSayfasi({
     ilKoordinatoruMu(kullanici) ||
     projeYoneticisiMi(kullanici);
 
-  const disaAktarmaSorgusu = sorguMetni(parametreler);
+  /*
+   * CSV ÖĞRENCİDE YOK (10 Ağustos 2026 · istek: "öğrenci etkinliklerinde CSV
+   * indir kalkacak"). Karar izinler.ts'te tek yerde veriliyor
+   * (faaliyetDisaAktarabilirMi); rota da aynı kapıyı soruyor.
+   */
+  const disaAktarabilir = faaliyetDisaAktarabilirMi(kullanici);
+  /*
+   * Görünüm tercihi filtre DEĞİLDİR: dışa aktarmanın kapsamını değiştirmez ve
+   * "Filtreleri temizle" bağlantısını tetiklememeli. Bu yüzden
+   * faaliyetFiltreleriniCoz'a girmez, sorgudan da elenir.
+   */
+  const disaAktarmaSorgusu = sorguMetni(parametreler, ["gorunum"]);
   const disaAktarmaBaglantisi = disaAktarmaSorgusu
     ? `/panel/etkinlikler/disa-aktar?${disaAktarmaSorgusu}`
     : "/panel/etkinlikler/disa-aktar";
+
+  const listeGorunumu = tekil(parametreler.gorunum) === "liste";
+  const izgaraBaglantisi = disaAktarmaSorgusu
+    ? `/panel/etkinlikler?${disaAktarmaSorgusu}`
+    : "/panel/etkinlikler";
+  const listeBaglantisi = `/panel/etkinlikler?${
+    disaAktarmaSorgusu ? `${disaAktarmaSorgusu}&` : ""
+  }gorunum=liste`;
+
+  const kartlar: EtkinlikKarti[] = faaliyetler.map((faaliyet) => ({
+    id: faaliyet.id,
+    ad: faaliyet.ad,
+    aciklama: faaliyet.aciklama,
+    tarih: faaliyet.tarih,
+    duzenleyenBirim: faaliyet.duzenleyenBirim,
+    kapsam: faaliyet.kapsam,
+    etkinlikKategorisi: faaliyet.etkinlikKategorisi,
+    durum: faaliyet.durum,
+    onayDurumu: faaliyet.onayDurumu,
+    calismaGruplari: faaliyet.calismaGruplari.map(
+      (etiket) => etiket.calismaGrubu,
+    ),
+    kapak:
+      faaliyet.kapakEk && !faaliyet.kapakEk.silindiMi
+        ? { id: faaliyet.kapakEk.id, dosyaAdi: faaliyet.kapakEk.dosyaAdi }
+        : null,
+    kontenjan: kontenjanDurumu(faaliyet.basvurular, faaliyet.kontenjan),
+    pencere: basvuruPenceresi(faaliyet, simdi),
+    benimBasvurum: basvuruDurumum.get(faaliyet.id) ?? null,
+    raporBekliyor:
+      raporYazabilir &&
+      faaliyet.rapor === null &&
+      faaliyet.durum === "AKTIF" &&
+      (faaliyet.bitisTarihi ?? faaliyet.tarih) < simdi,
+    benimActigim: faaliyet.duzenleyenKullaniciId === kullanici.id,
+  }));
 
   return (
     <div className="space-y-6">
@@ -179,34 +500,61 @@ export default async function FaaliyetlerSayfasi({
           aciklama={`Kapsamınızdaki etkinlikler · ${faaliyetler.length} kayıt`}
         />
         {/*
-          BELGE OLUŞTUR menüden kalktı (J3); etkinlik seçim ekranına giden yol
-          buradan açık kalıyor. Sayfa silinmedi, yalnızca menüden çıktı.
+          İKİ DÜĞME TEK KAPTA (10 Ağustos 2026 · istek: "ikisini de sağa al,
+          yeni etkinlik ortada kaldı"). Düğmeler doğrudan justify-between'in
+          çocuğu olduğunda üç öge aralarındaki boşluğu paylaşıyor ve "Yeni
+          etkinlik" başlıkla belge düğmesinin arasında asılı kalıyordu; sarmal
+          div ikisini tek öge yapıp sağ uca yaslıyor. Düğmelerden biri yetkiye
+          göre gizlenirse kalan tek başına sağda durur.
         */}
-        {raporYazabilir && (
-          <Link href="/panel/belgeler" className={SINIF_IKINCIL_BUTON}>
-            <Award size={16} aria-hidden />
-            Belge oluştur
-          </Link>
-        )}
-        {/*
-          DÜĞMENİN ADI ROLE GÖRE (7 Ağustos 2026 · istek: dış kullanıcı
-          sekmesinde "Etkinlik Bildir · Görüntüle"). Mezun/paydaş/mentör bir
-          koordinatörlük adına etkinlik AÇMIYOR, yapacağı işi BİLDİRİYOR ve
-          bildirimi onaya düşüyor; "Yeni etkinlik" demek yetkisini olduğundan
-          geniş gösterirdi.
-        */}
-        {acabilir && (
-          <Link href="/panel/etkinlikler/yeni" className={SINIF_BIRINCIL_BUTON}>
-            <Plus size={16} aria-hidden />
-            {disKullaniciMi(kullanici) ? "Etkinlik bildir" : "Yeni etkinlik"}
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {/*
+            DÜĞMENİN ADI ROLE GÖRE (7 Ağustos 2026 · istek: dış kullanıcı
+            sekmesinde "Etkinlik Bildir · Görüntüle"). Mezun/paydaş/mentör bir
+            koordinatörlük adına etkinlik AÇMIYOR, yapacağı işi BİLDİRİYOR ve
+            bildirimi onaya düşüyor; "Yeni etkinlik" demek yetkisini olduğundan
+            geniş gösterirdi.
+          */}
+          {acabilir && (
+            <Link href="/panel/etkinlikler/yeni" className={SINIF_KIRMIZI_BUTON}>
+              <Plus size={16} aria-hidden />
+              {disKullaniciMi(kullanici) ? "Etkinlik bildir" : "Yeni etkinlik"}
+            </Link>
+          )}
+          {/*
+            BELGE OLUŞTUR menüden kalktı (J3); etkinlik seçim ekranına giden yol
+            buradan açık kalıyor. Sayfa silinmedi, yalnızca menüden çıktı.
+
+            10 AĞUSTOS 2026 · istek: "etkinliklerde belge oluştur görünür olsun,
+            yeni etkinliğin yanına gelsin". Sayfa başlığının altındaki gri düğme
+            menüden kalkmış bir ekranın TEK kapısıydı ve kimse bulamıyordu.
+            Aynı gün gelen ikinci istekle iki düğme de kırmızı: renk temadan
+            geliyor (hata paleti) — beş temanın hepsinde okunur bir kırmızı
+            verir, sabit bir #c00 karanlık temada boğulurdu.
+
+            KİMİN GÖRDÜĞÜ DEĞİŞMEDİ: belge yazabilenler, yani rapor yazabilen
+            roller. "Görünür olsun" bir yer ve vurgu isteğidir; öğrenciye belge
+            üretme kapısı açmaz.
+          */}
+          {raporYazabilir && (
+            <Link href="/panel/belgeler" className={SINIF_KIRMIZI_BUTON}>
+              <Award size={16} aria-hidden />
+              Belge oluştur
+            </Link>
+          )}
+        </div>
       </div>
 
       <form
         method="get"
         className="rounded-kart border border-cizgi bg-kart p-5"
       >
+        {/*
+          Görünüm tercihi filtrelemeden sonra da yaşasın: GET formu yalnızca
+          kendi alanlarını gönderir, gizli alan olmasaydı her "Filtrele"
+          tıklaması kullanıcıyı ızgaraya geri atardı.
+        */}
+        {listeGorunumu && <input type="hidden" name="gorunum" value="liste" />}
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
             <Filter size={16} className="text-vurgu-metin" aria-hidden />
@@ -319,7 +667,7 @@ export default async function FaaliyetlerSayfasi({
           <button type="submit" className={SINIF_BIRINCIL_BUTON}>
             Filtrele
           </button>
-          {faaliyetler.length > 0 && (
+          {disaAktarabilir && faaliyetler.length > 0 && (
             <Link
               href={disaAktarmaBaglantisi}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-vurgu-metin"
@@ -340,107 +688,45 @@ export default async function FaaliyetlerSayfasi({
               : "Kapsamınızda henüz duyurulmuş bir etkinlik yok."}
         </Kart>
       ) : (
-        <ul className="space-y-3">
-          {faaliyetler.map((faaliyet) => {
-            const kontenjan = kontenjanDurumu(
-              faaliyet.basvurular,
-              faaliyet.kontenjan,
-            );
-            const pencere = basvuruPenceresi(faaliyet, simdi);
-            const benimDurumum = basvuruDurumum.get(faaliyet.id);
-            const kapak =
-              faaliyet.kapakEk && !faaliyet.kapakEk.silindiMi
-                ? faaliyet.kapakEk
-                : null;
+        <div className="space-y-3">
+          {/*
+            GÖRÜNÜM SEÇİCİ. Tercih adres çubuğunda taşınır, oturumda değil:
+            sunucu bileşeni ek durum tutmaz ve kullanıcı istediği görünümün
+            bağlantısını (filtreleriyle birlikte) paylaşabilir.
+          */}
+          <div className="flex items-center justify-end gap-1">
+            <Link
+              href={izgaraBaglantisi}
+              aria-current={listeGorunumu ? undefined : "true"}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                listeGorunumu
+                  ? "text-metin-yumusak hover:bg-zemin"
+                  : "bg-secili-zemin text-secili-metin"
+              }`}
+            >
+              <LayoutGrid size={15} aria-hidden />
+              Izgara
+            </Link>
+            <Link
+              href={listeBaglantisi}
+              aria-current={listeGorunumu ? "true" : undefined}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                listeGorunumu
+                  ? "bg-secili-zemin text-secili-metin"
+                  : "text-metin-yumusak hover:bg-zemin"
+              }`}
+            >
+              <List size={15} aria-hidden />
+              Liste
+            </Link>
+          </div>
 
-            return (
-              <li key={faaliyet.id}>
-                <Link
-                  href={`/panel/etkinlikler/${faaliyet.id}`}
-                  className="block overflow-hidden rounded-kart border border-cizgi bg-kart transition hover:border-vurgu"
-                >
-                  {kapak && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={uygulamaYolu(
-                        `/panel/etkinlikler/${faaliyet.id}/ekler/${kapak.id}`,
-                      )}
-                      alt={kapak.dosyaAdi}
-                      className="block h-40 w-full bg-zemin object-cover"
-                    />
-                  )}
-                  <div className="p-5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <KategoriRozeti kategori={faaliyet.etkinlikKategorisi} />
-                      <KapsamRozeti kapsam={faaliyet.kapsam} />
-                      <FaaliyetDurumuRozeti durum={faaliyet.durum} />
-                      <OnayRozeti onayDurumu={faaliyet.onayDurumu} />
-                      <PencereRozeti pencere={pencere} />
-                      {benimDurumum && <BasvuruRozeti durum={benimDurumum} />}
-                      {/*
-                        RAPOR ROZETİ (J3): "raporu bekleyenler" filtresi
-                        açıkken hangi kaydın neden listelendiği görünmeli;
-                        filtresiz listede de bitmiş ama raporsuz etkinlik
-                        gözden kaçmasın. Yalnızca rapor yazabilenlere basılır.
-                      */}
-                      {raporYazabilir &&
-                        faaliyet.rapor === null &&
-                        faaliyet.durum === "AKTIF" &&
-                        (faaliyet.bitisTarihi ?? faaliyet.tarih) < simdi && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-uyari-zemin px-2.5 py-0.5 text-xs font-medium text-uyari-metin">
-                            <FileText size={12} aria-hidden />
-                            Raporu bekliyor
-                          </span>
-                        )}
-                      {faaliyet.duzenleyenKullaniciId === kullanici.id && (
-                        <span className="text-xs text-metin-yumusak">
-                          · sizin açtığınız
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="mt-2 text-lg font-semibold text-baslik">
-                      {faaliyet.ad}
-                    </h3>
-                    <p className="mt-1 line-clamp-2 text-sm text-metin-yumusak">
-                      {faaliyet.aciklama}
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-metin-yumusak">
-                      <span className="inline-flex items-center gap-1.5">
-                        <CalendarDays size={15} aria-hidden />
-                        {tarihYaz(faaliyet.tarih)}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <MapPin size={15} aria-hidden />
-                        {faaliyet.duzenleyenBirim}
-                      </span>
-                      {/* Kontenjan aktif başvuruyu sınırlar, yalnızca
-                          seçilenleri değil; sayaç da ona göre gösterilir. */}
-                      <span className="inline-flex items-center gap-1.5">
-                        <Users size={15} aria-hidden />
-                        {kontenjan.aktifBasvuru}/{kontenjan.kontenjan} kontenjan
-                      </span>
-                    </div>
-
-                    {faaliyet.calismaGruplari.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {faaliyet.calismaGruplari.map((etiket) => (
-                          <span
-                            key={etiket.calismaGrubu.id}
-                            className="rounded-full bg-vurgu-zemin px-2.5 py-0.5 text-xs text-vurgu-metin"
-                          >
-                            {etiket.calismaGrubu.ad}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+          {listeGorunumu ? (
+            <ListeGorunumu kartlar={kartlar} />
+          ) : (
+            <IzgaraGorunumu kartlar={kartlar} />
+          )}
+        </div>
       )}
 
       {ogrenciMi(kullanici) && (

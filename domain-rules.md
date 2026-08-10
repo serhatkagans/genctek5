@@ -100,16 +100,32 @@ birlikte olur ve hiçbiri isteğe bağlı değildir:
 Sebebi açık bir kötüye kullanım kapısıdır: "zor" bulunan öğrencinin sessizce
 bırakılması. Üçü birden olmadan karar görünmez kalır.
 
-**Öğrenci nereye gider:** yukarıdaki devir tablosu AYNEN uygulanır. Ayrı bir
-kural yazılmadı; aynı soru daha önce cevaplanmıştı ve iki ayrı cevap zamanla
-ayrışırdı.
+**Öğrenci nereye gider: HİÇBİR YERE — danışmansız kalır** (10 Ağustos 2026'da
+değişti). Öğrenciye "yeni danışmanını seç" bildirimi gider; okulundaki danışman
+öğretmenlerden birini kendisi seçebilir, bir öğretmen de onu "Okulumdaki
+danışmansız öğrenciler" listesinden danışmanlığına alabilir.
 
-**Devredilecek kimse yoksa bırakma YAPILMAZ:** okulda başka danışman ve ilde
-koordinatör yoksa öğretmen görevde kalır, proje yöneticisine uyarı düşer.
-Boşta öğrenci kalamaz.
+Eskiden yukarıdaki devir tablosu uygulanıyor, devredilecek kimse yoksa bırakma
+hiç yapılmıyordu. İkisi de bırakıldı: zorla devir, öğrenciyi istemeyen bir
+öğretmenin üzerine bırakıyordu (oysa danışmanlık rızaya dayanır ve kuralın
+tamamı "danışmanı öğrenci seçer" üzerine kurulu); bırakmanın engellenmesi ise
+öğretmeni yürümeyen bir bağda tutuyordu.
 
-Yalnızca öğrencinin KENDİ danışmanı bırakabilir; koordinatör ve merkez bu yolu
-kullanamaz — onlarınki bir devir işlemidir, farklı bir karardır.
+Bu, **Değişmezler 2'ye ("boşta öğrenci kalamaz") bilinçli bir istisnadır** ve
+yalnızca ELLE, GEREKÇELİ bırakmayı kapsar. Otomatik akışlarda (ilk atama,
+öğretmenin okuldan ayrılması, rolün kaldırılması) devir zinciri aynen
+yürümektedir. Danışmansız öğrenci gizli değil GÖRÜNÜR bir durumdur: öğrenci
+listelerinde "Atanmadı" rozeti, "Yalnızca danışmanı olmayanlar" süzgeci ve
+koordinatörün profilindeki danışmansız sayacı bunun içindir.
+
+**Kim bırakabilir:** öğrencinin KENDİ danışmanı ve — gerektiğinde — öğrencinin
+kapsamındaki **il koordinatörü ile proje yöneticisi** (10 Ağustos 2026). Başka
+bir danışman öğretmen bırakamaz; o, öğrenci çekme kapısı olurdu.
+
+**Öğretmenin görevin TAMAMINI tek tıkla bırakması kalktı** (10 Ağustos 2026):
+bütün öğrencileri gerekçesiz ve tek tek karar verilmeden devir akışına
+sokuyordu. Rolü kapatan yol (okuldan ayrılma, rol envanterinden kaldırma)
+duruyor.
 
 ### Öğrenci kendi isteğiyle danışman değiştirirse
 
@@ -138,7 +154,7 @@ Dağıtım rol değişiminden **sonra** yapılır: böylece "il koordinatörüne
 
 - **İl Temsilcisi** — her ilde bir öğrenci, il koordinatörü atar
 - **İlçe Temsilcisi** — her ilçede bir öğrenci, **ilin** koordinatörü atar
-- **Okul Temsilcisi** — her okulda bir öğrenci, danışman öğretmen atar
+- **Okul Temsilcisi** — her okulda bir öğrenci; **danışman öğretmen, yalnızca KENDİ danışmanlığındaki öğrencilere** verir (10 Ağustos 2026). Öğretmen okulundaki danışmansız öğrencileri de listeliyor ama görmek ile görev vermek ayrı yetkilerdir; danışmanı olmadığı öğrenciye görev veremez. Proje yöneticisi bu koşuldan muaftır — okulda danışman kalmadığında düzeltmeyi yapabilecek tek kişi odur.
 
 Kurallar:
 - Bu roller **hiçbir ek veri görüntüleme yetkisi vermez**. Görev etiketidir; ileride rozet olarak kullanılacaktır.

@@ -51,9 +51,25 @@ export function ogrenciKapsamFiltresi(
     return { AND: [AKTIF_OGRENCI, { ilKodu }] };
   }
 
-  // Danışman öğretmen: kendi okulundaki VE danışmanlığını üstlendiği öğrenciler.
-  // Yalnızca kurum kodu eşitliği yetmez; aynı okuldaki diğer danışmanın
-  // öğrencilerini göremez.
+  /*
+   * Danışman öğretmen: KENDİ OKULUNDAKİ öğrencilerden
+   *   · danışmanlığını üstlendikleri VE
+   *   · hiç danışmanı olmayanlar (10 Ağustos 2026 · istek: "öğrencilerim
+   *     sayfasında danışmanı olmasa da okulunda öğrenci varsa listede
+   *     görünsün").
+   *
+   * NİYE DANIŞMANSIZLAR DA: öğretmen zaten onları danışmanlığına alabiliyor
+   * ("Okulumdaki danışmansız öğrenciler" kartı) — alabildiği ama listeleyip
+   * inceleyemediği bir öğrenci, kararı körlemesine vermek demekti. Tekil
+   * bırakma da öğrenciyi danışmansız bıraktığı için (bkz. tekOgrenciyiBirak)
+   * bırakılan öğrencinin okulunda görünmeye devam etmesi şart: aksi halde
+   * bırakan öğretmenin ekranından tamamen kaybolur ve okulda kimse farkına
+   * varmazdı.
+   *
+   * BAŞKA DANIŞMANIN ÖĞRENCİSİ HÂLÂ GÖRÜNMEZ: aynı okuldaki bir meslektaşın
+   * öğrencisi bu listede yok ve olmamalı — danışmanlık kişiye özel bir bağdır,
+   * "okulun tamamını gör" yetkisi il koordinatöründe.
+   */
   const kurumKodu = danismanKurumKodu(kullanici);
   if (kurumKodu !== null) {
     return {
@@ -61,9 +77,14 @@ export function ogrenciKapsamFiltresi(
         AKTIF_OGRENCI,
         { kurumKodu },
         {
-          ogrenciAtamalari: {
-            some: { danismanKullaniciId: kullanici.id, bitisTarihi: null },
-          },
+          OR: [
+            {
+              ogrenciAtamalari: {
+                some: { danismanKullaniciId: kullanici.id, bitisTarihi: null },
+              },
+            },
+            { ogrenciAtamalari: { none: { bitisTarihi: null } } },
+          ],
         },
       ],
     };

@@ -343,6 +343,48 @@ export function faaliyetIptalEdebilirMi(
   return faaliyet.duzenleyenKullaniciId === kullanici.id;
 }
 
+/**
+ * BAŞKASININ yürüttüğü danışmanlığı sonlandırabilir mi? (10 Ağustos 2026 ·
+ * istek: "öğretmen öğrenciyi bırakabilsin, gerekirse koordinatör de
+ * bırakabilsin")
+ *
+ * İl koordinatörü ve proje yöneticisi. Danışmanın KENDİ öğrencisini bırakması
+ * bu kapıdan geçmez — o zaten kendi kaydıdır ve ayrı sorulur.
+ *
+ * Danışman öğretmen buraya girmez ve bu bilinçli: bir öğretmenin başka bir
+ * öğretmenin öğrencisini danışmanlıktan çıkarabilmesi, öğrenci çekme kapısı
+ * açardı (aynı gerekçeyle "yalnızca danışmansız öğrenci alınabilir" kuralı
+ * var — bkz. ogrenciyiDanismanligaAlEylemi).
+ *
+ * KAPSAM BURADA SORULMAZ: bu fonksiyon "ekranda düğme olsun mu" sorusuna
+ * cevap verir; "bu öğrenci onun kapsamında mı" sorusu merkezi kapsam
+ * filtresine aittir ve eylemde ayrıca sorulur.
+ */
+export function danismanligiSonlandirabilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici);
+}
+
+/**
+ * Etkinlik listesi CSV olarak indirilebilir mi? (10 Ağustos 2026 · istek:
+ * "öğrenci etkinliklerinde CSV indir kalkacak")
+ *
+ * ÖĞRENCİ HARİÇ herkes. Gerekçe gizlilik DEĞİL: dosya zaten kişinin ekranda
+ * gördüğü kayıtlardan fazlasını içermiyor, başvuran adı da hiç girmiyor
+ * (bkz. etkinlikler/disa-aktar). Kapının sebebi İŞLEV: CSV bir raporlama
+ * aracı ve raporlama öğrencinin işi değil — öğrenci için etkinlik listesi
+ * başvurulacak bir çağrı panosu, dökümü alınacak bir kayıt tablosu değil.
+ *
+ * KAPI HEM EKRANDA HEM ROTADA sorulur: bağlantıyı gizlemek yetmez, adres
+ * çubuğuna /panel/etkinlikler/disa-aktar yazan öğrenci de dosyayı almamalı.
+ */
+export function faaliyetDisaAktarabilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return !ogrenciMi(kullanici);
+}
+
 // ---------------------------------------------------------------------------
 // Yorum
 // ---------------------------------------------------------------------------
@@ -474,11 +516,30 @@ export function ilKoordinatorAtayabilirMi(
   return projeYoneticisiMi(kullanici);
 }
 
+/**
+ * Okul Temsilcisi görevini verebilir/kaldırabilir mi?
+ *
+ * DANIŞMAN YALNIZCA KENDİ ÖĞRENCİSİNE (10 Ağustos 2026 · istek: "danışmanı
+ * olmadığı öğrenciyi okul temsilcisi yapabiliyor, bu bir tezat").
+ *
+ * Sınır önceden ÖRTÜKTÜ: öğretmenin listesinde zaten yalnızca kendi
+ * öğrencileri vardı, dolayısıyla okul kodu eşitliği yetiyordu. Okulundaki
+ * danışmansız öğrenciler de listeye girince (bkz. ogrenciKapsamFiltresi) örtük
+ * sınır düştü ve öğretmen, danışmanı olmadığı bir öğrenciye görev verebilir
+ * hâle geldi. Kural artık açıkça yazılı: göreceği her öğrenciye görev veremez,
+ * yalnızca sorumluluğunu üstlendiklerine.
+ *
+ * MERKEZ HARİÇ: proje yöneticisinin danışmanlığı yoktur ve okulda danışman
+ * kalmadığında düzeltmeyi yapabilecek tek kişidir; ona bu koşul sorulmaz.
+ */
 export function okulTemsilcisiAtayabilirMi(
   kullanici: OturumKullanicisi,
   kurumKodu: number,
+  /** Öğrenci bu kullanıcının danışmanlığında mı? */
+  kendiOgrencisiMi: boolean,
 ): boolean {
   if (projeYoneticisiMi(kullanici)) return true;
+  if (!kendiOgrencisiMi) return false;
   return danismanMi(kullanici) && danismanKurumKodu(kullanici) === kurumKodu;
 }
 

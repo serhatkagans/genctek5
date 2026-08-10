@@ -10,6 +10,7 @@ import type {
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
   BILDIRIM_KODLARI,
+  type BildirimHedefi,
   bildirimGonder,
   ilKoordinatorlerineBildir,
   projeYoneticilerineBildir,
@@ -89,6 +90,18 @@ function sayi(veri: FormData, alan: string): number | null {
 
 function hataylaDon(yol: string, mesaj: string): never {
   redirect(`${yol}?hata=${encodeURIComponent(mesaj)}`);
+}
+
+/**
+ * Bildirimin işaret ettiği etkinlik — panelde "Etkinliğe git" düğmesi olur.
+ *
+ * Hedef bildirim YAZILIRKEN kaydediliyor: gövdede yalnızca etkinliğin adı
+ * geçiyor ve aynı adı taşıyan iki etkinlik olabilir, yani okuma tarafında
+ * addan kimliğe gitmek kullanıcıyı yanlış kayda götürebilirdi
+ * (bkz. lib/bildirim/hedef.ts).
+ */
+function etkinlikHedefi(faaliyetId: number): BildirimHedefi {
+  return { tip: "FAALIYET", id: faaliyetId };
 }
 
 // ---------------------------------------------------------------------------
@@ -337,10 +350,12 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
         kullanici.ilKodu,
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
         degiskenler,
+        etkinlikHedefi(faaliyet.id),
       );
       await projeYoneticilerineBildir(
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
         degiskenler,
+        etkinlikHedefi(faaliyet.id),
       );
     } else if (disKullaniciMi(kullanici)) {
       /*
@@ -362,10 +377,12 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
         kullanici.ilKodu,
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI,
         degiskenler,
+        etkinlikHedefi(faaliyet.id),
       );
       await projeYoneticilerineBildir(
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI,
         degiskenler,
+        etkinlikHedefi(faaliyet.id),
       );
     } else if (danismanMi(kullanici)) {
       /*
@@ -387,11 +404,13 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
         okul?.ilKodu ?? kullanici.ilKodu,
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRETMEN_FAALIYETI,
         degiskenler,
+        etkinlikHedefi(faaliyet.id),
       );
       if (ulasan === 0) {
         await projeYoneticilerineBildir(
           BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRETMEN_FAALIYETI,
           degiskenler,
+          etkinlikHedefi(faaliyet.id),
         );
       }
     } else {
@@ -401,6 +420,7 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
           faaliyetAdi: ad,
           duzenleyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
         },
+        etkinlikHedefi(faaliyet.id),
       );
     }
   }
@@ -547,11 +567,13 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
         kapsam.kapsamIlKodu ?? null,
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRETMEN_FAALIYETI,
         degiskenler,
+        etkinlikHedefi(faaliyet.id),
       );
       if (ulasan === 0) {
         await projeYoneticilerineBildir(
           BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRETMEN_FAALIYETI,
           degiskenler,
+          etkinlikHedefi(faaliyet.id),
         );
       }
     } else if (kapsam.duzenleyenOgrenciMi) {
@@ -565,10 +587,12 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
         kapsam.kapsamIlKodu ?? null,
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
         degiskenler,
+        etkinlikHedefi(faaliyet.id),
       );
       await projeYoneticilerineBildir(
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
         degiskenler,
+        etkinlikHedefi(faaliyet.id),
       );
     } else if (kapsam.duzenleyenDisKullaniciMi) {
       /*
@@ -593,10 +617,12 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
         kapsam.kapsamIlKodu ?? null,
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI,
         degiskenler,
+        etkinlikHedefi(faaliyet.id),
       );
       await projeYoneticilerineBildir(
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI,
         degiskenler,
+        etkinlikHedefi(faaliyet.id),
       );
     } else {
       await projeYoneticilerineBildir(
@@ -605,6 +631,7 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
           faaliyetAdi: faaliyet.ad,
           duzenleyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
         },
+        etkinlikHedefi(faaliyet.id),
       );
     }
   }
@@ -690,6 +717,9 @@ export async function faaliyetIptalEylemi(veri: FormData): Promise<void> {
         faaliyetAdi: faaliyet.ad,
         gerekce: gerekce ?? "Belirtilmedi.",
       },
+      // İptal edilen etkinlik listede kalıyor; başvuran kişi gerekçeyi ve
+      // iptal rozetini kaydın kendisinde görebilmeli.
+      hedef: etkinlikHedefi(faaliyet.id),
     });
   }
 
@@ -771,6 +801,7 @@ export async function faaliyetOnayEylemi(veri: FormData): Promise<void> {
         sonuc: karar === "onayla" ? "onaylandı" : "reddedildi",
         kararVerenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
       },
+      hedef: etkinlikHedefi(faaliyet.id),
     });
   }
 
@@ -990,6 +1021,7 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
           ogrenciAdSoyad: katilimciAdSoyad,
           faaliyetAdi: faaliyet.ad,
         },
+        hedef: etkinlikHedefi(faaliyet.id),
       });
     }
   }
@@ -1009,6 +1041,7 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
         faaliyetAdi: faaliyet.ad,
         basvuranAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
       },
+      hedef: etkinlikHedefi(faaliyet.id),
     });
   }
 
@@ -1126,6 +1159,7 @@ export async function basvuruGeriCekEylemi(veri: FormData): Promise<void> {
         yedekSayisi: String(durum.yedek),
         kalanYer: String(durum.kalanYer),
       },
+      hedef: etkinlikHedefi(basvuru.faaliyetId),
     });
   }
 
@@ -1138,6 +1172,7 @@ export async function basvuruGeriCekEylemi(veri: FormData): Promise<void> {
         ogrenciAdSoyad: `${basvuru.katilimci.ad} ${basvuru.katilimci.soyad}`,
         basvuranAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
       },
+      hedef: etkinlikHedefi(basvuru.faaliyetId),
     });
   }
 
@@ -1267,6 +1302,7 @@ export async function basvuruDegerlendirEylemi(veri: FormData): Promise<void> {
       faaliyetAdi: basvuru.faaliyet.ad,
       sonuc: BASVURU_DURUMU_ETIKETLERI[yeniDurum],
     },
+    hedef: etkinlikHedefi(basvuru.faaliyet.id),
   });
 
   /*
@@ -1286,6 +1322,7 @@ export async function basvuruDegerlendirEylemi(veri: FormData): Promise<void> {
         faaliyetAdi: basvuru.faaliyet.ad,
         sonuc: BASVURU_DURUMU_ETIKETLERI[yeniDurum],
       },
+      hedef: etkinlikHedefi(basvuru.faaliyet.id),
     });
   }
 

@@ -38,7 +38,7 @@ EBA SSO erişimi henüz yok. Bunu bir blocker olarak görme — kimlik doğrulam
 Bunlar uygulama katmanında değil, mümkün olan her yerde **veritabanı kısıtı** olarak durmalı. Bir tanesi bile ihlal edilirse sistem yanlış kişilere veri gösterir.
 
 1. **Bir öğretmen aynı anda hem danışman öğretmen hem il koordinatörü olamaz.**
-2. **Bir öğrencinin aynı anda tek aktif danışmanı vardır.** Danışman yoksa il koordinatörüne bağlıdır — "boşta" bir öğrenci kalamaz.
+2. **Bir öğrencinin aynı anda EN FAZLA BİR aktif danışmanı vardır.** Otomatik akışlarda (ilk atama, öğretmenin okuldan ayrılması, rolün kaldırılması) danışman yoksa il koordinatörüne bağlanır — o akışlarda "boşta" öğrenci kalmaz. TEK İSTİSNA, elle ve gerekçeli tekil bırakmadır (10 Ağustos 2026): bırakılan öğrenci kimseye devredilmez, danışmansız kalır ve yeni danışmanını kendisi seçer (bkz. domain-rules.md · "Öğretmen tek bir öğrencinin danışmanlığını bırakırsa").
 3. **Öğrenci hiçbir koşulda başka bir öğrencinin listesini veya kişisel verisini göremez.** İl Temsilcisi ve Okul Temsilcisi rolleri buna istisna değildir; onlar sadece görev etiketidir.
 4. **İl koordinatörü kendi ili dışındaki öğrenciyi yalnızca kendi açtığı ulusal faaliyete başvurmuşsa görür.** Öğrenci envanterinde asla göremez.
 5. **Aynı faaliyete aktif ikinci başvuru yapılamaz.** Geri çekilmiş başvuru bu kısıtın dışındadır (kontenjan dolmadıysa yeniden başvurulabilir).

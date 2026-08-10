@@ -6,6 +6,7 @@ import {
   epostaGecerliMi,
   epostaNormalle,
   KILIT_SURESI_DAKIKA,
+  kimlikSecerekGirisAcikMi,
   kilitKalanDakika,
   kilitliMi,
   retGerekcesiniCoz,
@@ -247,6 +248,24 @@ describe("başvuru türü ile rol eşlemesi", () => {
   test("mezun ve paydaş ayrı rollere düşer", () => {
     expect(turunRolu("MEZUN")).toBe("MEZUN");
     expect(turunRolu("PAYDAS")).toBe("PAYDAS_TEMSILCISI");
+  });
+});
+
+/**
+ * Şifresiz giriş kapısı.
+ *
+ * Kapı geliştirme kolaylığı için var (e-Devlet entegrasyonu yok) ama üretimde
+ * açık kalırsa sistemin tamamı açılır: kimlik seçmek şifre bilmeye eşit hâle
+ * gelir. Ölçüt bu yüzden tek bir saf fonksiyonda tutuluyor ve burada
+ * sınanıyor.
+ */
+describe("kimlik seçerek giriş kapısı", () => {
+  test("mock sağlayıcıda açıktır", () => {
+    expect(kimlikSecerekGirisAcikMi("mock")).toBe(true);
+  });
+
+  test("eba sağlayıcısında kapalıdır", () => {
+    expect(kimlikSecerekGirisAcikMi("eba")).toBe(false);
   });
 });
 

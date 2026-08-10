@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { KazanimTipi } from "@/generated/prisma/enums";
+import { KayitTuruSecici } from "@/components/KayitTuruSecici";
 import {
   KazanimListesi,
   type KazanimSatiri,
@@ -737,10 +738,16 @@ export function KayitEklemeFormu({
 
         Yedi düz sekme yerine profildeki üç başlıkla AYNI gruplama kullanılıyor
         — kullanıcı kaydı nereye gireceğini, profilinde nerede göreceğine
-        bakarak buluyor. Grup tek tipten oluşuyorsa (Ürünlerim,
-        Topluluklarım) grup adı doğrudan sekmedir; birden çok tip varsa
-        (Deneyimlerim) alt sekmeler basılır çünkü alan kuralları tipe göre
-        değişiyor ve form hangi tipi basacağını bilmek zorunda.
+        bakarak buluyor.
+
+        ÇOK TİPLİ GRUP ARTIK LİSTE (10 Ağustos 2026 · istek: "Deneyimlerim …
+        bunu 4 ayrı seçenek olmasın, formda aşağı açılan listeden seçsin").
+        Tek tipten oluşan grupta (Ürünlerim, Topluluklarım) tek düğme var, ona
+        liste açmak anlamsız olurdu; birden çok tip varsa (Deneyimlerim: dış
+        etkinlik, derece, sertifika, diğer) dört sekme yerine tek aşağı açılan
+        liste basılıyor. Tipler BİRLEŞMEDİ — alan kuralları tipe göre değişiyor
+        ve form hangi tipi basacağını bilmek zorunda — yalnızca seçim biçimi
+        değişti.
 
         Akran eğitimi bu üç grubun DIŞINDA: GençTek İÇİNDE yapılan bir iştir ve
         profilde "GençTek Yolculuğum" altında görünür.
@@ -751,19 +758,31 @@ export function KayitEklemeFormu({
             <span className="text-sm font-medium text-metin-yumusak">
               {grup.baslik}:
             </span>
-            {tanimlar.map((tanim) => (
+            {tanimlar.length === 1 ? (
               <Link
-                key={tanim.tip}
-                href={`/panel?tur=${tanim.tip}#kayitlarim`}
+                href={`/panel?tur=${tanimlar[0].tip}#kayitlarim`}
                 className={
-                  tanim.tip === seciliTanim.tip
+                  tanimlar[0].tip === seciliTanim.tip
                     ? SINIF_SEKME_SECILI
                     : SINIF_SEKME
                 }
               >
-                {tanimlar.length === 1 ? "Ekle" : tanim.baslik}
+                Ekle
               </Link>
-            ))}
+            ) : (
+              <KayitTuruSecici
+                etiket={grup.baslik}
+                secenekler={tanimlar.map((tanim) => ({
+                  tip: tanim.tip,
+                  baslik: tanim.baslik,
+                }))}
+                seciliTip={
+                  tanimlar.some((tanim) => tanim.tip === seciliTanim.tip)
+                    ? seciliTanim.tip
+                    : null
+                }
+              />
+            )}
           </div>
         ))}
 

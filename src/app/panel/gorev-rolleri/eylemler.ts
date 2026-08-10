@@ -90,9 +90,20 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
       ilceKodu: true,
       kurumKodu: true,
       egitimOgretimYili: true,
+      /*
+       * "Bu benim öğrencim mi" — Okul Temsilcisi yetkisi buna bağlı
+       * (10 Ağustos 2026). Danışman öğretmen okulundaki danışmansız
+       * öğrencileri de görüyor; gördüğü herkese görev verememeli.
+       */
+      ogrenciAtamalari: {
+        where: { bitisTarihi: null, danismanKullaniciId: kullanici.id },
+        select: { id: true },
+      },
     },
   });
   if (!ogrenci) throw new BulunamadiHatasi();
+
+  const kendiOgrencisi = ogrenci.ogrenciAtamalari.length > 0;
 
   /*
    * Görevin kapsamı öğrencinin KAYITLI YERİNDEN alınıp kayda YAZILIR. İlçe
@@ -151,9 +162,11 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
     kapsam.ilceKodu = ogrenci.ilceKodu;
   } else if (
     !ogrenci.kurumKodu ||
-    !okulTemsilcisiAtayabilirMi(kullanici, ogrenci.kurumKodu)
+    !okulTemsilcisiAtayabilirMi(kullanici, ogrenci.kurumKodu, kendiOgrencisi)
   ) {
-    throw new YetkiHatasi("Bu okulda Okul Temsilcisi atama yetkiniz yok.");
+    throw new YetkiHatasi(
+      "Bu öğrenciye Okul Temsilcisi görevi verme yetkiniz yok: yalnızca danışmanlığınızdaki öğrencilere verilebilir.",
+    );
   } else {
     kapsam.kurumKodu = ogrenci.kurumKodu;
   }
@@ -221,7 +234,19 @@ export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
       rolKodu: true,
       ilKodu: true,
       kurumKodu: true,
-      ogrenci: { select: { id: true, ad: true, soyad: true } },
+      ogrenci: {
+        select: {
+          id: true,
+          ad: true,
+          soyad: true,
+          // Kaldırma yetkisi de "kendi öğrencisi mi" sorusuna bağlı: görevi
+          // veremeyen kişi kaldıramaz da.
+          ogrenciAtamalari: {
+            where: { bitisTarihi: null, danismanKullaniciId: kullanici.id },
+            select: { id: true },
+          },
+        },
+      },
       // İlçe temsilciliğinin yetkisi ilçenin BAĞLI OLDUĞU İLDEN sorulur;
       // öğrencinin güncel ilinden değil, çünkü öğrenci dönem içinde taşınmış
       // olabilir ve görev verildiği yerde durur.
@@ -238,7 +263,11 @@ export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
         ? gorev.ilce !== null &&
           ilceTemsilcisiAtayabilirMi(kullanici, gorev.ilce.ilKodu)
         : gorev.kurumKodu !== null &&
-          okulTemsilcisiAtayabilirMi(kullanici, gorev.kurumKodu);
+          okulTemsilcisiAtayabilirMi(
+            kullanici,
+            gorev.kurumKodu,
+            gorev.ogrenci.ogrenciAtamalari.length > 0,
+          );
 
   if (!yetkili) {
     throw new YetkiHatasi("Bu görevi kaldırma yetkiniz yok.");

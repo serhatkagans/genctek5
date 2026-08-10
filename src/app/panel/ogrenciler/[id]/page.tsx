@@ -40,7 +40,10 @@ import { SALT_OKUNUR_ACIKLAMASI } from "@/lib/kullanici/salt-okunur";
 import { uygulamaYolu } from "@/lib/ortam";
 import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
 import { gorevRolAdi } from "@/lib/yetki/etiketler";
-import { ogrenciCalismaGrubuYonetebilirMi } from "@/lib/yetki/izinler";
+import {
+  danismanligiSonlandirabilirMi,
+  ogrenciCalismaGrubuYonetebilirMi,
+} from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import {
   danismanligiBirakEylemi,
@@ -115,6 +118,15 @@ export default async function OgrenciProfilSayfasi({
   const gorevRolleri = ogrenci.gorevRolleri.filter(
     (gorev) => gorev.egitimOgretimYili === ogrenci.egitimOgretimYili,
   );
+
+  const kendiDanismanligi = atama?.danismanKullaniciId === kullanici.id;
+  /*
+   * Koordinatör/merkez, kapsamındaki öğrencinin danışmanlığını sonlandırabilir.
+   * Öğrenci ZATEN kapsam filtresinden geçerek geldi (gorunurOgrenciGetir), o
+   * yüzden burada rol sormak yeterli; eylem tarafında kapsam yeniden sorulur.
+   */
+  const baskasininDanismanligimiSonlandirir =
+    !kendiDanismanligi && danismanligiSonlandirabilirMi(kullanici);
 
   const cv = ogrenci.ogrenciProfil;
   const cvVar = Boolean(cv?.cvDepolamaYolu);
@@ -252,26 +264,41 @@ export default async function OgrenciProfilSayfasi({
         )}
 
         {/*
-          TEKİL DANIŞMANLIK BIRAKMA (J1 · 6 Ağustos 2026). Yalnızca öğrencinin
-          KENDİ danışmanına gösterilir: koordinatör ya da merkez, başkasının
-          danışmanlığını buradan bırakamaz — o bir devir işlemidir, farklı bir
-          karardır.
+          TEKİL DANIŞMANLIK BIRAKMA (J1 · 6 Ağustos 2026).
+
+          10 AĞUSTOS 2026 · istek: "Görevi bırak kalkacak · öğretmen öğrenciyi
+          bırakabilsin, gerekirse koordinatör de bırakabilsin". Bölüm artık iki
+          kişiye açık: öğrencinin KENDİ danışmanına ve — öğrenci kapsamındaysa
+          — il koordinatörü ile proje yöneticisine. Öğretmenin tek tıkla tüm
+          görevini bırakması ise kalktı (bkz. ogrenciler/page.tsx); yerini
+          öğrenci başına, gerekçeli bu karar aldı.
+
+          Koordinatörün metni AYRI: kendi görevini bırakan öğretmenle,
+          başkasının danışmanlığını sonlandıran koordinatör aynı cümleyi
+          okumamalı — ikincisi bir başkasının işine müdahaledir ve öyle
+          yazılmalıdır.
 
           Katlı duruyor: bu, ekranın asıl işi değil ve düğmeyi açıkta tutmak
           yanlışlıkla tıklanmasını kolaylaştırırdı.
         */}
-        {atama?.danismanKullaniciId === kullanici.id && (
+        {atama && (kendiDanismanligi || baskasininDanismanligimiSonlandirir) && (
           <details className="mt-5 border-t border-cizgi pt-4">
             <summary className="cursor-pointer text-sm font-medium text-metin-yumusak">
-              Bu öğrencinin danışmanlığını bırak
+              {kendiDanismanligi
+                ? "Bu öğrencinin danışmanlığını bırak"
+                : "Bu öğrencinin danışmanlığını sonlandır"}
             </summary>
             <form action={danismanligiBirakEylemi} className="mt-3 space-y-3">
               <input type="hidden" name="ogrenciId" value={ogrenci.id} />
               <BilgiKutusu cesit="uyari">
-                Gerekçe <strong>zorunludur</strong>: il koordinatörünüze bildirim
-                olarak iletilir ve erişim kaydına yazılır. Öğrenci boşta kalmaz —
-                okulunuzda başka danışman öğretmen varsa ona devredilir, yoksa il
-                koordinatörüne bağlanır.
+                Gerekçe <strong>zorunludur</strong>:{" "}
+                {kendiDanismanligi
+                  ? "il koordinatörünüze bildirim olarak iletilir ve erişim kaydına yazılır"
+                  : `${atama.danisman.ad} ${atama.danisman.soyad} öğretmenin danışmanlığı sonlanır; karar erişim kaydına yazılır`}
+                . Öğrenci başka bir öğretmene DEVREDİLMEZ, danışmansız kalır:
+                okulundaki danışman öğretmenlerden birini kendisi seçebilir ya
+                da bir öğretmen onu danışmanlığına alabilir. Öğrenciye
+                &quot;yeni danışmanını seç&quot; bildirimi gider.
               </BilgiKutusu>
               <label className="block">
                 <span className="text-sm font-medium text-metin">Gerekçe</span>
@@ -286,7 +313,9 @@ export default async function OgrenciProfilSayfasi({
                 />
               </label>
               <button type="submit" className={SINIF_IKINCIL_BUTON}>
-                Danışmanlığı bırak
+                {kendiDanismanligi
+                  ? "Danışmanlığı bırak"
+                  : "Danışmanlığı sonlandır"}
               </button>
             </form>
           </details>

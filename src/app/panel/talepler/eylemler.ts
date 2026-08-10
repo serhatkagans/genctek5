@@ -47,21 +47,16 @@ export async function talepAcEylemi(veri: FormData): Promise<void> {
   if (!karar.olurMu) hataylaDon(karar.neden);
 
   /*
-   * Çalışma grubu isteğe bağlı ama SEÇİLDİYSE var olmalı. Formdan gelen
-   * kimlik doğrulanmadan yazılsaydı olmayan bir gruba bağlı ilan oluşurdu.
+   * ÇALIŞMA ALANI ARTIK SORULMUYOR (10 Ağustos 2026 · istek: "Çalışma alanı
+   * (isteğe bağlı) kalkacak"). Sütun ve pano rozeti duruyor — daha önce alanı
+   * seçilmiş talepler etiketli görünmeye devam ediyor — yeni kayıtta boş
+   * kalıyor. Form alanı kalktığı için doğrulama da kalktı; okunmayan bir alanı
+   * doğrulamak, kalkmadığı izlenimi verirdi.
    */
-  const grupId = Number.parseInt(String(veri.get("calismaGrubuId") ?? ""), 10);
-  const grup = Number.isFinite(grupId)
-    ? await prisma.calismaGrubu.findFirst({
-        where: { id: grupId, aktif: true },
-        select: { id: true },
-      })
-    : null;
-
   const talep = await prisma.talep.create({
     data: {
       acanKullaniciId: kullanici.id,
-      calismaGrubuId: grup?.id ?? null,
+      calismaGrubuId: null,
       tur: karar.tur,
       baslik: karar.baslik,
       icerik: karar.icerik,

@@ -1533,6 +1533,21 @@ model Bildirim {
   tip             String         @db.VarChar(60)
   baslik          String         @db.VarChar(200)
   icerik          String         @db.Text
+  /// Bildirimin işaret ettiği kayıt — "etkinliğe git" düğmesinin hedefi
+  /// (10 Ağustos 2026).
+  ///
+  /// METİNDEN TÜRETİLEMEZ: gövdede etkinliğin ADI geçiyor, kimliği değil ve
+  /// aynı adı taşıyan iki etkinlik olabilir. Ada bakarak bağlantı kurmak,
+  /// kullanıcıyı sessizce yanlış kayda götürürdü.
+  ///
+  /// İKİ ALAN, tek `faaliyetId` değil: yazışma ve dış başvuru bildirimleri de
+  /// bir gün hedef isteyecek. Tür bilinmeden id'nin hangi tabloya ait olduğu
+  /// belli olmaz.
+  ///
+  /// NULL OLAĞANDIR: danışman değişikliği gibi bildirimlerin gidilecek bir
+  /// kaydı yok; bu alanlar eklenmeden önce yazılmış bildirimlerde de boştur.
+  hedefTip        BildirimHedefTipi? @map("hedef_tip")
+  hedefId         Int?               @map("hedef_id")
   okunduMu        Boolean        @default(false) @map("okundu_mu")
   gonderimKanali  GonderimKanali @default(SISTEM) @map("gonderim_kanali")
   olusturmaTarihi DateTime       @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
@@ -1550,6 +1565,17 @@ model Bildirim {
 
   @@index([kullaniciId, okunduMu])
   @@map("bildirim")
+}
+
+/// Bildirimin işaret ettiği kaydın türü.
+///
+/// `LogHedefTip` PAYLAŞILMADI: o enum erişim kaydının sözlüğüdür ve
+/// "görüntülenen her şeyi" sayar (PROFIL, CV, OGRENCI_LISTESI…). Bildirimin
+/// hedefi ise GİDİLEBİLİR bir ekran olmak zorunda. Paylaşılsaydı, hiçbir
+/// zaman bildirim hedefi olmayacak onlarca değeri her eşlemede ele almak
+/// gerekirdi.
+enum BildirimHedefTipi {
+  FAALIYET
 }
 
 /// Bildirim metinleri koda gömülmez, buradan yönetilir. Kod sabittir ve

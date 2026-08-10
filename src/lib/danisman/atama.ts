@@ -409,17 +409,21 @@ export async function danismanliktanAyrildi(
 }
 
 /**
- * Danışman öğretmen TEK bir öğrencinin danışmanlığını bırakır.
+ * TEK bir öğrencinin danışmanlığı bırakılır.
  *
  * `danismanliktan Ayrildi` görevin TAMAMINI bırakmayı yürütür; bu ise tek
  * öğrenciyi bırakır ve öğretmenin danışmanlığı sürer.
  *
- * ÖĞRENCİ NEREYE GİDER: mevcut devir kuralları aynen uygulanır (bkz.
- * `devirKarariVer`) — okulda tek danışman kaldıysa ona, birden fazla varsa
- * öğrenciye "yeniden seç" bildirimi ve geçici olarak il koordinatörüne, hiç
- * kalmadıysa koordinatöre. Ayrı bir kural yazılmadı: aynı soru (bu öğrenci
- * şimdi kime bağlanacak) daha önce cevaplanmıştı ve iki ayrı cevap zamanla
- * ayrışırdı. BOŞTA ÖĞRENCİ KALAMAZ (SKILL.md · Değişmezler 2).
+ * KİM ÇAĞIRIR: danışmanın kendisi ya da — 10 Ağustos 2026'dan beri — öğrencinin
+ * kapsamındaki il koordinatörü/proje yöneticisi (istek: "öğretmen öğrenciyi
+ * bırakabilsin, gerekirse koordinatör de bırakabilsin"). `danismanKullaniciId`
+ * her iki durumda da BIRAKILAN ATAMANIN DANIŞMANIDIR, isteği yapan kişi değil;
+ * kimin isteyebileceği kararı çağıran katmanda verilir (bkz.
+ * ogrenciler/[id]/eylemler.ts) çünkü burası veriyi değiştiren yer, yetki
+ * soran yer değil.
+ *
+ * ÖĞRENCİ NEREYE GİDER: HİÇBİR YERE — danışmansız kalır ve yeni danışmanını
+ * kendisi seçer. Gerekçesi aşağıda, gövdedeki uzun notta.
  *
  * GEREKÇE ZORUNLU ve il koordinatörüne BİLDİRİM gider: burada açık bir kötüye
  * kullanım kapısı var — "zor" bulunan öğrencinin sessizce bırakılması. Gerekçe
@@ -434,9 +438,10 @@ export async function tekOgrenciyiBirak(girdi: {
   | { olurMu: true; yeniDurum: string; ogrenciAdSoyad: string }
 > {
   /*
-   * Atama, DANIŞMANIN KENDİSİNE bağlı olarak çekilir: sorguda
+   * Atama, VERİLEN DANIŞMANA bağlı olarak çekilir: sorguda
    * `danismanKullaniciId` koşulu olmasaydı, forma başkasının öğrenci kimliğini
-   * yazan öğretmen o öğrencinin danışmanlığını bırakabilirdi.
+   * yazan öğretmen o öğrencinin danışmanlığını bırakabilirdi. Öğretmen kendi
+   * kimliğini geçirir; koordinatör, öğrencinin o an bağlı olduğu danışmanı.
    */
   const atama = await prisma.danismanAtama.findFirst({
     where: {
@@ -453,7 +458,7 @@ export async function tekOgrenciyiBirak(girdi: {
   if (!atama) {
     return {
       olurMu: false,
-      neden: "Bu öğrencinin danışmanı değilsiniz.",
+      neden: "Bu öğrencinin açık bir danışmanlık kaydı bulunamadı.",
     };
   }
 
@@ -467,75 +472,51 @@ export async function tekOgrenciyiBirak(girdi: {
   const koordinatorId = await ilKoordinatoruGetir(ogrenci.ilKodu);
   const karar = devirKarariVer(kalanAdaylar, koordinatorId);
 
-  let yeniDurum: string;
+  /*
+   * ÖĞRENCİ KİMSEYE DEVREDİLMEZ (10 Ağustos 2026 · istek: "Öğrenci boşta
+   * kalmaz — okulunda başka danışman öğretmen varsa ona devredilir… öğrenciyi
+   * bırakırken böyle yazıyor, gerekirse herkes bıraksın demiştik").
+   *
+   * ESKİDEN: bırakılan öğrenci `devirKarariVer` ile anında başka bir
+   * öğretmene ya da il koordinatörüne bağlanıyordu; devredilecek kimse yoksa
+   * bırakma HİÇ YAPILMIYORDU. İkisi de yanlıştı:
+   *   · Zorla devir, öğrenciyi istemeyen bir öğretmenin kucağına bırakıyordu.
+   *     Danışmanlık rızaya dayanır — "danışmanı öğrenci seçer" kuralının
+   *     tamamı bunun üzerine kurulu.
+   *   · Bırakmanın engellenmesi, öğretmeni yürümeyen bir bağda tutuyordu.
+   *
+   * ŞİMDİ: atama kapanır ve öğrenci DANIŞMANSIZ kalır. Boşlukta kalmaz,
+   * görünür olur — öğrenci listelerinde "Atanmadı" rozeti, "Yalnızca danışmanı
+   * olmayanlar" süzgeci ve öğretmenlerin "Okulumdaki danışmansız öğrenciler"
+   * kartı zaten var; öğrenci kendi ekranından yeni danışmanını seçebiliyor
+   * (bkz. ogrenciDanismanSecti) ve ilin koordinatörüne gerekçeli bildirim
+   * gidiyor.
+   *
+   * Bu, SKILL.md · Değişmezler 2'ye ("boşta öğrenci kalamaz") bilinçli bir
+   * istisnadır: değişmez OTOMATİK akışlar için geçerli (ilk atama, öğretmenin
+   * okuldan ayrılması, rolün kaldırılması) — oralarda devir zinciri olduğu
+   * gibi duruyor. Elle ve gerekçeli bırakma artık bunun dışında.
+   */
+  await prisma.danismanAtama.updateMany({
+    where: {
+      ogrenciId: ogrenci.id,
+      danismanKullaniciId: girdi.danismanKullaniciId,
+      bitisTarihi: null,
+    },
+    data: { bitisTarihi: new Date(), kapanmaNedeni: "DANISMANLIK_BIRAKILDI" },
+  });
 
-  switch (karar.tur) {
-    case "OTOMATIK_DEVIR": {
-      await atamaDegistir({
-        ogrenciId: ogrenci.id,
-        danismanKullaniciId: karar.yeniDanismanKullaniciId,
-        atamaTipi: "DEVIR",
-        kapanmaNedeni: "DANISMANLIK_BIRAKILDI",
-      });
-      await bildirimGonder({
-        kullaniciId: ogrenci.id,
-        kod: BILDIRIM_KODLARI.DANISMAN_DEGISTI,
-      });
-      yeniDurum = "Okuldaki diğer danışman öğretmene devredildi.";
-      break;
-    }
+  /*
+   * Öğrenciye "yeniden seç" bildirimi gider, "danışmanın değişti" değil:
+   * yeni bir danışmanı YOK ve yapması gereken bir şey var.
+   */
+  await bildirimGonder({
+    kullaniciId: ogrenci.id,
+    kod: BILDIRIM_KODLARI.DANISMAN_YENIDEN_SECIM,
+  });
 
-    case "YENIDEN_SECIM": {
-      // Seçim yapılana kadar geçici olarak il koordinatörüne bağlanır.
-      if (karar.geciciDanismanKullaniciId !== null) {
-        await atamaDegistir({
-          ogrenciId: ogrenci.id,
-          danismanKullaniciId: karar.geciciDanismanKullaniciId,
-          atamaTipi: "IL_KOORDINATOR_FALLBACK",
-          kapanmaNedeni: "DANISMANLIK_BIRAKILDI",
-        });
-      }
-      await bildirimGonder({
-        kullaniciId: ogrenci.id,
-        kod: BILDIRIM_KODLARI.DANISMAN_YENIDEN_SECIM,
-      });
-      yeniDurum =
-        "Öğrenciden yeni danışmanını seçmesi istendi; seçene kadar il koordinatörüne bağlı.";
-      break;
-    }
-
-    case "IL_KOORDINATORUNE": {
-      await atamaDegistir({
-        ogrenciId: ogrenci.id,
-        danismanKullaniciId: karar.yeniDanismanKullaniciId,
-        atamaTipi: "IL_KOORDINATOR_FALLBACK",
-        kapanmaNedeni: "DANISMANLIK_BIRAKILDI",
-      });
-      await bildirimGonder({
-        kullaniciId: ogrenci.id,
-        kod: BILDIRIM_KODLARI.DANISMAN_DEGISTI,
-      });
-      yeniDurum = "İl koordinatörüne bağlandı.";
-      break;
-    }
-
-    case "ATANAMADI": {
-      /*
-       * Ne okulda danışman ne ilde koordinatör var. BIRAKMA YAPILMAZ: öğrenci
-       * boşta kalırdı ve bu, sistemin değişmezlerinden birini ihlal eder.
-       * Öğretmen görevde kalır, proje yöneticisine uyarı düşer.
-       */
-      await projeYoneticilerineBildir(BILDIRIM_KODLARI.OGRENCI_ATANAMADI, {
-        ogrenciAdSoyad,
-        ilKodu: ogrenci.ilKodu ?? "-",
-      });
-      return {
-        olurMu: false,
-        neden:
-          "Bu öğrenci devredilebileceği kimse olmadığı için bırakılamaz: okulda başka danışman öğretmen ve ilde koordinatör yok. Proje yöneticisine uyarı gönderildi.",
-      };
-    }
-  }
+  const yeniDurum =
+    "Öğrenci danışmansız kaldı; okulundaki danışman öğretmenlerden birini kendisi seçebilir ya da bir öğretmen danışmanlığına alabilir.";
 
   return { olurMu: true, yeniDurum, ogrenciAdSoyad };
 }

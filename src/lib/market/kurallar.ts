@@ -22,21 +22,30 @@ import type { RolKodu } from "@/generated/prisma/enums";
 /**
  * Süzgeç kimlikleri.
  *
- * `DILIM` listede duruyor ama ÇALIŞMIYOR — tanımı yok (aşağıya bakın).
+ * İKİ SÜZGEÇ KALDI (10 Ağustos 2026 · istek: "dilim kalkacak, kendi ürünlerim
+ * ürünlerim olacak, öğrenci ve öğretmen ürünleri ayrı olmayacak").
+ *
+ * NE KALKTI VE NİYE:
+ *   · DİLİM — ne olduğu hiç tanımlanmadı (→ SORULAR.md · S22) ve "tanım
+ *     bekleniyor" etiketiyle aylarca ekranda durdu. Boş bir başlığı beklemeye
+ *     almak yerine kaldırıldı; tanım gelirse yeniden açılır, o gün ürüne bir
+ *     kategori alanı da gerekecek.
+ *   · ÖĞRENCİ ÜRÜNLERİ / ÖĞRETMEN ÜRÜNLERİ — vitrini sahibin rolüne göre ikiye
+ *     bölüyordu. Market bir ÜRÜN vitrinidir; bir uygulamanın işe yarayıp
+ *     yaramadığı, onu yazanın öğrenci mi öğretmen mi olduğuna bakmaz. Ayrım
+ *     ayrıca dış kullanıcıların (mezun, paydaş) ürününü iki sekmenin de
+ *     dışında bırakıyordu.
+ *
+ * Kaydın SAHİBİ hâlâ görünüyor (kart üstünde ad ve "Öğrenci/Öğretmen ürünü"
+ * ibaresi): bilgi duruyor, vitrini bölen süzgeç kalkıyor.
  */
-export type MarketSuzgeci = "TUMU" | "BENIM" | "OGRENCI" | "OGRETMEN" | "DILIM";
+export type MarketSuzgeci = "TUMU" | "BENIM";
 
 export interface SuzgecTanimi {
   kod: MarketSuzgeci;
   etiket: string;
   /** Sekmenin altındaki açıklama; boş süzgeçte "neden boş" da buradan gelir. */
   aciklama: string;
-  /**
-   * Tanımı beklendiği için seçilemeyen süzgeç. Gizlenmiyor, açıklamasıyla
-   * gösteriliyor: istekte sayılmış bir başlığı sessizce düşürmek, unutulduğu
-   * izlenimi verirdi.
-   */
-  tanimBekliyorMu?: boolean;
 }
 
 export const MARKET_SUZGECLERI: readonly SuzgecTanimi[] = [
@@ -47,48 +56,15 @@ export const MARKET_SUZGECLERI: readonly SuzgecTanimi[] = [
   },
   {
     /*
-     * "Kendi Ürünlerim" DİĞERLERİNDEN FARKLI ÇALIŞIR: kişinin markette
-     * PAYLAŞMADIĞI ürünlerini de gösterir. Sebebi, sekmenin adının istekte
-     * "Ürünlerim" olması — kişi buraya kendi ürünlerini görmeye geliyor ve
+     * "Ürünlerim" DİĞERİNDEN FARKLI ÇALIŞIR: kişinin markette PAYLAŞMADIĞI
+     * ürünlerini de gösterir. Kişi buraya kendi ürünlerini görmeye geliyor ve
      * paylaşmadıklarının kaybolması, onları sildiğini düşündürürdü. Paylaşım
      * durumu satırda rozetle yazıyor.
      */
     kod: "BENIM",
-    etiket: "Kendi ürünlerim",
+    etiket: "Ürünlerim",
     aciklama:
       "Senin eklediğin ürünler. Markette paylaşmadıkların da burada görünür; onları senden başkası göremez.",
-  },
-  {
-    kod: "OGRENCI",
-    etiket: "Öğrenci ürünleri",
-    aciklama: "Öğrencilerin markette paylaştığı ürünler.",
-  },
-  {
-    kod: "OGRETMEN",
-    etiket: "Öğretmen ürünleri",
-    aciklama: "Öğretmenlerin markette paylaştığı ürünler.",
-  },
-  {
-    /*
-     * DİLİM NEDİR, BİLİNMİYOR. İstek listesinde süzgeçler arasında sayılıyor
-     * ("Kendi Ürünlerim, Öğrenci ürünleri, Öğretmen Ürünleri, DİLİM vb") ama
-     * ne olduğu hiçbir yerde yazmıyor ve sistemde böyle bir kavram yok
-     * (→ SORULAR.md · S22).
-     *
-     * Diğer üçü kaydın SAHİBİNE bakarak süzüyor; DİLİM bir rol değil, bir
-     * program/kategori adı gibi duruyor. Öyleyse ürüne bir kategori alanı
-     * gerekir — ama hangi kategoriler olduğu, kimin atadığı ve zorunlu olup
-     * olmadığı bilinmeden o alan açılamaz. Uydurulmuş bir kategoriyle
-     * doldurmak, sonradan elle temizlenecek veri üretirdi.
-     *
-     * Tanım geldiğinde: `tanimBekliyorMu` kalkar, `urunleriSuz` içine bir dal
-     * eklenir ve gerekiyorsa ürüne kategori alanı açılır.
-     */
-    kod: "DILIM",
-    etiket: "DİLİM",
-    aciklama:
-      "Bu başlığın ne anlama geldiği henüz tanımlanmadı, bu yüzden süzgeç çalışmıyor. Tanım geldiğinde burası açılacak.",
-    tanimBekliyorMu: true,
   },
 ];
 
@@ -99,14 +75,14 @@ export function suzgecTanimi(kod: string): SuzgecTanimi | null {
 /**
  * Adres çubuğundan gelen süzgeci çözer.
  *
- * Tanınmayan ya da henüz çalışmayan süzgeç sessizce TUMU'ye düşer — hata
- * sayfası göstermek, yer imine kaydedilmiş eski bir adres için sert bir
- * karşılık olurdu.
+ * Tanınmayan süzgeç sessizce TUMU'ye düşer — hata sayfası göstermek, yer imine
+ * kaydedilmiş eski bir adres için sert bir karşılık olurdu. 10 Ağustos
+ * 2026'da kaldırılan `?suzgec=OGRENCI/OGRETMEN/DILIM` adresleri de buradan
+ * geçip vitrine düşüyor.
  */
 export function suzgeciCoz(ham: string | undefined): MarketSuzgeci {
   const tanim = ham ? suzgecTanimi(ham) : null;
-  if (!tanim || tanim.tanimBekliyorMu) return "TUMU";
-  return tanim.kod;
+  return tanim?.kod ?? "TUMU";
 }
 
 /**
@@ -117,10 +93,13 @@ export function suzgeciCoz(ham: string | undefined): MarketSuzgeci {
  * gibi). Öğrenci rolü varsa öğrencidir; yoksa ve öğretmen/koordinatör rolü
  * varsa öğretmendir.
  *
- * DIŞ KULLANICILAR (mezun, paydaş temsilcisi) ikisine de girmez ve
- * "Öğrenci"/"Öğretmen" sekmelerinde görünmezler — ama "Tüm ürünler"de
- * görünürler. Mezunu öğrenci saymak yanlış olurdu (artık öğrenci değil),
+ * DIŞ KULLANICILAR (mezun, paydaş temsilcisi) ikisine de girmez, "Ekosistem
+ * ürünü" sayılır: mezunu öğrenci saymak yanlış olurdu (artık öğrenci değil),
  * öğretmen saymak da öyle.
+ *
+ * SÜZGEÇ DEĞİL, ETİKET (10 Ağustos 2026): bu küme vitrini bölmüyor, yalnızca
+ * kartın üstündeki "kim yaptı" ibaresini yazıyor. Rol bazlı sekmeler kalktı
+ * (bkz. MARKET_SUZGECLERI).
  */
 export type UrunSahipKumesi = "OGRENCI" | "OGRETMEN" | "DIGER";
 
@@ -158,21 +137,8 @@ export function urunleriSuz<T extends MarketUrunu>(
 ): T[] {
   switch (suzgec) {
     case "BENIM":
-      // Paylaşılmamışlar DA burada — sekmenin adı "Kendi ürünlerim".
+      // Paylaşılmamışlar DA burada — sekmenin adı "Ürünlerim".
       return urunler.filter((u) => u.sahipKullaniciId === oturumKullaniciId);
-    case "OGRENCI":
-      return urunler.filter(
-        (u) => u.markettePaylasilsin && u.sahipKumesi === "OGRENCI",
-      );
-    case "OGRETMEN":
-      return urunler.filter(
-        (u) => u.markettePaylasilsin && u.sahipKumesi === "OGRETMEN",
-      );
-    /*
-     * DILIM buraya DÜŞMEZ: `suzgeciCoz` onu TUMU'ye çeviriyor. Yine de dalı
-     * eklemek, tanım geldiğinde derleyicinin burayı hatırlatmasını sağlıyor.
-     */
-    case "DILIM":
     case "TUMU":
     default:
       // Vitrin: paylaşılanlar + kişinin kendi paylaşmadıkları. Kişinin kendi

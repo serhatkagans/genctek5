@@ -154,14 +154,28 @@ describe("bilişim yolculuğu grupları", () => {
     expect(tipler).not.toContain("GENCTEK_ETKINLIGI");
   });
 
-  it("öğretmende de aynı tipleri verir, yalnızca etiketler değişir", () => {
-    const ogrenci = bilisimYolculuguGruplari("OGRENCI").flatMap((b) =>
-      b.tanimlar.map((t) => t.tip),
-    );
-    const ogretmen = bilisimYolculuguGruplari("OGRETMEN").flatMap((b) =>
-      b.tanimlar.map((t) => t.tip),
-    );
-    expect(ogretmen).toEqual(ogrenci);
+  /*
+   * 10 AĞUSTOS 2026 · istek: "profil sayfasındaki Ürünlerim ve katkılarım, bu
+   * bölümde sadece ürünlerim olsun, öğretmen için Deneyimlerim ve
+   * Topluluklarım / Ekiplerim kalksın."
+   *
+   * Testin işi, kapanmanın yalnızca ÖĞRETMENDE olduğunu ve öğrencinin üç
+   * grubuna dokunulmadığını sabitlemek.
+   */
+  it("öğretmende yalnızca Ürünlerim grubu kalır", () => {
+    const ogretmen = bilisimYolculuguGruplari("OGRETMEN");
+    expect(ogretmen.map((b) => b.grup.kod)).toEqual(["URUNLERIM"]);
+    expect(ogretmen.flatMap((b) => b.tanimlar.map((t) => t.tip))).toEqual([
+      "URUN",
+    ]);
+  });
+
+  it("öğrencide üç grup da durur", () => {
+    expect(bilisimYolculuguGruplari("OGRENCI").map((b) => b.grup.kod)).toEqual([
+      "URUNLERIM",
+      "DENEYIMLERIM",
+      "TOPLULUKLARIM",
+    ]);
   });
 });
 

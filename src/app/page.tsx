@@ -120,13 +120,16 @@ export default async function AcilisSayfasi() {
             <p className="mt-2 text-xs text-ust-bar-metin-yumusak">
               Mezun öğrenci/Paydaş/Mentör girişleri için tıklayınız.
             </p>
-            <p className="mt-3 text-xs text-ust-bar-metin-yumusak">
-              EBA hesabınız yoksa{" "}
-              <Link href="/basvuru" className="font-medium underline">
-                başvuru yapabilirsiniz
-              </Link>
-              ; hesabınız proje yöneticisi onayından sonra açılır.
-            </p>
+            {/*
+              BAŞVURU SATIRI KALKTI (10 Ağustos 2026 · istek). Açılış ekranı
+              artık yalnızca iki kapı gösteriyor; "hesabınız yoksa başvurun"
+              açıklaması kapının önünde değil, ARKASINDA duruyor.
+
+              AKIŞ SİLİNMEDİ: /basvuru sayfası ve onay süreci yerinde,
+              girişin altındaki "Hesabım yok, başvuru yapmak istiyorum"
+              bağlantısıyla ulaşılıyor (bkz. app/dis-giris/page.tsx). Adres
+              doğrudan da açılıyor — gönderilmiş bağlantılar kırılmadı.
+            */}
           </div>
 
           {mockMu && (

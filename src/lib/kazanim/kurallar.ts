@@ -353,6 +353,14 @@ export interface KazanimGrubu {
   baslik: string;
   aciklama: string;
   tipler: readonly KazanimTipi[];
+  /**
+   * Grubun gösterildiği sahipler. Yazılmazsa ikisinde de görünür.
+   *
+   * 10 AĞUSTOS 2026 · istek: "profil sayfasındaki Ürünlerim ve katkılarım, bu
+   * bölümde sadece ürünlerim olsun, öğretmen için Deneyimlerim ve
+   * Topluluklarım / Ekiplerim kalksın".
+   */
+  sahipler?: readonly KazanimSahibi[];
 }
 
 export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
@@ -369,6 +377,23 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
     aciklama:
       "GençTek dışında katıldığın etkinlikler, aldığın dereceler ve ödüller, sertifika ve eğitimlerin.",
     tipler: ["DIS_ETKINLIK", "YARISMA_DERECESI", "SERTIFIKA", "DIGER"],
+    /*
+     * ÖĞRENCİYE ÖZEL (10 Ağustos 2026). Öğretmenin profilindeki bölümün adı
+     * "Ürünlerim ve katkılarım" ve istek onu gerçekten ürünlere indirdi:
+     * öğretmenin sertifikası, katıldığı dış etkinlik ve topluluğu bir
+     * ÖZGEÇMİŞ bilgisi; o bilgi zaten CV alanında duruyor ve profilde ikinci
+     * kez, üstelik öğrenci diliyle ("Deneyimlerim") sayılmasının bir karşılığı
+     * yok.
+     *
+     * GİRİŞ FORMU DA KAPANIR, yalnızca gösterim değil: aynı listeden besleniyor
+     * (bkz. bilisimYolculuguGruplari). Profilde görünmeyecek bir kaydı
+     * girdirmek, kullanıcının yazdığını kaybetmesi demekti.
+     *
+     * DAHA ÖNCE GİRİLMİŞ KAYITLAR SİLİNMEZ ve görünmez olmaz: Panelim'deki
+     * "Girdiğim kayıtlar" bölümü tipin kendisinden beslenir, gruptan değil —
+     * öğretmen eski kayıtlarını görmeye ve silmeye devam eder.
+     */
+    sahipler: ["OGRENCI"],
   },
   {
     kod: "TOPLULUKLARIM",
@@ -376,6 +401,7 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
     aciklama:
       "İçinde yer aldığın kulüp, proje ekibi ve takımlar. Beyandır — aynı ekibi yazan iki kişi sistemde eşleştirilmez.",
     tipler: ["TOPLULUK"],
+    sahipler: ["OGRENCI"],
   },
 ];
 
@@ -387,7 +413,9 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
 export function bilisimYolculuguGruplari(
   sahip: KazanimSahibi = "OGRENCI",
 ): { grup: KazanimGrubu; tanimlar: KazanimTipiTanimi[] }[] {
-  return BILISIM_YOLCULUGU_GRUPLARI.map((grup) => ({
+  return BILISIM_YOLCULUGU_GRUPLARI.filter(
+    (grup) => grup.sahipler === undefined || grup.sahipler.includes(sahip),
+  ).map((grup) => ({
     grup,
     tanimlar: grup.tipler
       .filter((tip) => !kazanimTipiArsivlenmisMi(tip))

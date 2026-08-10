@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { disGirisYap } from "@/lib/dis-kimlik/giris";
+import { mockDisGirisYap } from "@/lib/dis-kimlik/mock-giris";
 
 /**
  * EBA dışı giriş eylemi.
@@ -32,5 +33,25 @@ export async function disGirisEylemi(veri: FormData): Promise<void> {
    * "tüm kullanıcı grupları" içinde. EBA girişiyle aynı yere varmalı — aynı
    * kişi hangi kapıdan girdiğine göre farklı ekran görmemeli.
    */
+  redirect("/panel/profil");
+}
+
+/**
+ * Geliştirme kipi: listeden kimlik seçerek giriş.
+ *
+ * Yetki kontrolü BURADA DEĞİL `mockDisGirisYap` içinde: sunucu eylemi bir
+ * uç noktadır ve ekranı gizlemek onu kapatmaz. Üretimde (AUTH_PROVIDER="eba")
+ * çağrı reddedilir ve kullanıcı şifreli girişe geri döner.
+ */
+export async function mockDisGirisEylemi(veri: FormData): Promise<void> {
+  const kimlik = String(veri.get("kimlikBilgisi") ?? "");
+  const sonuc = await mockDisGirisYap(kimlik);
+
+  if (sonuc.durum === "BASARISIZ") {
+    redirect(`/dis-giris?hata=${encodeURIComponent(sonuc.mesaj)}`);
+  }
+
+  // Şifreli girişle aynı yere düşer: aynı kişi hangi kapıdan girdiğine göre
+  // farklı ekran görmemeli (7 Ağustos 2026).
   redirect("/panel/profil");
 }

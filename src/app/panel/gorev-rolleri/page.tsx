@@ -138,9 +138,16 @@ export default async function GorevRolleriSayfasi({
     ) {
       roller.push("ILCE_TEMSILCISI");
     }
+    /*
+     * Üçüncü argüman `false`: bu ekrana yalnızca il koordinatörü ve merkez
+     * girebiliyor (yukarıdaki kapı), ikisinin de danışmanlığında öğrenci yok.
+     * Merkez zaten koşuldan muaf; koordinatör bu görevi hiç atayamıyor.
+     * Danışman öğretmen okul temsilcisini Öğrencilerim ekranından atıyor ve
+     * "kendi öğrencisi mi" sorusu orada soruluyor.
+     */
     if (
       ogrenci.kurumKodu &&
-      okulTemsilcisiAtayabilirMi(kullanici, ogrenci.kurumKodu) &&
+      okulTemsilcisiAtayabilirMi(kullanici, ogrenci.kurumKodu, false) &&
       !ogrenci.gorevRolleri.some((rol) => rol.rolKodu === "OKUL_TEMSILCISI")
     ) {
       roller.push("OKUL_TEMSILCISI");

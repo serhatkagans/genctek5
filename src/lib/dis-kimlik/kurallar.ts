@@ -18,6 +18,24 @@ export const TUR_ETIKETLERI: Record<DisKullaniciTuru, string> = {
 };
 
 /**
+ * Şifre sormadan, listeden kimlik seçerek giriş yapılabilir mi?
+ *
+ * YALNIZCA MOCK SAĞLAYICIDA (10 Ağustos 2026). Gerçek e-Devlet/EBA
+ * entegrasyonu gelene kadar geliştirme ve gösterim bu kapıdan yapılıyor;
+ * `AUTH_PROVIDER="eba"` olan bir kurulumda kapı kapalıdır.
+ *
+ * KARAR BURADA, ortam.ts'i okumayan saf bir fonksiyonda: şifresiz oturum açan
+ * bir kapının açık/kapalı ölçütü, birim testle sınanabilecek tek bir yerde
+ * durmalı. Çağıranlar (ekran ve sunucu eylemi) bu fonksiyonu AYRI AYRI sorar —
+ * ekranı gizlemek eylemi korumaz.
+ */
+export function kimlikSecerekGirisAcikMi(
+  authSaglayici: "mock" | "eba",
+): boolean {
+  return authSaglayici === "mock";
+}
+
+/**
  * Başvuru formundaki "kim olarak başvuruyorsunuz" seçenekleri (7 Ağustos 2026).
  *
  * ÜÇÜ TEK FORMDA (istek: "Paydaş/Mentör başvurusu tek bir formdan yapılacak",

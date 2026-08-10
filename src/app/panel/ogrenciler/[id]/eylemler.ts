@@ -8,7 +8,10 @@ import { bildirimGonder } from "@/lib/bildirim/gonder";
 import { ilKoordinatoruGetir, tekOgrenciyiBirak } from "@/lib/danisman/atama";
 import { birakmaGerekcesiniCoz } from "@/lib/danisman/karar";
 import { prisma } from "@/lib/db";
-import { ogrenciCalismaGrubuYonetebilirMi } from "@/lib/yetki/izinler";
+import {
+  danismanligiSonlandirabilirMi,
+  ogrenciCalismaGrubuYonetebilirMi,
+} from "@/lib/yetki/izinler";
 import { ogrenciKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
@@ -158,10 +161,20 @@ export async function ogrenciyiGruptanCikarEylemi(
 }
 
 /**
- * Danışman öğretmen TEK bir öğrencinin danışmanlığını bırakır (J1).
+ * TEK bir öğrencinin danışmanlığı bırakılır (J1).
  *
- * Görevin TAMAMINI bırakma ayrı bir akıştır (profil ekranı); bu yalnızca bir
- * öğrenciyi bırakır ve öğretmen danışman olarak kalır.
+ * KİM BIRAKABİLİR (10 Ağustos 2026 · istek: "Görevi bırak kalkacak · öğretmen
+ * öğrenciyi bırakabilsin, gerekirse koordinatör de bırakabilsin"):
+ *
+ *   1. ÖĞRENCİNİN KENDİ DANIŞMANI — kendi atamasını kapatır.
+ *   2. İL KOORDİNATÖRÜ / PROJE YÖNETİCİSİ — kapsamındaki bir öğrencinin
+ *      danışmanlığını sonlandırır. "Gerekirse" olan durum budur: öğretmen
+ *      ulaşılamaz durumdaysa ya da bağ yürümüyorsa öğrencinin tek çıkışı
+ *      koordinatördü ve o kapı yoktu.
+ *
+ * KAPSAM AYRICA SORULUR: rol yetmez, öğrenci merkezi kapsam filtresinden
+ * çekilir — yoksa bir koordinatör forma başka ilin öğrenci kimliğini yazarak o
+ * öğrencinin danışmanını düşürebilirdi.
  *
  * ÜÇ ŞEY BİRLİKTE YAPILIR ve hiçbiri isteğe bağlı değil:
  *   1. gerekçe zorunlu tutulur,
@@ -179,8 +192,34 @@ export async function danismanligiBirakEylemi(veri: FormData): Promise<void> {
   const karar = birakmaGerekcesiniCoz(String(veri.get("gerekce") ?? ""));
   if (!karar.olurMu) hataylaDon(ogrenciId, karar.neden);
 
+  const mevcutAtama = await prisma.danismanAtama.findFirst({
+    where: { ogrenciId, bitisTarihi: null },
+    select: { danismanKullaniciId: true },
+  });
+  if (!mevcutAtama) {
+    hataylaDon(ogrenciId, "Bu öğrencinin açık bir danışmanlık kaydı yok.");
+  }
+
+  const kendiOgrencisi = mevcutAtama.danismanKullaniciId === kullanici.id;
+  if (!kendiOgrencisi) {
+    // Başkasının danışmanlığını yalnızca koordinatör ve merkez sonlandırır…
+    if (!danismanligiSonlandirabilirMi(kullanici)) {
+      throw new YetkiHatasi(
+        "Bu öğrencinin danışmanlığını sonlandırma yetkiniz yok.",
+      );
+    }
+    // …ve yalnızca KENDİ KAPSAMINDAKİ öğrencinin.
+    const kapsamda = await prisma.kullanici.findFirst({
+      where: { AND: [{ id: ogrenciId }, ogrenciKapsamFiltresi(kullanici)] },
+      select: { id: true },
+    });
+    if (!kapsamda) throw new BulunamadiHatasi();
+  }
+
   const sonuc = await tekOgrenciyiBirak({
-    danismanKullaniciId: kullanici.id,
+    // Kapatılan atama, öğrencinin O ANKİ danışmanınındır; koordinatör
+    // bıraktığında da kapanan kayıt öğretmenin kaydıdır.
+    danismanKullaniciId: mevcutAtama.danismanKullaniciId,
     ogrenciId,
     gerekce: karar.gerekce,
   });
@@ -189,26 +228,38 @@ export async function danismanligiBirakEylemi(veri: FormData): Promise<void> {
   /*
    * Koordinatöre bildirim, bırakma GERÇEKLEŞTİKTEN sonra gönderilir: işlem
    * yarıda kalırsa (ör. devredilecek kimse yok) haber gitmemeli.
+   *
+   * OKUL VE DANIŞMAN ADI ÖĞRENCİDEN OKUNUR, işlemi yapandan değil: koordinatör
+   * bıraktığında bırakan kişi ile danışman aynı kişi değil ve koordinatörün
+   * kurum kodu zaten yok. Kendi işlemini kendine bildirmek anlamsız olduğu
+   * için bırakan kişi koordinatörün kendisiyse bildirim gönderilmez — kayıt
+   * erişim kaydında duruyor.
    */
-  const okul =
-    kullanici.kurumKodu !== null
-      ? await prisma.kurum.findUnique({
-          where: { kurumKodu: kullanici.kurumKodu },
-          select: { ad: true, ilKodu: true },
-        })
-      : null;
+  const ogrenciKaydi = await prisma.kullanici.findUnique({
+    where: { id: ogrenciId },
+    select: {
+      ilKodu: true,
+      kurum: { select: { ad: true, ilKodu: true } },
+    },
+  });
+  const eskiDanisman = await prisma.kullanici.findUnique({
+    where: { id: mevcutAtama.danismanKullaniciId },
+    select: { ad: true, soyad: true },
+  });
 
   const koordinatorId = await ilKoordinatoruGetir(
-    okul?.ilKodu ?? kullanici.ilKodu,
+    ogrenciKaydi?.kurum?.ilKodu ?? ogrenciKaydi?.ilKodu ?? null,
   );
-  if (koordinatorId !== null) {
+  if (koordinatorId !== null && koordinatorId !== kullanici.id) {
     await bildirimGonder({
       kullaniciId: koordinatorId,
       kod: BILDIRIM_KODLARI.DANISMANLIK_TEKIL_BIRAKILDI,
       degiskenler: {
         ogrenciAdSoyad: sonuc.ogrenciAdSoyad,
-        danismanAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
-        okulAdi: okul?.ad ?? "-",
+        danismanAdSoyad: eskiDanisman
+          ? `${eskiDanisman.ad} ${eskiDanisman.soyad}`
+          : "-",
+        okulAdi: ogrenciKaydi?.kurum?.ad ?? "-",
         gerekce: karar.gerekce,
         yeniDurum: sonuc.yeniDurum,
       },
@@ -220,7 +271,9 @@ export async function danismanligiBirakEylemi(veri: FormData): Promise<void> {
     islem: "DEGISIKLIK",
     hedefTip: "DANISMAN_ATAMA",
     hedefId: ogrenciId,
-    detay: `Danışmanlık bırakıldı: ${sonuc.ogrenciAdSoyad} · gerekçe: ${karar.gerekce} · ${sonuc.yeniDurum}`,
+    detay: kendiOgrencisi
+      ? `Danışmanlık bırakıldı: ${sonuc.ogrenciAdSoyad} · gerekçe: ${karar.gerekce} · ${sonuc.yeniDurum}`
+      : `Danışmanlık sonlandırıldı (${eskiDanisman ? `${eskiDanisman.ad} ${eskiDanisman.soyad}` : "-"}): ${sonuc.ogrenciAdSoyad} · gerekçe: ${karar.gerekce} · ${sonuc.yeniDurum}`,
   });
 
   revalidatePath(ogrenciYolu(ogrenciId));

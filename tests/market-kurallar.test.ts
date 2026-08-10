@@ -78,19 +78,13 @@ describe("sahipKumesi", () => {
 
 describe("suzgeciCoz", () => {
   it("tanınan süzgeci geçirir", () => {
-    expect(suzgeciCoz("OGRENCI")).toBe("OGRENCI");
+    expect(suzgeciCoz("TUMU")).toBe("TUMU");
     expect(suzgeciCoz("BENIM")).toBe("BENIM");
   });
 
   it("tanınmayanı ve boşu TUMU'ye düşürür — hata sayfası değil", () => {
     expect(suzgeciCoz("UYDURMA")).toBe("TUMU");
     expect(suzgeciCoz(undefined)).toBe("TUMU");
-  });
-
-  it("TANIMI BEKLENEN süzgeci de TUMU'ye düşürür", () => {
-    // DİLİM'in ne olduğu bilinmiyor; adres elle yazılsa bile boş liste
-    // gösterilmemeli (→ S22).
-    expect(suzgeciCoz("DILIM")).toBe("TUMU");
   });
 });
 
@@ -100,27 +94,21 @@ describe("urunleriSuz", () => {
     expect(kimlikler("TUMU")).toEqual([1, 2, 3, 4, 5]);
   });
 
-  it("BENIM: paylaşmadıklarım DA burada — sekmenin adı 'Kendi ürünlerim'", () => {
+  it("BENIM: paylaşmadıklarım DA burada — sekmenin adı 'Ürünlerim'", () => {
     expect(kimlikler("BENIM")).toEqual([4, 5]);
   });
 
-  it("OGRENCI: yalnızca paylaşılmış öğrenci ürünleri", () => {
-    // 5 yok: kendi ürünüm ama paylaşılmamış; öğrenci vitrininde yeri olmaz.
-    expect(kimlikler("OGRENCI")).toEqual([1, 4]);
-  });
-
-  it("OGRETMEN: yalnızca paylaşılmış öğretmen ürünleri", () => {
-    expect(kimlikler("OGRETMEN")).toEqual([2]);
-  });
-
-  it("mezun ürünü rol sekmelerinde YOK ama TUMU'de VAR", () => {
-    expect(kimlikler("OGRENCI")).not.toContain(3);
-    expect(kimlikler("OGRETMEN")).not.toContain(3);
-    expect(kimlikler("TUMU")).toContain(3);
+  /*
+   * 10 AĞUSTOS 2026 · istek: "öğrenci ve öğretmen ürünleri ayrı olmayacak".
+   * Vitrin artık sahibin rolüne göre bölünmüyor; mezun/paydaş ürünü de
+   * (id 3) hiçbir sekmenin dışında kalmıyor.
+   */
+  it("vitrin sahibin rolüne göre bölünmez", () => {
+    expect(kimlikler("TUMU")).toEqual(expect.arrayContaining([1, 2, 3]));
   });
 
   it("BAŞKASININ paylaşmadığı ürün hiçbir süzgeçte görünmez", () => {
-    for (const suzgec of ["TUMU", "BENIM", "OGRENCI", "OGRETMEN"] as const) {
+    for (const suzgec of ["TUMU", "BENIM"] as const) {
       expect(kimlikler(suzgec)).not.toContain(6);
     }
   });
@@ -162,17 +150,20 @@ describe("süzgeç tanımları", () => {
     expect(new Set(kodlar).size).toBe(kodlar.length);
   });
 
-  it("istekte sayılan dört başlık da listede", () => {
-    const kodlar = MARKET_SUZGECLERI.map((s) => s.kod);
-    expect(kodlar).toEqual(
-      expect.arrayContaining(["BENIM", "OGRENCI", "OGRETMEN", "DILIM"]),
-    );
+  it("yalnızca iki süzgeç kaldı: vitrin ve kendi ürünlerim", () => {
+    expect(MARKET_SUZGECLERI.map((s) => s.kod)).toEqual(["TUMU", "BENIM"]);
+    expect(suzgecTanimi("BENIM")?.etiket).toBe("Ürünlerim");
   });
 
-  it("DİLİM tanım bekliyor ve nedeni yazılı", () => {
-    const dilim = suzgecTanimi("DILIM");
-    expect(dilim?.tanimBekliyorMu).toBe(true);
-    expect(dilim?.aciklama).toMatch(/tanımlanmadı/);
+  /*
+   * Kalkan süzgeçlerin adresleri yer imlerinde ve eski bağlantılarda kalmış
+   * olabilir; hata sayfası değil vitrin gösteriliyor.
+   */
+  it("kalkan süzgeç adresleri vitrine düşer", () => {
+    for (const eski of ["OGRENCI", "OGRETMEN", "DILIM", "SACMA"]) {
+      expect(suzgeciCoz(eski)).toBe("TUMU");
+    }
+    expect(suzgecTanimi("DILIM")).toBeNull();
   });
 
   it("çalışan süzgeçlerin hepsinin açıklaması var", () => {

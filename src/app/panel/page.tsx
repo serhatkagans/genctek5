@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   BarChart3,
   BellRing,
   Camera,
@@ -44,6 +45,7 @@ import {
 } from "@/components/ProfilDuzenleme";
 import { RotamKarti } from "@/components/RotamKarti";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import { bildirimBaglantisi } from "@/lib/bildirim/hedef";
 import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
 import { calismaGruplariniGetir } from "@/lib/ogrenci/calisma-grubu";
 import { calismaGrubuKaydetEylemi } from "./calisma-gruplari/eylemler";
@@ -1530,7 +1532,10 @@ export default async function PanelSayfasi({
           </Kart>
         ) : (
           <ul className="space-y-2">
-            {bildirimler.map((bildirim) => (
+            {bildirimler.map((bildirim) => {
+              const baglanti = bildirimBaglantisi(bildirim);
+
+              return (
               /*
                 `id`: üstteki "Mesajın var" şeridi doğrudan bu satıra iner.
                 `scroll-mt-6`, çıpaya inildiğinde satırın ekranın en tepesine
@@ -1547,18 +1552,48 @@ export default async function PanelSayfasi({
                     {bildirim.icerik}
                   </p>
                 </div>
-                <form action={bildirimOkunduEylemi}>
-                  <input type="hidden" name="bildirimId" value={bildirim.id} />
-                  <button
-                    type="submit"
-                    aria-label="Okundu işaretle"
-                    className="rounded-md border border-cizgi px-2.5 py-1 text-xs font-medium text-metin-yumusak transition hover:bg-zemin"
-                  >
-                    Okundu
-                  </button>
-                </form>
+                {/*
+                  KAYDA GİT + OKUNDU (10 Ağustos 2026 · istek: "okundu
+                  işaretlemenin yanına bir de etkinliğe git butonu olsun").
+
+                  Bağlantı, bildirimle birlikte KAYDEDİLMİŞ hedeften üretilir;
+                  metindeki addan aranmaz (bkz. lib/bildirim/hedef.ts). Hedefi
+                  olmayan bildirimde düğme hiç basılmaz — danışman değişikliği
+                  gibi bildirimlerin gidilecek bir kaydı yok, bu alanlar
+                  eklenmeden önce yazılmış bildirimlerde de boş.
+
+                  BİLDİRİM OKUNDUYA ÇEKİLMİYOR: gitmek okumak değildir ve
+                  kullanıcı kaydı görüp geri döndüğünde bildirimi hâlâ
+                  listesinde bulmalı. İşaretleme kararı onun.
+                */}
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {baglanti && (
+                    <Link
+                      href={baglanti.yol}
+                      className="inline-flex items-center gap-1 rounded-md border border-cizgi px-2.5 py-1 text-xs font-medium text-vurgu-metin transition hover:border-vurgu"
+                    >
+                      <ArrowRight size={13} aria-hidden />
+                      {baglanti.etiket}
+                    </Link>
+                  )}
+                  <form action={bildirimOkunduEylemi}>
+                    <input
+                      type="hidden"
+                      name="bildirimId"
+                      value={bildirim.id}
+                    />
+                    <button
+                      type="submit"
+                      aria-label="Okundu işaretle"
+                      className="rounded-md border border-cizgi px-2.5 py-1 text-xs font-medium text-metin-yumusak transition hover:bg-zemin"
+                    >
+                      Okundu
+                    </button>
+                  </form>
+                </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>

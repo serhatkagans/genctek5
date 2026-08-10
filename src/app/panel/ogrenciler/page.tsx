@@ -6,6 +6,7 @@ import {
   Download,
   Filter,
   ShieldCheck,
+  UserCheck,
   UserPlus,
   X,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import {
   gorevRoluAtaEylemi,
   gorevRoluKaldirEylemi,
 } from "@/app/panel/gorev-rolleri/eylemler";
+import { danismanligiBirakEylemi } from "./[id]/eylemler";
 import {
   danismanlikIsaretiEylemi,
   ogrenciyiDanismanligaAlEylemi,
@@ -73,6 +75,22 @@ const SINIF_SECIM =
 
 const SAYFA_BOYUTU = 50;
 
+/**
+ * Sınıf süzgecinin seçenekleri (10 Ağustos 2026).
+ *
+ * Değer, e-Okul'dan gelen `sinif` alanının ÖN EKİDİR ve süzgeç "içeren"
+ * eşleşmesi yapar: "9" seçimi 9-A ve 9/B'yi de kapsar. Şube listesi
+ * TEKLİF EDİLMİYOR — şubeler okuldan okula değişir, sabit bir listeye
+ * sığmaz ve seviye zaten aranan ayrımı veriyor.
+ */
+const SINIF_SECENEKLERI: { deger: string; etiket: string }[] = [
+  { deger: "Haz", etiket: "Hazırlık" },
+  { deger: "9", etiket: "9. sınıf" },
+  { deger: "10", etiket: "10. sınıf" },
+  { deger: "11", etiket: "11. sınıf" },
+  { deger: "12", etiket: "12. sınıf" },
+];
+
 const SINIF_SAYFA_BUTON =
   "inline-flex items-center gap-1 rounded-md border border-cizgi px-3 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin";
 
@@ -87,6 +105,7 @@ const SINIF_SAYFA_BUTON =
 function OkulTemsilcisiHucresi({
   ogrenci,
   kullanici,
+  kendiOgrencisi,
   donusYolu,
 }: {
   ogrenci: {
@@ -95,11 +114,17 @@ function OkulTemsilcisiHucresi({
     gorevRolleri: { id: number; rolKodu: string }[];
   };
   kullanici: OturumKullanicisi;
+  /*
+   * Danışman öğretmen okulundaki DANIŞMANSIZ öğrencileri de listeliyor
+   * (10 Ağustos 2026); görev verme yetkisi ise yalnızca kendi öğrencilerinde.
+   * Danışmanı olmadığı öğrenciye görev veremez — hücre "—" kalır.
+   */
+  kendiOgrencisi: boolean;
   donusYolu: string;
 }) {
   const yetkili =
     ogrenci.kurumKodu !== null &&
-    okulTemsilcisiAtayabilirMi(kullanici, ogrenci.kurumKodu);
+    okulTemsilcisiAtayabilirMi(kullanici, ogrenci.kurumKodu, kendiOgrencisi);
   if (!yetkili) {
     return <span className="text-metin-yumusak">—</span>;
   }
@@ -224,6 +249,29 @@ export default async function OgrencilerSayfasi({
         })
       : [];
 
+  /*
+   * DANIŞMANLIĞIMDAKİ ÖĞRENCİLER (10 Ağustos 2026 · istek: "öğretmenin
+   * öğrenci seçip bırakabildiği alanı göremiyorum").
+   *
+   * Bırakma yalnızca öğrenci kaydının içindeydi; öğretmen tek tek profillere
+   * girmeden hangi öğrencisini bırakabileceğini göremiyordu. Liste artık
+   * ekranın başında: kimin danışmanı olduğunu görüyor ve seçtiğini oradan
+   * bırakıyor.
+   *
+   * "Okulumdaki danışmansız öğrenciler" kartının SİMETRİĞİ: biri alma, öbürü
+   * bırakma. İkisi yan yana durunca ekranın anlamı "danışmanlığımı yönetirim"
+   * hâline geliyor.
+   */
+  const danismanligimdakiler = danismanMi(kullanici)
+    ? await prisma.danismanAtama.findMany({
+        where: { danismanKullaniciId: kullanici.id, bitisTarihi: null },
+        orderBy: { baslangicTarihi: "desc" },
+        select: {
+          ogrenci: { select: { id: true, ad: true, soyad: true, sinif: true } },
+        },
+      })
+    : [];
+
   // Filtre seçenekleri de kapsamla sınırlıdır: proje yöneticisi tüm illeri,
   // il koordinatörü yalnızca kendi ilinin okullarını, danışman öğretmen ise
   // hiç yer seçeneği görmez (tek okulu vardır).
@@ -313,11 +361,29 @@ export default async function OgrencilerSayfasi({
       // Okul Temsilcisi ataması bu ekrana taşındı (J2); kaldırma formu görev
       // kaydının kimliğini istiyor, bu yüzden `id` de seçiliyor.
       kurumKodu: true,
+      /*
+       * DÖNEM KARŞILAŞTIRMASI ÖĞRENCİNİN KENDİ YILIYLA (10 Ağustos 2026 ·
+       * istek: "Temsilcilik kısmında öğrenci il ilçe temsilcisi ise o da
+       * görünsün").
+       *
+       * Süzgeç BAKAN KİŞİNİN yılına bakıyordu: öğretmenin kaydındaki
+       * eğitim-öğretim yılı öğrencininkinden farklı olduğunda — dönem
+       * geçişinde senkron sırası ya da yeni açılmış öğretmen kaydı yeter —
+       * sütun herkeste "—" görünüyordu ve bu bir veri eksikliği gibi değil,
+       * "kimse temsilci değil" gibi okunuyordu. Kıyas artık öğrencinin kendi
+       * dönemiyle yapılıyor; öğrenci profili de aynı kuralı kullanıyor
+       * (ogrenciler/[id]/page.tsx).
+       *
+       * Süzgeç sorgudan JS'e taşındı çünkü Prisma iç içe `where` içinde ana
+       * satırın alanına başvuramıyor; görev kayıtları öğrenci başına birkaç
+       * satır olduğu için bunun bir bedeli yok.
+       */
+      egitimOgretimYili: true,
       gorevRolleri: {
-        where: { egitimOgretimYili: kullanici.egitimOgretimYili },
         select: {
           id: true,
           rolKodu: true,
+          egitimOgretimYili: true,
           il: { select: { ad: true } },
           ilce: { select: { ad: true } },
           kurum: { select: { ad: true } },
@@ -326,6 +392,9 @@ export default async function OgrencilerSayfasi({
       ogrenciAtamalari: {
         where: { bitisTarihi: null },
         select: {
+          // Kimlik de seçiliyor: "bu benim öğrencim mi" sorusu ad-soyaddan
+          // değil kimlikten sorulur (bkz. OkulTemsilcisiHucresi).
+          danismanKullaniciId: true,
           danisman: { select: { ad: true, soyad: true } },
         },
       },
@@ -414,35 +483,113 @@ export default async function OgrencilerSayfasi({
             aciklama="Bu görevi işaretlediğinizde okulunuzdaki öğrencilerin danışman seçim listesinde görünürsünüz. Onay süreci yoktur."
             Ikon={ShieldCheck}
           />
-          <form action={danismanlikIsaretiEylemi}>
-            <input
-              type="hidden"
-              name="gorevAlmakIstiyor"
-              value={danismanMi(kullanici) ? "hayir" : "evet"}
-            />
-            <input type="hidden" name="donusYolu" value={donusYolu} />
-            {danismanMi(kullanici) ? (
-              <div className="flex flex-wrap items-center gap-4">
-                <p className="inline-flex items-center gap-2 rounded-full bg-olumlu-zemin px-3 py-1 text-sm font-medium text-olumlu-metin">
-                  <BadgeCheck size={15} aria-hidden />
-                  Danışman öğretmen olarak görev alıyorsunuz.
-                </p>
-                <button type="submit" className={SINIF_IKINCIL_BUTON}>
-                  Görevi bırak
-                </button>
-              </div>
-            ) : (
+          {/*
+            "GÖREVİ BIRAK" KALKTI (10 Ağustos 2026 · istek: "Görevi bırak
+            kalkacak · öğretmen öğrenciyi bırakabilsin, gerekirse koordinatör
+            de bırakabilsin").
+
+            Tek düğmeyle görevin TAMAMINI bırakmak, öğretmenin bütün
+            öğrencilerini aynı anda devir akışına sokuyordu — gerekçesiz ve
+            öğrenci başına karar verilmeden. Yerine geçen yol öğrenci bazında:
+            her öğrencinin kaydında "danışmanlığını bırak" var, gerekçe zorunlu
+            ve il koordinatörüne bildirim gidiyor.
+
+            Görev ALMA formu duruyor; bırakma yönü kalktığı için form yalnızca
+            görevi olmayana basılıyor. Rol kaydını kapatan kural katmanı da
+            duruyor (`danismanlikDurumunuDegistir`): öğretmen okuldan
+            ayrıldığında ve rol envanterinden kaldırıldığında hâlâ o yol
+            yürüyor. Kalkan şey, öğretmenin tek tıkla kendi görevini
+            bırakmasıydı.
+          */}
+          {danismanMi(kullanici) ? (
+            <>
+              <p className="inline-flex items-center gap-2 rounded-full bg-olumlu-zemin px-3 py-1 text-sm font-medium text-olumlu-metin">
+                <BadgeCheck size={15} aria-hidden />
+                Danışman öğretmen olarak görev alıyorsunuz.
+              </p>
+              <p className="mt-3 text-sm text-metin-yumusak">
+                Öğrencilerinizi aşağıdaki &quot;Danışmanlığımdaki
+                öğrenciler&quot; bölümünden tek tek bırakabilirsiniz.
+              </p>
+            </>
+          ) : (
+            <form action={danismanlikIsaretiEylemi}>
+              <input type="hidden" name="gorevAlmakIstiyor" value="evet" />
+              <input type="hidden" name="donusYolu" value={donusYolu} />
               <button type="submit" className={SINIF_BIRINCIL_BUTON}>
                 GençTek danışman öğretmeni olarak görev almak istiyorum
               </button>
-            )}
-          </form>
-          {danismanMi(kullanici) && (
-            <p className="mt-3 text-sm text-metin-yumusak">
-              Görevi bıraktığınızda danışmanlığınızdaki öğrenciler okuldaki
-              diğer danışmanlara ya da il koordinatörüne devredilir.
-            </p>
+            </form>
           )}
+        </Kart>
+      )}
+
+      {/*
+        DANIŞMANLIĞIMDAKİ ÖĞRENCİLER (10 Ağustos 2026 · istek: "öğretmenin
+        öğrenci seçip bırakabildiği alanı göremiyorum").
+
+        Her satırda katlı bir bırakma formu var. KATLI, çünkü bu ekranın asıl
+        işi değil ve gerekçe kutusunu her satırda açık tutmak listeyi
+        okunamaz hâle getirirdi; düğmenin doğrudan basılamaması da yanlışlıkla
+        bırakmayı zorlaştırıyor.
+
+        Aynı eylem öğrenci kaydının içinde de duruyor (ogrenciler/[id]);
+        ikisi de tek sunucu eylemine gidiyor, yani kural tek yerde.
+      */}
+      {danismanligimdakiler.length > 0 && (
+        <Kart>
+          <KartBasligi
+            baslik="Danışmanlığımdaki öğrenciler"
+            aciklama={`${danismanligimdakiler.length} öğrencinin danışmanısınız. Bırakırsanız öğrenci danışmansız kalır ve okulundaki bir öğretmeni kendisi seçebilir; gerekçe il koordinatörünüze iletilir.`}
+            Ikon={UserCheck}
+          />
+          <ul className="divide-y divide-cizgi">
+            {danismanligimdakiler.map(({ ogrenci }) => (
+              <li key={ogrenci.id} className="py-3 first:pt-0 last:pb-0">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/panel/ogrenciler/${ogrenci.id}`}
+                      className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
+                    >
+                      {ogrenci.ad} {ogrenci.soyad}
+                    </Link>
+                    <p className="text-sm text-metin-yumusak">
+                      {ogrenci.sinif ? `${ogrenci.sinif}. sınıf` : "—"}
+                    </p>
+                  </div>
+                </div>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-sm font-medium text-vurgu-metin">
+                    Danışmanlığı bırak
+                  </summary>
+                  <form
+                    action={danismanligiBirakEylemi}
+                    className="mt-2 flex flex-wrap items-end gap-2"
+                  >
+                    <input type="hidden" name="ogrenciId" value={ogrenci.id} />
+                    <label className="block grow">
+                      <span className="text-sm font-medium text-metin">
+                        Gerekçe
+                      </span>
+                      <input
+                        type="text"
+                        name="gerekce"
+                        required
+                        minLength={10}
+                        maxLength={500}
+                        placeholder="Öğrencinin ilgi alanı başka bir öğretmenin branşına daha yakın."
+                        className={SINIF_SECIM}
+                      />
+                    </label>
+                    <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                      Bırak
+                    </button>
+                  </form>
+                </details>
+              </li>
+            ))}
+          </ul>
         </Kart>
       )}
 
@@ -593,15 +740,45 @@ export default async function OgrencilerSayfasi({
             </select>
           </label>
 
+          {/*
+            SINIF ARTIK LİSTE (10 Ağustos 2026 · istek: "Sınıf alanı
+            açılabilir olsun, hazırlık, 9 10 11 12").
+
+            Serbest metin kutusuydu ve "11-A" mı "11" mi yazılacağı
+            kullanıcıya bırakılmıştı; yanlış yazan boş liste alıyordu. Süzgeç
+            İÇEREN eşleşmesi yaptığı için (kapsam.ts) seviye seçmek "11-A"yı
+            da "11/B"yi de kapsıyor.
+
+            HAZIRLIK "Haz" olarak süzülüyor: e-Okul'dan gelen değer "Hazırlık"
+            da olabilir "Haz-A" da; ortak ön ek ikisini de yakalar, tam metin
+            yalnızca birini yakalardı.
+          */}
           <label className="block">
             <span className={SINIF_ETIKET}>Sınıf</span>
-            <input
-              type="text"
+            <select
               name="sinif"
-              placeholder="11 veya 11-A"
               defaultValue={filtreler.sinif ?? ""}
               className={SINIF_SECIM}
-            />
+            >
+              <option value="">Tüm sınıflar</option>
+              {SINIF_SECENEKLERI.map((secenek) => (
+                <option key={secenek.deger} value={secenek.deger}>
+                  {secenek.etiket}
+                </option>
+              ))}
+              {/*
+                Adresten gelen ama listede olmayan değer (eski yer imi, elle
+                yazılmış sorgu) kendi seçeneği olarak eklenir: aksi halde
+                süzgeç uygulanmış olduğu hâlde liste "Tüm sınıflar" görünür ve
+                kullanıcı eksik listeye bakıp nedenini anlayamazdı.
+              */}
+              {filtreler.sinif &&
+                !SINIF_SECENEKLERI.some(
+                  (secenek) => secenek.deger === filtreler.sinif,
+                ) && (
+                  <option value={filtreler.sinif}>{filtreler.sinif}</option>
+                )}
+            </select>
           </label>
 
           <label className="block">
@@ -773,6 +950,12 @@ export default async function OgrencilerSayfasi({
             <tbody>
               {ogrenciler.map((ogrenci) => {
                 const danisman = ogrenci.ogrenciAtamalari[0]?.danisman;
+                // İçinde bulunulan dönemin görevleri; geçmiş dönem görevleri
+                // profilin katkı kartında duruyor.
+                const gorevler = ogrenci.gorevRolleri.filter(
+                  (gorev) =>
+                    gorev.egitimOgretimYili === ogrenci.egitimOgretimYili,
+                );
                 return (
                   <tr
                     key={ogrenci.id}
@@ -812,11 +995,11 @@ export default async function OgrencilerSayfasi({
                       )}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
-                      {ogrenci.gorevRolleri.length === 0 ? (
+                      {gorevler.length === 0 ? (
                         "—"
                       ) : (
                         <span className="flex flex-wrap gap-1.5">
-                          {ogrenci.gorevRolleri.map((gorev) => (
+                          {gorevler.map((gorev) => (
                             <span
                               key={gorev.rolKodu}
                               className="rounded-full bg-rol-ogrenci-zemin px-2 py-0.5 text-xs text-rol-ogrenci-metin"
@@ -847,9 +1030,19 @@ export default async function OgrencilerSayfasi({
                     */}
                     {okulTemsilcisiYonetebilir && (
                       <td className="px-4 py-3">
+                        {/*
+                          Hücreye DÖNEMİ SÜZÜLMÜŞ liste veriliyor: geçmiş
+                          dönemde okul temsilcisi olmuş bir öğrenciye bu yıl
+                          "Görevi kaldır" göstermek, olmayan bir görevi
+                          kaldırmayı teklif etmek olurdu.
+                        */}
                         <OkulTemsilcisiHucresi
-                          ogrenci={ogrenci}
+                          ogrenci={{ ...ogrenci, gorevRolleri: gorevler }}
                           kullanici={kullanici}
+                          kendiOgrencisi={
+                            ogrenci.ogrenciAtamalari[0]?.danismanKullaniciId ===
+                            kullanici.id
+                          }
                           donusYolu={donusYolu}
                         />
                       </td>

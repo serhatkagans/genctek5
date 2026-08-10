@@ -47,7 +47,15 @@ describe("öğrenci kapsam filtresi", () => {
     });
   });
 
-  it("danışman için kurum kodu tek başına yetmez, aktif ataması da aranır", () => {
+  /*
+   * 10 AĞUSTOS 2026 · istek: "öğrencilerim sayfasında danışmanı olmasa da
+   * okulunda öğrenci varsa listede görünsün."
+   *
+   * Kural iki dallı: kendi öğrencileri VE okulundaki danışmansızlar. Kurum
+   * kodu tek başına hâlâ yetmiyor — başka danışmanın öğrencisi görünmemeli ve
+   * testin asıl koruduğu şey bu.
+   */
+  it("danışman kendi öğrencilerini ve okulundaki danışmansızları görür", () => {
     const filtre = ogrenciKapsamFiltresi(
       danismanYap({ id: 200, kurumKodu: 750001 }),
     );
@@ -55,6 +63,8 @@ describe("öğrenci kapsam filtresi", () => {
     expect(metin).toContain("750001");
     expect(metin).toContain("danismanKullaniciId");
     expect(metin).toContain('"bitisTarihi":null');
+    // Danışmansız dalı: hiç açık ataması olmayan öğrenci.
+    expect(metin).toContain('"none"');
   });
 
   it("öğrenci yalnızca kendisini görür", () => {

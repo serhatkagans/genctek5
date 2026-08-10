@@ -4,6 +4,7 @@ import {
   istekKarariniCoz,
   mesajMetniniCoz,
   mesajYazilabilirMi,
+  PANODAN_ACILABILIR_TURLER,
   TALEP_AZAMI_GUN,
   TALEP_TURLERI,
   TALEP_TURU_ETIKETLERI,
@@ -43,10 +44,12 @@ describe("talepAktifMi", () => {
 
 describe("talebiCoz", () => {
   const gecerli = {
-    baslik: "Takım arkadaşı",
+    baslik: "Devre şeması",
     icerik: "Robotik için",
     sonGecerlilik: gun(30),
-    tur: "EKIP_ARKADASI",
+    // 10 Ağustos 2026'dan sonra panodan yalnızca destek ve mentör talebi
+    // açılabiliyor; geçerli örnek de o türlerden biri olmalı.
+    tur: "TEKNIK_DESTEK",
   };
 
   it("geçerli ilanı kabul eder ve kırpar", () => {
@@ -101,9 +104,29 @@ describe("talebiCoz", () => {
   });
 
   it("geçerli türü olduğu gibi taşır", () => {
-    const sonuc = talebiCoz({ ...gecerli, tur: "SPONSOR" }, SIMDI);
+    const sonuc = talebiCoz({ ...gecerli, tur: "MENTORE_SOR" }, SIMDI);
     expect(sonuc.olurMu).toBe(true);
-    if (sonuc.olurMu) expect(sonuc.tur).toBe("SPONSOR");
+    if (sonuc.olurMu) expect(sonuc.tur).toBe("MENTORE_SOR");
+  });
+
+  /*
+   * 10 AĞUSTOS 2026 · istek: panoda "alt alta iki alan olacak … biri destek
+   * talebi aç diğeri mentör talebi aç". Tür seçimi ekrandan kalktı; gizli form
+   * alanı kurcalanarak eski türlerin geri gelmemesi bu kapıya bağlı.
+   */
+  it("panodan açılamayan türü reddeder", () => {
+    for (const tur of ["SPONSOR", "EKIP_ARKADASI", "DUYURU"]) {
+      const sonuc = talebiCoz({ ...gecerli, tur }, SIMDI);
+      expect(sonuc.olurMu).toBe(false);
+      if (!sonuc.olurMu) expect(sonuc.neden).toContain("yalnızca destek");
+    }
+  });
+
+  it("panodan açılabilen türler destek ve mentör talebidir", () => {
+    expect([...PANODAN_ACILABILIR_TURLER].sort()).toEqual([
+      "MENTORE_SOR",
+      "TEKNIK_DESTEK",
+    ]);
   });
 
   it("beş türü kapsar", () => {

@@ -88,6 +88,9 @@ export async function kaynakIlKarariEylemi(veri: FormData): Promise<void> {
       sonuc: karar.durum === "ONAYLANDI" ? "onaylandı" : "reddedildi",
       gerekce: karar.gerekce ?? "—",
     },
+    // Onayda öğrencinin sırada ne olduğunu görmesi için etkinliğin kendisine
+    // gitmesi gerekiyor; bildirim metni başvurunun bitmediğini söylüyor.
+    hedef: { tip: "FAALIYET", id: basvuru.faaliyet.id },
   });
 
   await erisimLogla({

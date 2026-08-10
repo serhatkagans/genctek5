@@ -119,36 +119,26 @@ export default async function MarketSayfasi({
         </span>
       </BilgiKutusu>
 
+      {/*
+        İKİ SÜZGEÇ (10 Ağustos 2026 · istek: "dilim kalkacak, kendi ürünlerim
+        ürünlerim olacak, öğrenci ve öğretmen ürünleri ayrı olmayacak").
+        Gerekçeler lib/market/kurallar.ts · MARKET_SUZGECLERI içinde.
+      */}
       <nav aria-label="Ürün süzgeçleri" className="flex flex-wrap gap-2">
-        {MARKET_SUZGECLERI.map((tanim) =>
-          tanim.tanimBekliyorMu ? (
-            /*
-              Tanımı beklenen süzgeç bağlantı DEĞİL: tıklanabilir olsaydı
-              kullanıcı boş bir listeye düşer ve bunu bir hata sanardı.
-            */
-            <span
-              key={tanim.kod}
-              title={tanim.aciklama}
-              className="cursor-not-allowed rounded-full border border-dashed border-cizgi px-4 py-1.5 text-sm text-metin-yumusak"
-            >
-              {tanim.etiket}
-              <span className="ml-1.5 text-xs">(tanım bekleniyor)</span>
-            </span>
-          ) : (
-            <Link
-              key={tanim.kod}
-              href={`/panel/urunler?suzgec=${tanim.kod}`}
-              aria-current={tanim.kod === suzgec ? "page" : undefined}
-              className={
-                tanim.kod === suzgec
-                  ? "rounded-full bg-birincil px-4 py-1.5 text-sm font-semibold text-birincil-metin"
-                  : "rounded-full border border-cizgi px-4 py-1.5 text-sm text-metin transition hover:bg-zemin"
-              }
-            >
-              {tanim.etiket}
-            </Link>
-          ),
-        )}
+        {MARKET_SUZGECLERI.map((tanim) => (
+          <Link
+            key={tanim.kod}
+            href={`/panel/urunler?suzgec=${tanim.kod}`}
+            aria-current={tanim.kod === suzgec ? "page" : undefined}
+            className={
+              tanim.kod === suzgec
+                ? "rounded-full bg-birincil px-4 py-1.5 text-sm font-semibold text-birincil-metin"
+                : "rounded-full border border-cizgi px-4 py-1.5 text-sm text-metin transition hover:bg-zemin"
+            }
+          >
+            {tanim.etiket}
+          </Link>
+        ))}
       </nav>
 
       {aktifTanim && (
