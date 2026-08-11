@@ -76,8 +76,41 @@ export function KapsamRozeti({ kapsam }: { kapsam: Kapsam }) {
   );
 }
 
+/**
+ * İPTAL HER ŞEYİN ÜSTÜNDEDİR (11 Ağustos 2026).
+ *
+ * `durum` (AKTIF / IPTAL_EDILDI), `onayDurumu` ve başvuru penceresi birbirinden
+ * BAĞIMSIZ alanlar ve rozetler de bağımsız basılıyordu. Onaylanıp sonra iptal
+ * edilen bir etkinlikte ikisi yan yana çıkıyordu:
+ *
+ *     [İptal edildi] [Onaylandı] [Başvuru kapandı]
+ *
+ * Veri tutarlıydı — etkinlik gerçekten önce onaylandı, sonra iptal edildi — ama
+ * okuyan için çelişki: "hem onaylı hem iptal" diye bir şey yok. Pencere
+ * rozetinde aynı kusur daha kötü sonuç veriyordu: `basvuruPenceresi` yalnızca
+ * TARİHLERE baktığı için, penceresi açıkken iptal edilen bir etkinlikte
+ * [İptal edildi] [Başvuru açık] yazıyor ve öğrenciyi başvurmaya davet ediyordu
+ * (sunucu zaten reddediyor, bkz. basvuruYapilabilirMi — ama ekran yalan
+ * söylüyordu).
+ *
+ * Karar rozetin İÇİNDE veriliyor, çağıranda değil: iki ekran (liste kartı ve
+ * detay) aynı üçlüyü basıyor ve kural dışarıda kalsaydı birinde unutulurdu.
+ * `faaliyetDurumu` bilinçli olarak ZORUNLU — isteğe bağlı olsaydı yeni bir
+ * çağrı yeri onu geçmeyi unutur ve hata sessizce geri gelirdi.
+ */
+function iptalEdildiMi(faaliyetDurumu: FaaliyetDurumu): boolean {
+  return faaliyetDurumu !== "AKTIF";
+}
+
 /** Yayındaki faaliyette onay rozeti gürültüdür; yalnızca istisnalar gösterilir. */
-export function OnayRozeti({ onayDurumu }: { onayDurumu: OnayDurumu }) {
+export function OnayRozeti({
+  onayDurumu,
+  faaliyetDurumu,
+}: {
+  onayDurumu: OnayDurumu;
+  faaliyetDurumu: FaaliyetDurumu;
+}) {
+  if (iptalEdildiMi(faaliyetDurumu)) return null;
   if (onayDurumu === "ONAY_GEREKMEZ") return null;
   return (
     <span className={`${SINIF_ROZET} ${ONAY_SINIFLARI[onayDurumu]}`}>
@@ -116,7 +149,16 @@ export function FaaliyetDurumuRozeti({ durum }: { durum: FaaliyetDurumu }) {
   );
 }
 
-export function PencereRozeti({ pencere }: { pencere: PencereDurumu }) {
+export function PencereRozeti({
+  pencere,
+  faaliyetDurumu,
+}: {
+  pencere: PencereDurumu;
+  faaliyetDurumu: FaaliyetDurumu;
+}) {
+  // İptal edilen etkinlikte pencere bilgisi anlamını yitirir: başvuru
+  // tarihlerine göre "açık" görünse bile kimse başvuramaz.
+  if (iptalEdildiMi(faaliyetDurumu)) return null;
   return (
     <span className={`${SINIF_ROZET} ${PENCERE_SINIFLARI[pencere]}`}>
       {PENCERE_ETIKETLERI[pencere]}

@@ -544,8 +544,11 @@ export default async function FaaliyetDetaySayfasi({
         <KategoriRozeti kategori={faaliyet.etkinlikKategorisi} />
         <KapsamRozeti kapsam={faaliyet.kapsam} />
         <FaaliyetDurumuRozeti durum={faaliyet.durum} />
-        <OnayRozeti onayDurumu={faaliyet.onayDurumu} />
-        <PencereRozeti pencere={pencere} />
+        <OnayRozeti
+          onayDurumu={faaliyet.onayDurumu}
+          faaliyetDurumu={faaliyet.durum}
+        />
+        <PencereRozeti pencere={pencere} faaliyetDurumu={faaliyet.durum} />
         {kendiBasvurum && <BasvuruRozeti durum={kendiBasvurum.durum} />}
       </div>
 

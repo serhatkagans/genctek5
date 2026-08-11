@@ -139,8 +139,8 @@ function Rozetler({ kart }: { kart: EtkinlikKarti }) {
       <KategoriRozeti kategori={kart.etkinlikKategorisi} />
       <KapsamRozeti kapsam={kart.kapsam} />
       <FaaliyetDurumuRozeti durum={kart.durum} />
-      <OnayRozeti onayDurumu={kart.onayDurumu} />
-      <PencereRozeti pencere={kart.pencere} />
+      <OnayRozeti onayDurumu={kart.onayDurumu} faaliyetDurumu={kart.durum} />
+      <PencereRozeti pencere={kart.pencere} faaliyetDurumu={kart.durum} />
       {kart.benimBasvurum && <BasvuruRozeti durum={kart.benimBasvurum} />}
       {/*
         RAPOR ROZETİ (J3): "raporu bekleyenler" filtresi açıkken hangi kaydın
