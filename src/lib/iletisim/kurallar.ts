@@ -93,6 +93,25 @@ export const PANODAN_ACILABILIR_TURLER: TalepTuru[] = [
   "MENTORE_SOR",
 ];
 
+/**
+ * TÜR SÜZGECİNDE GÖSTERİLEN türler (11 Ağustos 2026 · istek: "Talep türü
+ * sponsoru kaldıralım").
+ *
+ * `TALEP_TURLERI`DEN AYRI BİR LİSTE ve ayrılığın sebebi şu: o liste enum'un
+ * TAMAMIDIR ve iki işi daha var — `talepTuruGecerliMi` doğrulaması ile rozet
+ * etiketlerinin kaynağı. Sponsor oradan silinseydi, açılmış sponsor ilanları
+ * "geçersiz tür" sayılır ve panodaki rozetleri bozulurdu; oysa istek yalnızca
+ * SÜZGEÇTEN kaldırmak.
+ *
+ * SPONSOR İLANLARI PANODA DURMAYA DEVAM EDER — listede görünür, rozeti basılır.
+ * Kaybolan tek şey, o türe göre süzme seçeneği. Açılmış ilanları görünmez
+ * yapmak, sahiplerinin beklediği bağlantıyı sessizce keserdi (aynı gerekçe
+ * PANODAN_ACILABILIR_TURLER notunda da var).
+ */
+export const SUZGEC_TURLERI: TalepTuru[] = TALEP_TURLERI.filter(
+  (tur) => tur !== "SPONSOR",
+);
+
 export function talepTuruGecerliMi(deger: string): deger is TalepTuru {
   return (TALEP_TURLERI as string[]).includes(deger);
 }

@@ -22,9 +22,9 @@ import { prisma } from "@/lib/db";
 import {
   GIZLILIK_UYARISI,
   TALEP_AZAMI_GUN,
-  TALEP_TURLERI,
   TALEP_TURU_BELIRTILMEMIS,
   TALEP_TURU_ETIKETLERI,
+  SUZGEC_TURLERI,
   talepTuruGecerliMi,
 } from "@/lib/iletisim/kurallar";
 import type { RolKodu, TalepTuru } from "@/generated/prisma/enums";
@@ -399,7 +399,13 @@ export default async function TaleplerSayfasi({
               className={SINIF_GIRDI}
             >
               <option value="">Tümü</option>
-              {TALEP_TURLERI.map((deger) => (
+              {/*
+                SÜZGEÇ LİSTESİ AYRI (11 Ağustos 2026 · "sponsoru kaldıralım").
+                TALEP_TURLERI enum'un tamamıdır ve doğrulama ile rozet
+                etiketlerini de besler; sponsor oradan silinseydi açılmış
+                sponsor ilanları geçersiz tür sayılırdı.
+              */}
+              {SUZGEC_TURLERI.map((deger) => (
                 <option key={deger} value={deger}>
                   {TALEP_TURU_ETIKETLERI[deger]}
                 </option>
@@ -447,63 +453,17 @@ export default async function TaleplerSayfasi({
       </form>
 
       {/*
-        İKİ AYRI FORM, ALT ALTA (10 Ağustos 2026 · istek: "burada alt alta iki
-        alan olacak ikisi birleşik olmayacak"). Tek formda tür seçtirmek,
-        kullanıcıyı talebini yazmadan önce bir sınıflandırma kararına
-        zorluyordu; iki kart bu kararı ortadan kaldırıyor.
+        PANODAKİ İLANLAR EN ÜSTTE (11 Ağustos 2026 · istek: "panodaki ilanlar
+        en üstte görünsün").
+
+        Ekran önce iki talep formunu, sonra ilanları basıyordu; yani panoya
+        BAKMAYA gelen kullanıcı — çoğunluk bu — her açılışta iki formu geçmek
+        zorundaydı. Pano bir ilan tahtası; tahtanın kendisi üstte olmalı,
+        ilan asmak ikinci iş.
+
+        SÜZGEÇ İLANLARIN HEMEN ÜSTÜNDE KALDI, aşağı taşınmadı: süzdüğü listeden
+        ayrı düşen bir arama kutusu, neyi daralttığını söylemez.
       */}
-      {acabilir && (
-        <>
-          <TalepFormu
-            tur="TEKNIK_DESTEK"
-            baslik="Destek talebi aç"
-            aciklama={`Takıldığınız bir konuda yardım isteyin. En fazla ${TALEP_AZAMI_GUN} gün geçerli olur; süresi dolunca panodan düşer.`}
-            Ikon={LifeBuoy}
-            yerTutucu="Hangi konuda desteğe ihtiyacınız olduğunu yazın."
-            dugmeMetni="Destek talebi aç"
-            simdi={simdi}
-          />
-          <TalepFormu
-            tur="MENTORE_SOR"
-            baslik="Mentör talebi aç"
-            aciklama={`Yol gösterecek bir mentöre sorun. En fazla ${TALEP_AZAMI_GUN} gün geçerli olur; süresi dolunca panodan düşer.`}
-            Ikon={GraduationCap}
-            yerTutucu="Hangi alanda yol göstermesini istediğinizi yazın."
-            dugmeMetni="Mentör talebi aç"
-            simdi={simdi}
-          >
-            <MentorHavuzu mentorler={mentorler} />
-          </TalepFormu>
-        </>
-      )}
-
-      {kendiTalepleri.length > 0 && (
-        <Kart>
-          <KartBasligi baslik="Açık ilanlarım" />
-          <ul className="divide-y divide-cizgi">
-            {kendiTalepleri.map((talep) => (
-              <li
-                key={talep.id}
-                className="flex flex-wrap items-center justify-between gap-3 py-2.5"
-              >
-                <span className="text-metin">
-                  {talep.baslik}
-                  <span className="ml-2 text-sm text-metin-yumusak">
-                    {tarihYaz(talep.sonGecerlilik)} tarihine kadar
-                  </span>
-                </span>
-                <form action={talepKapatEylemi}>
-                  <input type="hidden" name="talepId" value={talep.id} />
-                  <button type="submit" className={SINIF_IKINCIL_BUTON}>
-                    Kapat
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        </Kart>
-      )}
-
       <Kart>
         <KartBasligi
           baslik="Panodaki ilanlar"
@@ -608,6 +568,68 @@ export default async function TaleplerSayfasi({
           </ul>
         )}
       </Kart>
+
+      {kendiTalepleri.length > 0 && (
+        <Kart>
+          <KartBasligi baslik="Açık ilanlarım" />
+          <ul className="divide-y divide-cizgi">
+            {kendiTalepleri.map((talep) => (
+              <li
+                key={talep.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-2.5"
+              >
+                <span className="text-metin">
+                  {talep.baslik}
+                  <span className="ml-2 text-sm text-metin-yumusak">
+                    {tarihYaz(talep.sonGecerlilik)} tarihine kadar
+                  </span>
+                </span>
+                <form action={talepKapatEylemi}>
+                  <input type="hidden" name="talepId" value={talep.id} />
+                  <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                    Kapat
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </Kart>
+      )}
+
+      {/*
+        İKİ AYRI FORM, ALT ALTA (10 Ağustos 2026 · istek: "burada alt alta iki
+        alan olacak ikisi birleşik olmayacak"). Tek formda tür seçtirmek,
+        kullanıcıyı talebini yazmadan önce bir sınıflandırma kararına
+        zorluyordu; iki kart bu kararı ortadan kaldırıyor.
+
+        İlanların ALTINA alındı (11 Ağustos 2026); mentör havuzu ızgarası
+        formla birlikte taşındı, çünkü havuzun işi "talebini kime yazıyorsun"
+        sorusunu formun hemen yanında cevaplamak.
+      */}
+      {acabilir && (
+        <>
+          <TalepFormu
+            tur="TEKNIK_DESTEK"
+            baslik="Destek talebi aç"
+            aciklama={`Takıldığınız bir konuda yardım isteyin. En fazla ${TALEP_AZAMI_GUN} gün geçerli olur; süresi dolunca panodan düşer.`}
+            Ikon={LifeBuoy}
+            yerTutucu="Hangi konuda desteğe ihtiyacınız olduğunu yazın."
+            dugmeMetni="Destek talebi aç"
+            simdi={simdi}
+          />
+          <TalepFormu
+            tur="MENTORE_SOR"
+            baslik="Mentör talebi aç"
+            aciklama={`Yol gösterecek bir mentöre sorun. En fazla ${TALEP_AZAMI_GUN} gün geçerli olur; süresi dolunca panodan düşer.`}
+            Ikon={GraduationCap}
+            yerTutucu="Hangi alanda yol göstermesini istediğinizi yazın."
+            dugmeMetni="Mentör talebi aç"
+            simdi={simdi}
+          >
+            <MentorHavuzu mentorler={mentorler} />
+          </TalepFormu>
+        </>
+      )}
     </div>
   );
 }
