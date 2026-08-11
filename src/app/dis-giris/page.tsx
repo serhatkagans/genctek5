@@ -5,7 +5,6 @@ import {
   Info,
   KeyRound,
   LogIn,
-  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import { KamuSayfaDuzeni } from "@/components/KamuSayfaDuzeni";
@@ -228,25 +227,16 @@ export default async function DisGirisSayfasi({
         <div className="mt-6">{sifreFormu}</div>
       )}
 
+      {/*
+        "ŞİFREMİ UNUTTUM" ve "BAŞVURU YAPMAK İSTİYORUM" BAĞLANTILARI KALKTI
+        (11 Ağustos 2026 · istek: "bu alanların komple kalkması gerek").
+
+        SAYFALAR SİLİNMEDİ: `/sifre-sifirlama` ve `/basvuru` adresle çalışmaya
+        devam ediyor — sıfırlama e-postasındaki bağlantı oraya gidiyor ve
+        başvuru girişi EBA giriş ekranında duruyor (bkz. app/giris/page.tsx).
+        Kalkan şey yalnızca bu ekrandaki iki satır.
+      */}
       <div className="mt-8 space-y-3 border-t border-cizgi pt-6 text-sm">
-        <p>
-          <Link
-            href="/sifre-sifirlama"
-            className="inline-flex items-center gap-1.5 font-medium text-vurgu-metin"
-          >
-            <KeyRound size={15} aria-hidden />
-            Şifremi unuttum
-          </Link>
-        </p>
-        <p>
-          <Link
-            href="/basvuru"
-            className="inline-flex items-center gap-1.5 font-medium text-vurgu-metin"
-          >
-            <UserPlus size={15} aria-hidden />
-            Hesabım yok, başvuru yapmak istiyorum
-          </Link>
-        </p>
         <p className="text-metin-yumusak">
           Öğrenci ve öğretmenler bu ekrandan giriş yapmaz;{" "}
           <Link href="/giris" className="font-medium text-vurgu-metin">

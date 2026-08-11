@@ -1,9 +1,16 @@
-import { BadgeCheck, MapPin, UserCheck, UserPlus } from "lucide-react";
+import {
+  BadgeCheck,
+  MapPin,
+  UserCheck,
+  UserMinus,
+  UserPlus,
+} from "lucide-react";
 import {
   BilgiKutusu,
   Kart,
   KartBasligi,
   SINIF_BIRINCIL_BUTON,
+  SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import type { KoordinatorBilgisi } from "@/lib/danisman/atama";
 import type { DanismanAdayi } from "@/lib/danisman/karar";
@@ -47,11 +54,14 @@ function iletisimSatiri(
 export function DanismanSecimi({
   veri,
   secEylemi,
+  birakEylemi,
   donusYolu,
   kartlaSar = true,
 }: {
   veri: DanismanSecimVerisi;
   secEylemi: (girdi: FormData) => Promise<void>;
+  /** Danışmanlığı sonlandırma; seçim eylemiyle aynı iki yerden çağrılır. */
+  birakEylemi: (girdi: FormData) => Promise<void>;
   /** Seçimden sonra dönülecek adres; eylem tek, çağıran iki. */
   donusYolu: string;
   kartlaSar?: boolean;
@@ -104,6 +114,38 @@ export function DanismanSecimi({
               : "Danışmanınızı istediğiniz zaman değiştirebilirsiniz; değişiklik anında geçerli olur, onay gerekmez."}
           </p>
         )}
+
+        {/*
+          DANIŞMANLIĞI SONLANDIRMA (11 Ağustos 2026 · istek: "öğrenci danışman
+          öğretmeni bırakacak butonu yok bırakabilsin").
+
+          Öğretmen tarafındaki bırakmanın aynası: bağ kapanır, öğrenci
+          danışmansız kalır ve yeni danışmanını istediği zaman seçer. Gerekçe
+          sorulmaz (bkz. lib/danisman/atama.ts · ogrenciDanismaniniBirakti).
+
+          İL KOORDİNATÖRÜNE BAĞLIYKEN BASILMAZ. O bağ seçilmiş bir danışmanlık
+          değil, okulunda danışman öğretmen bulunmayan öğrenciyi boşta
+          bırakmamak için kurulan bir yedektir; sonlandırmak öğrenciye bir şey
+          kazandırmaz, seçebileceği kimse de yoktur.
+
+          Düğme İKİNCİL ve listenin ÜSTÜNDE, "mevcut durum" bölümünün içinde:
+          asıl iş danışman seçmek, bu onun yanındaki çıkış yolu. Aday
+          listesinin altına konsaydı "Danışmanım olsun" düğmelerinin devamı
+          gibi okunurdu.
+        */}
+        {atama && !koordinatoreBagliMi && (
+          <form action={birakEylemi} className="mt-4">
+            <input type="hidden" name="donusYolu" value={donusYolu} />
+            <button type="submit" className={SINIF_IKINCIL_BUTON}>
+              <UserMinus size={15} aria-hidden />
+              Danışmanlığı sonlandır
+            </button>
+            <p className="mt-1.5 text-sm text-metin-yumusak">
+              Danışmanınız kalmaz ve öğretmene bilgi verilir. Yeni danışmanınızı
+              istediğiniz zaman aşağıdaki listeden seçebilirsiniz.
+            </p>
+          </form>
+        )}
       </Sarmalayici>
 
       {adaylar.length === 0 ? (
@@ -114,9 +156,21 @@ export function DanismanSecimi({
           seçilecek bir alternatif yok; atama zaten otomatik yapılmış durumda.
         */
         <Sarmalayici>
+          {/*
+            AÇIKLAMA ATAMAYA GÖRE DEĞİŞİR. "İl koordinatörünüze bağlısınız"
+            cümlesi, atama gerçekten kuruluyken doğru; danışmanlığı elle
+            sonlandırılmış öğrenci (kendisi bıraktı ya da öğretmeni bıraktı)
+            kimseye bağlı DEĞİLDİR ve otomatik olarak da bağlanmaz
+            (bkz. ilkAtamaKarariVer · elleBirakildiMi). Tek metin basılsaydı
+            ekran, öğrencinin durumunu olduğundan iyi gösterirdi.
+          */}
           <KartBasligi
             baslik="İl koordinatörünüz"
-            aciklama="Okulunuzda GençTek danışman öğretmeni olarak görev alan öğretmen bulunmuyor. Bu nedenle il koordinatörünüze bağlısınız; okulunuzda bir öğretmen görev aldığında bilgilendirilirsiniz."
+            aciklama={
+              atama
+                ? "Okulunuzda GençTek danışman öğretmeni olarak görev alan öğretmen bulunmuyor. Bu nedenle il koordinatörünüze bağlısınız; okulunuzda bir öğretmen görev aldığında bilgilendirilirsiniz."
+                : "Okulunuzda GençTek danışman öğretmeni olarak görev alan öğretmen bulunmuyor ve şu anda danışmanınız yok. Okulunuzda bir öğretmen görev aldığında seçim yapabilirsiniz; o zamana kadar aşağıdaki il koordinatörünüze ulaşabilirsiniz."
+            }
             Ikon={MapPin}
           />
 

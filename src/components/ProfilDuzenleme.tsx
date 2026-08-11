@@ -730,6 +730,8 @@ export function KayitEklemeFormu({
   belgeSinirlari: BelgeSinirlari;
   ekleEylemi: Eylem;
 }) {
+  const gencTekTanimlari = gencTekTipleri(sahip);
+
   return (
     <>
       {/*
@@ -786,24 +788,55 @@ export function KayitEklemeFormu({
           </div>
         ))}
 
-        {gencTekTipleri(sahip).length > 0 && (
+        {/*
+          GENÇTEK YOLCULUĞUM SATIRI DA ÖBÜR GRUPLAR GİBİ DAVRANIR (11 Ağustos
+          2026 · istek: "GençTek Yolculuğum: Verdiğim akran eğitimleri — bu
+          alan 'Ekle' olsun").
+
+          Satır tek düğme basıyor ve düğmenin üstünde grubun adı zaten yazılı;
+          düğmeye tipin tam başlığını ("Verdiğim akran eğitimleri") yazmak,
+          yanındaki "Ürünlerim: Ekle" ve "Topluluklarım / Ekiplerim: Ekle"
+          satırlarının arasında tek başına bir cümle gibi duruyordu. Ne
+          eklendiği düğmenin altındaki tür açıklamasında (`seciliTanim.
+          aciklama`) yazıyor.
+
+          TEK/ÇOK AYRIMI KORUNDU: bugün elle girilebilen tek GençTek tipi akran
+          eğitimi (temsilcilikler atamayla, katılım belgeyle düşüyor). İkinci
+          bir tip açılırsa "Ekle" hangisini ekleyeceğini söylemez olur; o
+          durumda satır, Deneyimlerim'deki gibi aşağı açılan listeye döner.
+        */}
+        {gencTekTanimlari.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-metin-yumusak">
               GençTek Yolculuğum:
             </span>
-            {gencTekTipleri(sahip).map((tanim) => (
+            {gencTekTanimlari.length === 1 ? (
               <Link
-                key={tanim.tip}
-                href={`/panel?tur=${tanim.tip}#kayitlarim`}
+                href={`/panel?tur=${gencTekTanimlari[0].tip}#kayitlarim`}
                 className={
-                  tanim.tip === seciliTanim.tip
+                  gencTekTanimlari[0].tip === seciliTanim.tip
                     ? SINIF_SEKME_SECILI
                     : SINIF_SEKME
                 }
               >
-                {tanim.baslik}
+                Ekle
               </Link>
-            ))}
+            ) : (
+              <KayitTuruSecici
+                etiket="GençTek Yolculuğum"
+                secenekler={gencTekTanimlari.map((tanim) => ({
+                  tip: tanim.tip,
+                  baslik: tanim.baslik,
+                }))}
+                seciliTip={
+                  gencTekTanimlari.some(
+                    (tanim) => tanim.tip === seciliTanim.tip,
+                  )
+                    ? seciliTanim.tip
+                    : null
+                }
+              />
+            )}
           </div>
         )}
       </nav>

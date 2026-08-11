@@ -1,4 +1,5 @@
 import {
+  ArrowRightLeft,
   Award,
   Ban,
   CalendarDays,
@@ -68,6 +69,7 @@ import {
   faaliyetIptalEdebilirMi,
   faaliyetOnaylayabilirMi,
   faaliyetRaporuYazabilirMi,
+  ilKoordinatoruMu,
   projeYoneticisiMi,
   faaliyetPaydasiYonetebilirMi,
   paydasEkleyebilirMi,
@@ -77,6 +79,7 @@ import {
 } from "@/lib/yetki/izinler";
 import {
   DEGERLENDIRME_KATILIMCI_ALANLARI,
+  ilDisiBasvuruFiltresi,
   ogrenciKapsamFiltresi,
   paydasKapsamFiltresi,
   ulusalBasvuranFiltresi,
@@ -281,6 +284,46 @@ export default async function FaaliyetDetaySayfasi({
   const onayBekliyor =
     faaliyet.onayDurumu === "BEKLIYOR" &&
     faaliyetOnaylayabilirMi(kullanici, kapsamBilgisi);
+
+  /*
+   * KAYNAK İL KARARININ ETKİNLİKTEKİ İZİ (11 Ağustos 2026 · istek: "il
+   * koordinatörünün onay verebileceği yer yok etkinliklerde").
+   *
+   * İl dışı başvurunun ilk onayı öğrencinin KENDİ ilinin koordinatörüne aittir
+   * (bkz. lib/basvuru/il-disi.ts) ve karar ekranı `/panel/il-disi-basvurular`.
+   * Ama koordinatör bu kararı ETKİNLİĞİN sayfasında arıyor — Ağrı'daki öğrenci
+   * İstanbul'daki bir etkinliğe başvurduğunda koordinatörün gördüğü tek somut
+   * şey o etkinliktir. Sayfada hiçbir iz yoktu: başvuru listesi yalnızca
+   * DÜZENLEYENE açılıyor (bkz. basvuranlar), koordinatör düzenleyen değil,
+   * dolayısıyla ekran ona "burada yapacak bir şeyin yok" diyordu. Karar da
+   * kimse vermediği için başvuru BEKLIYOR'da kalıyordu.
+   *
+   * KARAR BURAYA TAŞINMADI, yalnızca yolu gösteriliyor. Aynı kararı iki ekrana
+   * koymak, ret gerekçesi zorunluluğu gibi kuralları iki yerde tutmak olurdu;
+   * kopyalanan kural er geç ayrışır. Burada gösterilen şey bir sayaç ve bir
+   * bağlantı.
+   *
+   * Sayım merkezi filtreden geçiyor: koordinatör yalnızca KENDİ ilinden çıkan
+   * başvuruyu sayar, proje yöneticisi hepsini. Başka hiçbir rolde sorgu
+   * çalışmaz.
+   */
+  const kaynakIlKarariGorebilir =
+    ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici);
+  const bekleyenKaynakIlSayisi = kaynakIlKarariGorebilir
+    ? await prisma.basvuru.count({
+        where: {
+          AND: [
+            ilDisiBasvuruFiltresi(kullanici),
+            { faaliyetId: faaliyet.id },
+            // `kaynakIlKarariVerilebilirMi`nin iki koşulu: karar bekliyor ve
+            // başvuru hâlâ canlı. Geri çekilmiş başvuru için kimseyi karar
+            // vermeye çağırmıyoruz.
+            { kaynakIlOnayDurumu: "BEKLIYOR" },
+            { durum: "BEKLIYOR" },
+          ],
+        },
+      })
+    : 0;
 
   // Silinen ek dosyası listelenmez; kaydı log için veritabanında durur.
   const ekler = await prisma.faaliyetEk.findMany({
@@ -626,6 +669,20 @@ export default async function FaaliyetDetaySayfasi({
               </button>
             </form>
           </div>
+        </Kart>
+      )}
+
+      {bekleyenKaynakIlSayisi > 0 && (
+        <Kart>
+          <KartBasligi
+            baslik="İlinizden gelen başvurular kararınızı bekliyor"
+            aciklama={`Bu etkinliğe ilinizden ${bekleyenKaynakIlSayisi} başvuru yapıldı. Öğrenciyi başka bir ile göndermeye önce siz onay verirsiniz; siz karar verene kadar etkinliğin ili bu başvuruları değerlendiremez.`}
+            Ikon={ArrowRightLeft}
+          />
+          <Link href="/panel/il-disi-basvurular" className={SINIF_BIRINCIL_BUTON}>
+            <ArrowRightLeft size={16} aria-hidden />
+            Başvuruları karara bağla
+          </Link>
         </Kart>
       )}
 

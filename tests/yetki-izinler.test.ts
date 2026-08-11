@@ -5,6 +5,7 @@ import {
   calismaGrubuTanimlayabilirMi,
   ekYukleyebilirMi,
   faaliyetPaydasiYonetebilirMi,
+  ogrenciEnvanteriGorebilirMi,
   ogretmenEnvanteriGorebilirMi,
   paydasEkleyebilirMi,
   paydasGorebilirMi,
@@ -640,6 +641,30 @@ describe("öğrenci görev rolleri ek yetki vermez", () => {
  * İkisinde de GÖRME ile YÖNETME ayrı kapılardır; testler bu ayrımın
  * kapanmadığını doğrular.
  */
+/**
+ * ÖĞRENCİ ENVANTERİ, kişisel verinin toplu görüldüğü tek liste.
+ *
+ * Kapı 11 Ağustos 2026'da genişletildi: ekran önceden yalnızca öğrenciyi
+ * eliyor, mezun/paydaş/mentör ve görev almamış öğretmen listeyi açıp "0 kayıt"
+ * görüyordu. Boş liste sızıntı değildi ama erişimi yalnızca kapsam filtresinin
+ * varsayılan dalı tutuyordu; test o dalın tek savunma hattı olmadığını
+ * doğruluyor.
+ */
+describe("öğrenci envanteri", () => {
+  it("öğrenci, dış kullanıcılar ve görev almamış öğretmen envanteri göremez", () => {
+    expect(ogrenciEnvanteriGorebilirMi(ogrenciYap())).toBe(false);
+    expect(ogrenciEnvanteriGorebilirMi(rolsuzOgretmenYap())).toBe(false);
+    expect(ogrenciEnvanteriGorebilirMi(mezunYap())).toBe(false);
+    expect(ogrenciEnvanteriGorebilirMi(paydasTemsilcisiYap())).toBe(false);
+  });
+
+  it("danışman, koordinatör ve merkez envanteri görür", () => {
+    expect(ogrenciEnvanteriGorebilirMi(danismanYap())).toBe(true);
+    expect(ogrenciEnvanteriGorebilirMi(koordinatorYap())).toBe(true);
+    expect(ogrenciEnvanteriGorebilirMi(projeYoneticisiYap())).toBe(true);
+  });
+});
+
 describe("öğretmen envanteri", () => {
   it("öğrenci ve görev almamış öğretmen envanteri göremez", () => {
     expect(ogretmenEnvanteriGorebilirMi(ogrenciYap())).toBe(false);

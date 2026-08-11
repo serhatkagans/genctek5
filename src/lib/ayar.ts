@@ -95,7 +95,7 @@ export const YONETILEBILIR_AYARLAR: AyarTanimi[] = [
     baslik: "İzinli CV tipleri",
     bicim: "liste",
     yardim:
-      "Öğrencinin CV olarak yükleyebileceği MIME tipleri. Yeni bir tip eklerseniz karşılığını src/lib/depolama/yerel.ts içindeki uzantı listesine de ekleyin.",
+      "Özgeçmiş olarak yüklenebilecek MIME tipleri. Ürün kuralı yalnızca PDF'tir (application/pdf); doc/docx bilinçli olarak kapalıdır. Yeni bir tip eklerseniz karşılığını src/lib/depolama/yerel.ts içindeki uzantı listesine de ekleyin.",
   },
   {
     anahtar: AYAR_ANAHTARLARI.CV_MAKS_BAYT,

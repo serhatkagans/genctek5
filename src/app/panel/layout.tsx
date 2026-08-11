@@ -90,23 +90,31 @@ export default async function PanelDuzeni({
   ];
 
   /*
-   * MEZUN / PAYDAŞ / MENTÖR MENÜSÜ ÜÇ SEKME (7 Ağustos 2026 · istek: "mezun
-   * paydaş mentör sayfasında şu sekmeler olacak" — Profil, Panel, Etkinlikler).
+   * MEZUN / PAYDAŞ / MENTÖR MENÜSÜ: Profil · Panel · Etkinlikler · Pano
+   * (7 Ağustos 2026 · istek: "mezun paydaş mentör sayfasında şu sekmeler
+   * olacak" — Profil, Panel, Etkinlikler).
    *
-   * Aşağıdaki ortak sekmelerden Bağlantılarım, Pano ve Market bu kullanıcılara
-   * BASILMIYOR. Erken dönüş kullanılıyor çünkü kalan blokların hepsi görev
-   * rollerine bakıyor ve dış kullanıcıda zaten hiçbiri açılmıyor; tek tek
-   * "dış kullanıcı değilse" koşulu eklemek aynı kararı beş yerde tekrar
-   * ederdi.
+   * PANO 11 AĞUSTOS'TA EKLENDİ (istek: "panelde panoya git var ama üst menüde
+   * de pano olması gerekiyor"). Panel sayfası panoyu bu kullanıcının iki
+   * hakkından biri olarak anlatıp oraya bir düğme koyuyordu; menüde
+   * karşılığının olmaması, panodan çıkan kişiye geri dönecek bir yol
+   * bırakmıyordu.
    *
-   * SAYFALAR SİLİNMEDİ ve YETKİ DARALMADI: `/panel/talepler`, `/panel/urunler`
-   * ve `/panel/yazismalar` adresle çalışmaya devam ediyor, panodaki ilan hakkı
-   * ve onaylı yazışmalar duruyor (bkz. talepPanosuGorebilirMi). Kaldırılan şey
-   * yalnızca menüdeki satır — istek sekme listesini sayıyor, yetki tablosunu
-   * değil.
+   * Bağlantılarım ve Market hâlâ BASILMIYOR. Erken dönüş kullanılıyor çünkü
+   * kalan blokların hepsi görev rollerine bakıyor ve dış kullanıcıda zaten
+   * hiçbiri açılmıyor; tek tek "dış kullanıcı değilse" koşulu eklemek aynı
+   * kararı beş yerde tekrar ederdi.
+   *
+   * SAYFALAR SİLİNMEDİ ve YETKİ DARALMADI: `/panel/urunler` ve
+   * `/panel/yazismalar` adresle çalışmaya devam ediyor, onaylı yazışmalar
+   * duruyor. Kaldırılan şey yalnızca menüdeki satır — istek sekme listesini
+   * sayıyor, yetki tablosunu değil.
    */
   if (disKullaniciMi(kullanici)) {
     baglantilar.push({ yol: "/panel/etkinlikler", etiket: "Etkinlikler" });
+    if (talepPanosuGorebilirMi(kullanici)) {
+      baglantilar.push({ yol: "/panel/talepler", etiket: "Pano" });
+    }
     return (
       <PanelCercevesi
         kullanici={kullanici}

@@ -1,0 +1,27 @@
+-- Öğrencinin danışmanlığı kendisi sonlandırması (11 Ağustos 2026).
+--
+-- İSTEK: "öğrenci danışman öğretmeni bırakacak butonu yok bırakabilsin".
+--
+-- ===========================================================================
+-- NEDEN YENİ BİR KAPANMA NEDENİ
+-- ===========================================================================
+-- Mevcut iki kod bu olayı karşılamıyor:
+--
+--   · OGRENCI_ISTEGI — "öğrenci danışmanını DEĞİŞTİRDİ". Arkasından hemen
+--     yeni bir atama satırı gelir; öğrenci bir an bile danışmansız kalmaz.
+--   · DANISMANLIK_BIRAKILDI — bırakan ÖĞRETMEN. Kararın sahibi farklı,
+--     gerekçesi zorunlu ve il koordinatörüne bildirim gidiyor.
+--
+-- Yeni kod öğrencinin kendi kararıyla DANIŞMANSIZ KALDIĞI anı işaretler.
+-- Üçü aynı kodla dursaydı "kaç öğrenci danışmansız kaldı, kimin kararıyla"
+-- sorusu geçmiş tablosundan cevaplanamazdı — oysa danisman_atama tam olarak
+-- bunun için bir GEÇMİŞ tablosu.
+--
+-- KOD SADECE RAPOR İÇİN DEĞİL: girişte çalışan otomatik atama, elle
+-- bırakılmış öğrenciyi yeniden bağlamamak için bu iki koda bakıyor
+-- (bkz. lib/danisman/atama.ts · ilkAtamayiYurut). Değer olmadan, bırakma
+-- işlemi öğrencinin bir sonraki girişinde sessizce geri alınırdı.
+--
+-- IF NOT EXISTS: migration'ın iki kez uygulanması (ör. `migrate resolve`
+-- sonrası) hata vermesin; ADD VALUE geri alınamaz bir işlemdir.
+ALTER TYPE "KapanmaNedeni" ADD VALUE IF NOT EXISTS 'OGRENCI_BIRAKTI';

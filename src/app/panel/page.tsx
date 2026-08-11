@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  ArrowRightLeft,
   BarChart3,
   BellRing,
   Camera,
@@ -49,7 +50,10 @@ import { bildirimBaglantisi } from "@/lib/bildirim/hedef";
 import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
 import { calismaGruplariniGetir } from "@/lib/ogrenci/calisma-grubu";
 import { calismaGrubuKaydetEylemi } from "./calisma-gruplari/eylemler";
-import { danismanSecEylemi } from "./danisman-secim/eylemler";
+import {
+  danismaniBirakEylemi,
+  danismanSecEylemi,
+} from "./danisman-secim/eylemler";
 import {
   danismanlikEylemi,
   destekGruplariEylemi,
@@ -117,6 +121,7 @@ import {
 } from "@/lib/yetki/izinler";
 import {
   faaliyetKapsamFiltresi,
+  ilDisiBasvuruFiltresi,
   ogrenciKapsamFiltresi,
 } from "@/lib/yetki/kapsam";
 import { bildirimOkunduEylemi, tumBildirimleriOkuEylemi } from "./eylemler";
@@ -173,6 +178,8 @@ function OlcumKarti({
  */
 const DURUM_MESAJLARI: Record<string, string> = {
   secildi: "Danışman öğretmeniniz kaydedildi.",
+  birakildi:
+    "Danışmanlık sonlandırıldı ve öğretmene bilgi verildi. Yeni danışmanınızı istediğiniz zaman seçebilirsiniz.",
   kaydedildi: "Çalışma grubu seçiminiz kaydedildi.",
   "iletisim-kaydedildi": "İletişim bilgileriniz kaydedildi.",
   "kazanim-eklendi": "Kayıt profiline eklendi.",
@@ -556,6 +563,50 @@ export default async function PanelSayfasi({
     : 0;
 
   /*
+   * İL KOORDİNATÖRÜNÜN İKİ ONAY KUYRUĞU (11 Ağustos 2026).
+   *
+   * Koordinatörün panelinde tek bir sayı bile yoktu; menüdeki "İl Dışı
+   * Başvurular" satırı, içinde iş olup olmadığını söylemediği için hiç
+   * tıklanmıyordu. Sonuç: Ağrı'daki öğrenci İstanbul'daki bir etkinliğe
+   * başvuruyor, kararı bekleyen tek kişi koordinatör oluyor ve başvuru
+   * kimsenin haberi olmadan BEKLIYOR'da kalıyordu.
+   *
+   * İkisi AYRI sayı olarak duruyor çünkü ayrı işler: biri "ilimde açılan
+   * etkinliği yayına alayım mı", öbürü "öğrencimi başka ile göndereyim mi".
+   * Tek sayıda toplasaydık tıklanan yer hangi işe gittiğini söylemezdi.
+   */
+  const koordinatorOnayKuyrugu = ilKoordinatoruMu(kullanici)
+    ? {
+        etkinlik: await prisma.faaliyet.count({
+          where: {
+            AND: [
+              faaliyetKapsamFiltresi(kullanici),
+              { onayDurumu: "BEKLIYOR" },
+              /*
+               * KENDİ AÇTIĞI ELENİR. Kapsam filtresi kişinin kendi
+               * etkinliklerini onay durumundan bağımsız gösteriyor, dolayısıyla
+               * koordinatörün merkez onayını bekleyen ULUSAL etkinliği de bu
+               * sayıya giriyordu. Kimse kendi işini onaylamaz
+               * (bkz. ilKoordinatoruOnaylayabilirMi); sayı "sizi bekleyen iş"
+               * demek olduğuna göre orada görünmemeli.
+               */
+              { duzenleyenKullaniciId: { not: kullanici.id } },
+            ],
+          },
+        }),
+        ilDisi: await prisma.basvuru.count({
+          where: {
+            AND: [
+              ilDisiBasvuruFiltresi(kullanici),
+              { kaynakIlOnayDurumu: "BEKLIYOR" },
+              { durum: "BEKLIYOR" },
+            ],
+          },
+        }),
+      }
+    : null;
+
+  /*
    * Başvuruya açık faaliyetler — panelin "kaçırma" listesi.
    *
    * Sıra başvurusu EN SON AÇILAN'dan başlar: takvim ve şerit zaten "en yakın
@@ -787,6 +838,24 @@ export default async function PanelSayfasi({
               deger={String(kapsamdakiOgrenciSayisi)}
               aciklama={`İl kodu: ${koordinatorIlKodu(kullanici) ?? "—"}`}
             />
+            {koordinatorOnayKuyrugu && (
+              <>
+                <OlcumKarti
+                  baslik="Onay bekleyen etkinlik"
+                  Ikon={ClipboardCheck}
+                  deger={String(koordinatorOnayKuyrugu.etkinlik)}
+                  aciklama="İlinizde açıldı, yayına almanızı bekliyor"
+                  yol="/panel/etkinlikler?onay=bekleyen"
+                />
+                <OlcumKarti
+                  baslik="İl dışına giden başvuru"
+                  Ikon={ArrowRightLeft}
+                  deger={String(koordinatorOnayKuyrugu.ilDisi)}
+                  aciklama="Öğrenciniz başka ilin etkinliğine başvurdu"
+                  yol="/panel/il-disi-basvurular"
+                />
+              </>
+            )}
             <OlcumKarti
               baslik="Katkı kartım"
               Ikon={Sparkles}
@@ -805,11 +874,28 @@ export default async function PanelSayfasi({
               deger={String(kapsamdakiOgrenciSayisi)}
               aciklama="Tüm iller"
             />
+            {/*
+              ONAY KUYRUĞU (11 Ağustos 2026 · istek: "öğrenci etkinlik açtığında
+              proje yöneticisi her durumda onay verebilsin, öğrencinin ilinde
+              koordinatör olmayabilir").
+
+              KART İKİ YERİNDEN BİRDEN YANLIŞTI: başlığı "ulusal" diyordu ama
+              sayı ülke genelindeki BÜTÜN bekleyen etkinlikleri sayıyor, buna
+              karşılık bağlantı `?kapsam=ULUSAL` listesine götürüyordu. Yani
+              koordinatörsüz bir ilde açılmış okul içi öğrenci etkinliği kartta
+              sayılıyor ama tıklanınca açılan listede HİÇ görünmüyordu; merkez
+              onaylamaya yetkili olduğu kaydı ancak doğrudan bağlantısını
+              bilirse açabiliyordu. Yetki hep vardı (`faaliyetOnaylayabilirMi`
+              proje yöneticisine koşulsuz evet der), eksik olan ona giden yoldu.
+
+              Başlık ve bağlantı artık sayının kendisiyle aynı şeyi söylüyor.
+            */}
             <OlcumKarti
-              baslik="Onay bekleyen ulusal etkinlik"
+              baslik="Onay bekleyen etkinlik"
               Ikon={ClipboardCheck}
               deger={String(onayBekleyenSayisi)}
-              yol="/panel/etkinlikler?kapsam=ULUSAL"
+              aciklama="Tüm kapsamlar · ülke geneli"
+              yol="/panel/etkinlikler?onay=bekleyen"
             />
             {katilim && (
               <OlcumKarti
@@ -861,6 +947,7 @@ export default async function PanelSayfasi({
           <DanismanSecimi
             veri={danismanVerisi}
             secEylemi={danismanSecEylemi}
+            birakEylemi={danismaniBirakEylemi}
             donusYolu="/panel"
             kartlaSar={false}
           />

@@ -1,5 +1,29 @@
-import type { Kapsam } from "@/generated/prisma/enums";
+import type { Kapsam, RolKodu } from "@/generated/prisma/enums";
 import type { FaaliyetKapsami, OturumKullanicisi } from "./tipler";
+
+/**
+ * Açtığı etkinlik İL KOORDİNATÖRÜNÜN onayına tabi olan roller.
+ *
+ * TEK KAYNAK (11 Ağustos 2026). Bu liste iki yerde birden gerekiyor:
+ *
+ *   1. `ilKoordinatoruOnaylayabilirMi` — koordinatör bu kaydı onaylayabilir mi?
+ *   2. `faaliyetKapsamFiltresi` — koordinatör bu kaydı GÖREBİLİR mi?
+ *
+ * İkisi iki ayrı dosyada elle yazılıyordu ve İKİ KEZ AYRIŞTI: önce danışman
+ * öğretmen onaya tabi kılınıp filtre unutuldu, sonra aynısı mezun/paydaş/mentör
+ * için tekrarlandı. Sonuç her seferinde aynı sessiz kilitlenme oldu —
+ * koordinatöre "onayınızı bekliyor" bildirimi gidiyor, bildirimdeki bağlantı
+ * 404 veriyor, etkinlik sonsuza kadar BEKLIYOR'da kalıyor. Hiçbir yerde hata
+ * görünmüyor.
+ *
+ * Artık ikisi de bu diziden türüyor; yeni bir rol eklemek tek satır.
+ */
+export const KOORDINATOR_ONAYINA_TABI_ROLLER: readonly RolKodu[] = [
+  "OGRENCI",
+  "DANISMAN",
+  "MEZUN",
+  "PAYDAS_TEMSILCISI",
+];
 
 /**
  * references/permissions.md Bölüm 1'deki yetki matrisinin birebir karşılığı.
@@ -212,6 +236,13 @@ export function ilKoordinatoruOnaylayabilirMi(
   kullanici: OturumKullanicisi,
   faaliyet: FaaliyetKapsami,
 ): boolean {
+  /*
+   * Üç bayrak, KOORDINATOR_ONAYINA_TABI_ROLLER'ın karşılığıdır: öğrenci,
+   * danışman öğretmen ve dış kullanıcı (mezun + paydaş temsilcisi). Bayraklar
+   * `faaliyetKapsamiCikar`da aynı rollerden üretiliyor; liste değişirse orası
+   * ve buradaki üçlü birlikte güncellenmeli — testi
+   * `yetki-izinler.test.ts` tutuyor.
+   */
   const onayaTabi =
     faaliyet.duzenleyenOgrenciMi === true ||
     faaliyet.duzenleyenDanismanMi === true ||
@@ -634,8 +665,37 @@ export function sistemAyarlariniYonetebilirMi(
 }
 
 // ---------------------------------------------------------------------------
-// Öğretmen envanteri
+// Öğrenci ve öğretmen envanteri
 // ---------------------------------------------------------------------------
+
+/**
+ * Öğrenci envanterini (liste ekranı ve CSV çıktısı) görebilir mi?
+ *
+ * KAPI EKRAN SEVİYESİNDE DE KAPALI OLMALI (11 Ağustos 2026). Ekran önceden
+ * yalnızca ÖĞRENCİYİ eliyordu; kalan herkes listeyi açabiliyor ve kapsam
+ * filtresi sayesinde "0 kayıt" görüyordu. Mezun, paydaş temsilcisi, mentör ve
+ * görev almamış öğretmen için bu ekran hiç açılmamalı:
+ *
+ *   · Boş liste, veri sızdırmasa da YANLIŞ BİLGİ verir — "sistemde öğrenci
+ *     yok" diye okunur.
+ *   · Asıl mesele kırılganlık: erişimi tek başına `ogrenciKapsamFiltresi`nin
+ *     varsayılan dalı (HICBIRI) tutuyordu. O dalda bir gün yapılacak bir
+ *     genişletme, bu ekranı kimse fark etmeden veri gösterir hâle getirirdi.
+ *     Yetki iki katmanda birden sorulur (permissions.md · Bölüm 4).
+ *
+ * Liste `ogretmenEnvanteriGorebilirMi` ile AYNI: kapsam filtresinde kayıt
+ * görebilen roller tam olarak bunlar (danışman kendi okulu, koordinatör kendi
+ * ili, merkez ülke geneli).
+ */
+export function ogrenciEnvanteriGorebilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return (
+    projeYoneticisiMi(kullanici) ||
+    ilKoordinatoruMu(kullanici) ||
+    danismanMi(kullanici)
+  );
+}
 
 /**
  * Danışman öğretmen envanterini görebilir mi?

@@ -29,10 +29,37 @@ export type IlkAtamaKarari =
    */
   | { tur: "ATANAMADI"; neden: "IL_KOORDINATORU_YOK" };
 
+/**
+ * @param elleBirakildiMi Öğrencinin son danışmanlığı ELLE mi sonlandırıldı —
+ *   öğretmen gerekçeli bıraktı ya da öğrenci kendisi bıraktı (11 Ağustos
+ *   2026).
+ *
+ *   BÖYLE BİR ÖĞRENCİ OTOMATİK BAĞLANMAZ, seçim ekranına düşer. Aksi hâlde
+ *   bırakma işlemi öğrencinin bir sonraki girişinde sessizce geri alınıyordu:
+ *   okulda tek aday varsa "OTOMATIK" dalı çalışıp öğrenciyi az önce ayrıldığı
+ *   öğretmene geri bağlıyor, hiç aday yoksa il koordinatörüne yazıyordu.
+ *   Öğretmen tarafındaki bırakma 10 Ağustos'ta eklenmişti ve bu boşluk o
+ *   günden beri açıktı.
+ *
+ *   Varsayılan `false`: bu bilgiyi taşımayan çağıran için davranış eskisi
+ *   gibi kalır — bir öğrencinin ilk atamasında bırakma geçmişi zaten yoktur.
+ */
 export function ilkAtamaKarariVer(
   adaylar: DanismanAdayi[],
   ilKoordinatoruKullaniciId: number | null,
+  elleBirakildiMi = false,
 ): IlkAtamaKarari {
+  /*
+   * ADAY SAYISINDAN ÖNCE SORULUR ve aday listesi boş olsa bile SECIM_GEREKLI
+   * döner. "Seçilecek kimse yoksa hiç değilse koordinatöre bağlayalım" demek,
+   * öğrencinin ayrılma kararını yok saymak olurdu; danışmansızlık artık
+   * desteklenen bir durumdur (bkz. tekOgrenciyiBirak'taki uzun not) ve
+   * ekranlarda "Atanmadı" olarak görünür.
+   */
+  if (elleBirakildiMi) {
+    return { tur: "SECIM_GEREKLI", adaylar };
+  }
+
   if (adaylar.length > 1) {
     return { tur: "SECIM_GEREKLI", adaylar };
   }

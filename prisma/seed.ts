@@ -112,13 +112,17 @@ const SISTEM_AYARLARI = [
     aciklama: "Yüklenebilir belge MIME tipleri.",
   },
   {
-    // Faaliyet eklerinin belge ayarından AYRIDIR: CV'de doc/docx kabul edilir,
-    // faaliyet ekinde edilmez. Ortak ayar kullanılsaydı biri için açılan tip
-    // diğerinde de açılırdı.
+    // Faaliyet eklerinin belge ayarından AYRI TUTULDU: bugün ikisi de yalnızca
+    // PDF kabul ediyor ama biri için açılacak bir tip (ör. faaliyet ekine
+    // görsel) kendiliğinden özgeçmişte de açılmamalı.
+    //
+    // YALNIZCA PDF (11 Ağustos 2026): doc ve docx kapatıldı. Kurulu
+    // veritabanlarında bu satırın `deger` alanına dokunulmadığı için değişiklik
+    // migration ile de yazıldı (20260811150000_cv_yalnizca_pdf).
     anahtar: "IZINLI_CV_TIPLERI",
-    deger:
-      "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    aciklama: "Öğrencinin CV olarak yükleyebileceği MIME tipleri (pdf, doc, docx).",
+    deger: "application/pdf",
+    aciklama:
+      "Özgeçmiş olarak yüklenebilecek MIME tipleri. Yalnızca PDF (11 Ağustos 2026).",
   },
   {
     anahtar: "CV_MAKS_BAYT",
@@ -183,6 +187,18 @@ const BILDIRIM_SABLONLARI = [
     konu: "{{ogrenciAdSoyad}} öğrencisinin danışmanlığı bırakıldı",
     govdeSablonu:
       "Merhaba,\n\n{{okulAdi}} okulundan {{danismanAdSoyad}}, {{ogrenciAdSoyad}} adlı öğrencinin danışmanlığını bıraktı.\n\nGerekçe: {{gerekce}}\n\nÖğrencinin yeni durumu: {{yeniDurum}}\n\nGençTek",
+  },
+  {
+    kod: "OGRENCI_DANISMAN_SECTI",
+    konu: "{{ogrenciAdSoyad}} sizi danışman öğretmen olarak seçti",
+    govdeSablonu:
+      "Merhaba,\n\n{{ogrenciAdSoyad}} ({{sinif}}) adlı öğrenci, GençTek danışman öğretmeni olarak sizi seçti. Öğrenci artık \"Öğrencilerim\" listenizde görünüyor.\n\nGençTek",
+  },
+  {
+    kod: "OGRENCI_DANISMANLIKTAN_AYRILDI",
+    konu: "{{ogrenciAdSoyad}} danışmanlığınızdan ayrıldı",
+    govdeSablonu:
+      "Merhaba,\n\n{{ogrenciAdSoyad}} adlı öğrenci {{neOldu}}. Öğrenci artık \"Öğrencilerim\" listenizde görünmeyecek.\n\nGençTek",
   },
   {
     kod: "KOORDINATOR_DEVREDILEBILIR_OGRENCI",

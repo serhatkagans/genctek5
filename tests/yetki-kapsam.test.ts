@@ -10,6 +10,7 @@ import {
   paydasListeFiltresi,
   ulusalBasvuranFiltresi,
 } from "@/lib/yetki/kapsam";
+import { KOORDINATOR_ONAYINA_TABI_ROLLER } from "@/lib/yetki/izinler";
 import {
   danismanYap,
   koordinatorYap,
@@ -190,6 +191,31 @@ describe("faaliyet kapsam filtresi", () => {
   it("kişinin kendi açtığı faaliyetler onay durumundan bağımsız görünür", () => {
     const filtre = faaliyetKapsamFiltresi(koordinatorYap({ id: 300 }));
     expect(metne(filtre)).toContain('"duzenleyenKullaniciId":300');
+  });
+
+  /**
+   * FİLTRE İLE ONAY YETKİSİ AYNI ROLLERİ TAŞIMAK ZORUNDA.
+   *
+   * Bu eşleşme iki kez bozuldu (danışman öğretmen, sonra mezun/paydaş/mentör)
+   * ve ikisinde de sessizce: koordinatöre "onayınızı bekliyor" bildirimi
+   * gidiyor, bağlantı 404 veriyor, etkinlik sonsuza kadar BEKLIYOR'da
+   * kalıyordu. Test, listenin tek kaynaktan (KOORDINATOR_ONAYINA_TABI_ROLLER)
+   * geldiğini ve filtreye eksiksiz yazıldığını doğruluyor.
+   */
+  it("koordinatörün onay kuyruğu, onaylayabildiği tüm rolleri kapsar", () => {
+    const metin = metne(faaliyetKapsamFiltresi(koordinatorYap()));
+    for (const rol of KOORDINATOR_ONAYINA_TABI_ROLLER) {
+      expect(metin).toContain(`"${rol}"`);
+    }
+    expect(metin).toContain("BEKLIYOR");
+  });
+
+  it("onaya tabi rol listesi, yetki tarafındaki üç bayrakla aynı kümedir", () => {
+    // Bayraklar: duzenleyenOgrenciMi · duzenleyenDanismanMi ·
+    // duzenleyenDisKullaniciMi (mezun + paydaş temsilcisi).
+    expect([...KOORDINATOR_ONAYINA_TABI_ROLLER].sort()).toEqual(
+      ["DANISMAN", "MEZUN", "OGRENCI", "PAYDAS_TEMSILCISI"].sort(),
+    );
   });
 });
 

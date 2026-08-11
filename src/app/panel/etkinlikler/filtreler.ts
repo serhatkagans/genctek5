@@ -35,6 +35,25 @@ export interface FaaliyetFiltreleri {
    * koordinatörün ilindeki eksikleri görmesini imkânsız kılardı.
    */
   yalnizcaRaporsuz: boolean;
+  /**
+   * Onay bekleyen etkinlikler (11 Ağustos 2026).
+   *
+   * PROJE YÖNETİCİSİNİN ONAY KUYRUĞU BURADAN AÇILIYOR. Merkez, öğrencinin
+   * açtığı HER etkinliği onaylayabilir (`faaliyetOnaylayabilirMi` proje
+   * yöneticisine koşulsuz evet der) ve bu tek güvence: öğrencinin ilinde
+   * koordinatör olmayabilir. Ama panelin "Onay bekleyen" kartı
+   * `?kapsam=ULUSAL` listesine götürüyordu — sayı ülke genelindeki bekleyen
+   * etkinliklerin tamamını sayarken bağlantı yalnızca ulusal kapsamlıları
+   * gösteriyordu. Koordinatörsüz bir ilde açılan okul içi öğrenci etkinliği
+   * kartta SAYILIYOR ama listede HİÇ ÇIKMIYORDU; merkez yetkili olduğu kaydı
+   * ancak doğrudan bağlantısını bilirse açabiliyordu.
+   *
+   * Filtre kapsamdan bağımsız: onay bekleyen kayıt, görebilen herkes için
+   * "karar bekleyen iş"tir. Kapsam filtresi zaten kimin neyi göreceğini
+   * söylüyor (bkz. faaliyetKapsamFiltresi) — koordinatör yalnızca kendi
+   * ilinin bekleyenlerini, merkez hepsini görür.
+   */
+  yalnizcaOnayBekleyen: boolean;
 }
 
 export function faaliyetFiltreleriniCoz(
@@ -55,6 +74,7 @@ export function faaliyetFiltreleriniCoz(
     yalnizcaAcik: tekil(parametreler.acik) === "1",
     yalnizcaBenim: tekil(parametreler.benim) === "1",
     yalnizcaRaporsuz: tekil(parametreler.raporsuz) === "1",
+    yalnizcaOnayBekleyen: tekil(parametreler.onay) === "bekleyen",
   };
 }
 
@@ -92,6 +112,15 @@ export function faaliyetListeFiltresi(
   }
   if (filtreler.yalnizcaBenim) {
     kosullar.push({ duzenleyenKullaniciId: kullanici.id });
+  }
+  /*
+   * Onay kuyruğu. Ek bir yetki kontrolü YOK ve bu bilinçli: filtre yalnızca
+   * DARALTIR, kapsam filtresinin göstermediği hiçbir kaydı geri getirmez.
+   * Adres çubuğuna `?onay=bekleyen` yazan bir öğrenci kendi bekleyen
+   * önerisini görür — zaten görebildiği tek bekleyen kayıt odur.
+   */
+  if (filtreler.yalnizcaOnayBekleyen) {
+    kosullar.push({ onayDurumu: "BEKLIYOR" });
   }
   if (filtreler.yalnizcaRaporsuz) {
     /*

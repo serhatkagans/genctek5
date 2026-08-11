@@ -41,7 +41,7 @@ import {
   danismanMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
-  ogrenciMi,
+  ogrenciEnvanteriGorebilirMi,
   okulTemsilcisiAtayabilirMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
@@ -181,7 +181,15 @@ export default async function OgrencilerSayfasi({
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
 
-  if (ogrenciMi(kullanici) && !projeYoneticisiMi(kullanici)) {
+  /*
+   * KAPI ÖĞRENCİDEN GENİŞ (11 Ağustos 2026). Önceden yalnızca öğrenci
+   * eleniyordu; mezun, paydaş temsilcisi, mentör ve görev almamış öğretmen
+   * ekranı açıp "0 kayıt" görüyordu. Veri sızmıyordu (kapsam filtresi
+   * varsayılan olarak hiçbir şey döndürmüyor) ama boş liste "sistemde öğrenci
+   * yok" diye okunur ve erişimi tek bir filtre dalı tutuyordu
+   * (bkz. ogrenciEnvanteriGorebilirMi).
+   */
+  if (!ogrenciEnvanteriGorebilirMi(kullanici)) {
     return (
       <Kart>
         <KartBasligi

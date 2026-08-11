@@ -441,6 +441,21 @@ export default async function FaaliyetlerSayfasi({
     projeYoneticisiMi(kullanici);
 
   /*
+   * ONAY KUYRUĞU FİLTRESİ, onay verebilen rollere gösteriliyor: il koordinatörü
+   * ve proje yöneticisi (bkz. faaliyetOnaylayabilirMi). Merkez için bu filtre
+   * ekranın asıl işidir — öğrencinin ilinde koordinatör olmadığında bekleyen
+   * etkinliğe ulaşabildiği tek toplu görünüm burasıdır.
+   *
+   * Kapı ROL seviyesinde soruluyor, kayıt seviyesinde değil: hangi bekleyen
+   * kaydın kimin kararına düştüğünü kapsam filtresi zaten söylüyor. Danışman
+   * öğretmen dışarıda; kendi bekleyen etkinliğini "benim açtıklarım"dan görür,
+   * ona onay kuyruğu diye bir liste sunmak yetkisini olduğundan geniş
+   * gösterirdi.
+   */
+  const onaylayabilir =
+    ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici);
+
+  /*
    * CSV ÖĞRENCİDE YOK (10 Ağustos 2026 · istek: "öğrenci etkinliklerinde CSV
    * indir kalkacak"). Karar izinler.ts'te tek yerde veriliyor
    * (faaliyetDisaAktarabilirMi); rota da aynı kapıyı soruyor.
@@ -642,6 +657,18 @@ export default async function FaaliyetlerSayfasi({
                 className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
               />
               Yalnızca benim açtıklarım
+            </label>
+          )}
+          {onaylayabilir && (
+            <label className="flex items-center gap-2 text-sm text-metin">
+              <input
+                type="checkbox"
+                name="onay"
+                value="bekleyen"
+                defaultChecked={filtreler.yalnizcaOnayBekleyen}
+                className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+              />
+              Onay bekleyenler
             </label>
           )}
           {/*

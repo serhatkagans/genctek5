@@ -4,6 +4,7 @@ import {
   danismanKurumKodu,
   danismanMi,
   disKullaniciMi,
+  KOORDINATOR_ONAYINA_TABI_ROLLER,
   koordinatorIlKodu,
   ogrenciMi,
   projeYoneticisiMi,
@@ -458,18 +459,16 @@ export function faaliyetKapsamFiltresi(
    * onaylayacak kişi onaylayacağı şeyi göremezse öneri hiç ulaşmamış olurdu
    * (bkz. ilKoordinatoruOnaylayabilirMi).
    *
-   * ROL LİSTESİ İKİLİ: öğrenci VE danışman öğretmen. Bir dönem yalnızca öğrenci
-   * yazılıydı; sonra `faaliyetOnayGerekiyorMu` genişletilip danışman
-   * öğretmenin açtığı faaliyet de onaya tabi kılındı ama bu filtre güncellenmedi.
-   * Sonuç sessiz bir kilitlenmeydi: öğretmenin faaliyeti BEKLIYOR'da kalıyor,
-   * koordinatör onu ne listede ne adresinde görebiliyor (404), "Öğretmen
-   * faaliyeti onayınızı bekliyor" bildirimi de bulunamayan bir sayfaya
-   * götürüyordu. Hiçbir yerde hata çıkmıyordu — faaliyet öğrenciye hiç
-   * görünmüyordu, o kadar.
+   * ROL LİSTESİ ARTIK ELLE YAZILMIYOR (11 Ağustos 2026). Buradaki liste ile
+   * `ilKoordinatoruOnaylayabilirMi`nin kabul ettiği roller İKİ KEZ AYRIŞTI:
+   * önce danışman öğretmen onaya tabi kılınıp filtre unutuldu, sonra aynısı
+   * mezun/paydaş/mentör için tekrarlandı. Her seferinde sonuç sessiz bir
+   * kilitlenmeydi: faaliyet BEKLIYOR'da kalıyor, koordinatör onu ne listede ne
+   * adresinde görebiliyor (404), "onayınızı bekliyor" bildirimi de bulunamayan
+   * bir sayfaya götürüyordu. Hiçbir yerde hata çıkmıyordu.
    *
-   * BURASI `ilKoordinatoruOnaylayabilirMi` İLE AYNI KALMALI. İki taraf
-   * ayrışırsa ya onaylayamayacağı kayıt listelenir ya da onaylayacağı kayıt
-   * kaybolur; ikisi de sessizce olur.
+   * İki taraf da KOORDINATOR_ONAYINA_TABI_ROLLER'dan türüyor; ayrışma artık
+   * yapısal olarak mümkün değil.
    */
   const koordinatorIli = koordinatorIlKodu(kullanici);
   const onaylayabilecekleri: Prisma.FaaliyetWhereInput[] =
@@ -480,7 +479,7 @@ export function faaliyetKapsamFiltresi(
             duzenleyen: {
               roller: {
                 some: {
-                  rolKodu: { in: ["OGRENCI", "DANISMAN"] },
+                  rolKodu: { in: [...KOORDINATOR_ONAYINA_TABI_ROLLER] },
                   bitisTarihi: null,
                 },
               },

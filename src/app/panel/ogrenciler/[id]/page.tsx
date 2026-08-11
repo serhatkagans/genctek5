@@ -30,6 +30,7 @@ import {
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import { cvSinirlariniGetir } from "@/lib/ogrenci/cv";
 import { cvTipAdlari } from "@/lib/ogrenci/cv-kurallar";
 import { BAGLANTI_TANIMLARI } from "@/lib/ogrenci/iletisim-kurallar";
 import {
@@ -130,6 +131,14 @@ export default async function OgrenciProfilSayfasi({
 
   const cv = ogrenci.ogrenciProfil;
   const cvVar = Boolean(cv?.cvDepolamaYolu);
+  /*
+   * Kabul edilen biçimler AYARDAN okunuyor (11 Ağustos 2026). Burada üç MIME
+   * tipi elle yazılıydı: öğrencinin kendi ekranı ayarı okurken bu ekran sabit
+   * bir liste basıyordu ve ikisi ayrışınca öğretmen, öğrenciye yükleyemeyeceği
+   * bir biçimi söyler hâle geliyordu. Kural PDF-only'e çekilince fark
+   * gerçekleşecekti.
+   */
+  const cvSinirlari = cvVar ? null : await cvSinirlariniGetir();
 
   const hata = tekil(parametreler.hata);
   const durum = tekil(parametreler.durum);
@@ -466,12 +475,7 @@ export default async function OgrenciProfilSayfasi({
         ) : (
           <p className="text-metin-yumusak">
             Öğrenci henüz CV yüklemedi. Kabul edilen biçimler:{" "}
-            {cvTipAdlari([
-              "application/pdf",
-              "application/msword",
-              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            ])}
-            .
+            {cvTipAdlari(cvSinirlari?.izinliTipler ?? [])}.
           </p>
         )}
       </Kart>

@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
-import { ogrenciDanismanSecti } from "@/lib/danisman/atama";
+import {
+  ogrenciDanismaniniBirakti,
+  ogrenciDanismanSecti,
+} from "@/lib/danisman/atama";
 import { ogrenciMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { YetkiHatasi } from "@/lib/yetki/tipler";
@@ -56,4 +59,44 @@ export async function danismanSecEylemi(veri: FormData): Promise<void> {
   revalidatePath("/panel");
   revalidatePath("/panel/profil");
   redirect(`${donusYolu}?durum=secildi${capa}`);
+}
+
+/**
+ * Öğrenci danışmanlığı kendisi sonlandırır (11 Ağustos 2026).
+ *
+ * Yetki `ogrenciMi` ile sorulur ve kimin bırakıldığı FORMDAN ALINMAZ: eylem
+ * her zaman oturumdaki öğrencinin kendi atamasını kapatır. Öğrenci kimliği
+ * parametre olsaydı, form gövdesine başka bir kimlik yazan öğrenci
+ * başkasının danışmanlığını sonlandırabilirdi.
+ */
+export async function danismaniBirakEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  if (!ogrenciMi(kullanici)) {
+    throw new YetkiHatasi(
+      "Danışmanlığı yalnızca öğrencinin kendisi sonlandırabilir.",
+    );
+  }
+
+  const donusYolu = donusYolunuCoz(veri);
+  const capa = donusYolu === "/panel" ? "#danismanim" : "";
+
+  const sonuc = await ogrenciDanismaniniBirakti(kullanici.id);
+
+  if (!sonuc.olurMu) {
+    redirect(`${donusYolu}?hata=${encodeURIComponent(sonuc.neden)}${capa}`);
+  }
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "DANISMAN_ATAMA",
+    hedefId: kullanici.id,
+    detay: `Öğrenci danışmanlığı sonlandırdı: ${sonuc.eskiDanismanAdSoyad}`,
+  });
+
+  revalidatePath("/panel/danisman-secim");
+  revalidatePath("/panel");
+  revalidatePath("/panel/profil");
+  redirect(`${donusYolu}?durum=birakildi${capa}`);
 }

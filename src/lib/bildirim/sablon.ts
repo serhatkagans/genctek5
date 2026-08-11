@@ -20,6 +20,28 @@ export const BILDIRIM_KODLARI = {
    * olmadan hesap verilebilir olmaz.
    */
   DANISMANLIK_TEKIL_BIRAKILDI: "DANISMANLIK_TEKIL_BIRAKILDI",
+  /**
+   * Öğrenci bir öğretmeni danışman seçti; SEÇİLEN ÖĞRETMENE gider
+   * (11 Ağustos 2026).
+   *
+   * Öğrenci danışmanını onay aranmadan seçtiği için bu bildirim, bağın
+   * kurulduğunu öğretmene duyuran tek şeydir; olmadığında öğretmen kendi
+   * danışmanlığını ancak listesine bakarak fark ediyordu.
+   *
+   * OTOMATİK ATAMADA GÖNDERİLMEZ: okulun tek danışmanına öğrencilerin ilk
+   * girişte kendiliğinden bağlanması ayrı bir olaydır ve o akış kişinin
+   * kararıyla doğmaz.
+   */
+  OGRENCI_DANISMAN_SECTI: "OGRENCI_DANISMAN_SECTI",
+  /**
+   * Öğrenci danışmanlığı sonlandırdı — başkasını seçerek ya da hiç kimseyi
+   * seçmeden; ESKİ ÖĞRETMENE gider (11 Ağustos 2026).
+   *
+   * Tek şablon, iki olay: metindeki {{neOldu}} ikisini ayırıyor. Ayrı
+   * şablonlar, aynı cümlenin iki kopyasını yönetim ekranında ayrı ayrı
+   * güncellemek demekti.
+   */
+  OGRENCI_DANISMANLIKTAN_AYRILDI: "OGRENCI_DANISMANLIKTAN_AYRILDI",
   KOORDINATOR_DEVREDILEBILIR_OGRENCI: "KOORDINATOR_DEVREDILEBILIR_OGRENCI",
   ONAY_BEKLEYEN_ULUSAL_FAALIYET: "ONAY_BEKLEYEN_ULUSAL_FAALIYET",
   /** Öğrenci faaliyet açtı; il koordinatörüne ve YEĞİTEK'e birlikte gider. */
@@ -133,6 +155,20 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
       "gerekce",
       "yeniDurum",
     ],
+  },
+  {
+    kod: BILDIRIM_KODLARI.OGRENCI_DANISMAN_SECTI,
+    baslik: "Öğrenci sizi danışman seçti",
+    aciklama:
+      "Bir öğrenci danışman öğretmen olarak sizi seçtiğinde size gider. Onay istenmez; bildirim bağın kurulduğunu haber verir.",
+    degiskenler: ["ogrenciAdSoyad", "sinif"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.OGRENCI_DANISMANLIKTAN_AYRILDI,
+    baslik: "Öğrenci danışmanlığınızdan ayrıldı",
+    aciklama:
+      "Öğrenci başka bir danışman seçtiğinde ya da danışmanlığı hiç kimseyi seçmeden sonlandırdığında eski danışmanına gider. Hangisi olduğu {{neOldu}} ile yazılır.",
+    degiskenler: ["ogrenciAdSoyad", "neOldu"],
   },
   {
     kod: BILDIRIM_KODLARI.KOORDINATOR_DEVREDILEBILIR_OGRENCI,

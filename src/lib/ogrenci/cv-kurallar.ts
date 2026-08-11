@@ -2,9 +2,14 @@
  * Öğrenci CV'sinin kabul kuralları — references/domain-rules.md Bölüm 14.
  *
  * `faaliyet/ek-kurallar.ts` ile aynı desende, ama AYRI: faaliyet eki görsel ve
- * belge diye ikiye ayrılır ve doc/docx kabul etmez; CV tek türdür ve Word
- * belgesi kabul eder. İkisini tek fonksiyonda birleştirmek, birinin sınırını
- * değiştirmenin diğerini de değiştirmesi demek olurdu.
+ * belge diye ikiye ayrılır, CV ise tek türdür. İkisini tek fonksiyonda
+ * birleştirmek, birinin sınırını değiştirmenin diğerini de değiştirmesi demek
+ * olurdu.
+ *
+ * KABUL EDİLEN TEK BİÇİM PDF (11 Ağustos 2026 · istek). doc ve docx kapatıldı:
+ * CV'yi sahibinden başkası (danışman öğretmen, koordinatör) açıyor ve Word
+ * dosyası alıcıda farklı diziliyor, makro taşıyabiliyor, tarayıcıda
+ * görüntülenemediği için indirilmek zorunda kalıyordu.
  *
  * Saf tutulur: sınırlar parametreyle gelir (kaynak `sistem_ayari`), dosya
  * sistemine ve veritabanına gitmez.
@@ -15,7 +20,13 @@ export interface CvSinirlari {
   maksBayt: number;
 }
 
-/** Ekranda "pdf, doc, docx" yazmak için: MIME tipinin okunur karşılığı. */
+/**
+ * Ekranda "pdf" yazmak için: MIME tipinin okunur karşılığı.
+ *
+ * doc/docx satırları, ürün kuralı PDF-only olmasına rağmen DURUYOR: tip listesi
+ * Yönetim ekranından düzenlenebilen bir ayardır (IZINLI_CV_TIPLERI) ve biri
+ * yeniden açıldığında kullanıcı ham MIME dizgisi değil "doc" görmeli.
+ */
 const TIP_ADLARI: Record<string, string> = {
   "application/pdf": "pdf",
   "application/msword": "doc",

@@ -126,6 +126,25 @@ export async function disGirisYap(
 }
 
 /**
+ * Kullanıcı EBA'dan mı, dış giriş kapısından mı geliyor?
+ *
+ * ÖLÇÜT `dis_kimlik` SATIRI — rol değil. Aynı ölçüt kimlik seçerek girişte de
+ * kullanılıyor (bkz. mock-giris.ts): MEZUN/PAYDAS_TEMSILCISI rolü ileride
+ * EBA'lı bir kullanıcıya da verilebilir ve o kişinin dış giriş ekranıyla işi
+ * olmaz.
+ *
+ * ÇIKIŞTA GEREKİYOR: dış kullanıcıyı /giris'e bırakmak, onu hiç giremeyeceği
+ * bir kapının önünde bırakmak olurdu (bkz. app/giris/eylemler.ts · cikisEylemi).
+ */
+export async function disKimlikliMi(authProviderId: string): Promise<boolean> {
+  const kimlik = await prisma.disKimlik.findFirst({
+    where: { kullanici: { authProviderId } },
+    select: { kullaniciId: true },
+  });
+  return kimlik !== null;
+}
+
+/**
  * Kimliği olmayan e-posta için cevap.
  *
  * Onay bekleyen başvurusu olan kişiye "başvurunuz bekliyor" denir ama YALNIZCA

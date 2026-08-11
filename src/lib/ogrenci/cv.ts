@@ -24,11 +24,15 @@ export type CvSahibi = "OGRENCI" | "OGRETMEN";
 
 export async function cvSinirlariniGetir(): Promise<CvSinirlari> {
   const [izinliTipler, maksBayt] = await Promise.all([
-    ayarListe(AYAR_ANAHTARLARI.IZINLI_CV_TIPLERI, [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ]),
+    /*
+     * YALNIZCA PDF (11 Ağustos 2026 · istek: "özgeçmişimde kabul edilen tek
+     * format pdf olsun"). Önceki varsayılan doc ve docx'i de kabul ediyordu.
+     *
+     * Bu liste yalnızca ayar satırı YOKKEN devreye girer; kurulu
+     * veritabanlarındaki satır migration ile güncellendi
+     * (20260811150000_cv_yalnizca_pdf).
+     */
+    ayarListe(AYAR_ANAHTARLARI.IZINLI_CV_TIPLERI, ["application/pdf"]),
     ayarSayi(AYAR_ANAHTARLARI.CV_MAKS_BAYT, 5 * 1024 * 1024),
   ]);
   return { izinliTipler, maksBayt };

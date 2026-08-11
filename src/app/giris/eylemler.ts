@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { oturumKapat } from "@/lib/auth/oturum";
+import { oturumKapat, oturumKullanicisi } from "@/lib/auth/oturum";
+import { disKimlikliMi } from "@/lib/dis-kimlik/giris";
 import { girisYap } from "@/lib/kullanici/giris-akisi";
 
 export async function girisEylemi(veri: FormData): Promise<void> {
@@ -43,7 +44,23 @@ function girisSonrasiYol(sonuc: { danismanSecimiGerekli: boolean }): string {
   return "/panel/profil";
 }
 
+/**
+ * Çıkış, KİŞİYİ GİRDİĞİ KAPIYA bırakır (11 Ağustos 2026 · istek: "e-Devlet
+ * girişiyle giren, çıkınca EBA girişindeki kullanıcılara düşüyor").
+ *
+ * Mezun, paydaş temsilcisi ve mentör /dis-giris'ten gelir; onları /giris'e
+ * bırakmak, hiç giremeyecekleri bir listenin önünde bırakmak olurdu. Ölçüt
+ * `dis_kimlik` satırıdır, rol değil (bkz. lib/dis-kimlik/giris.ts).
+ *
+ * Sorgu OTURUM KAPANMADAN ÖNCE yapılır: çerez silindikten sonra kimin çıktığı
+ * bilinemez.
+ */
 export async function cikisEylemi(): Promise<void> {
+  const kullanici = await oturumKullanicisi();
+  const disKullanici = kullanici
+    ? await disKimlikliMi(kullanici.authProviderId)
+    : false;
+
   await oturumKapat();
-  redirect("/giris");
+  redirect(disKullanici ? "/dis-giris" : "/giris");
 }

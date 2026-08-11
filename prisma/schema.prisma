@@ -89,6 +89,15 @@ enum KapanmaNedeni {
   IL_KOORDINATORU_OLDU
   /// Öğrenci kendi isteğiyle danışmanını değiştirdi.
   OGRENCI_ISTEGI
+  /// Öğrenci danışmanlığı KENDİSİ sonlandırdı; yerine kimseyi seçmedi
+  /// (11 Ağustos 2026).
+  ///
+  /// OGRENCI_ISTEGI'nden AYRI TUTULDU: o, "başka birini seçti" demek ve
+  /// arkasından hemen yeni bir atama satırı gelir. Bu ise öğrencinin
+  /// danışmansız kaldığı andır — geçmiş tablosunda ikisi aynı kodla dursaydı
+  /// "kaç öğrenci danışmansız kaldı" sorusu cevaplanamazdı. Otomatik yeniden
+  /// bağlama da bu koda bakıyor (bkz. lib/danisman/atama.ts · ilkAtamayiYurut).
+  OGRENCI_BIRAKTI
 }
 
 enum GorevRolKodu {

@@ -60,6 +60,32 @@ describe("ilk atama", () => {
   });
 });
 
+/**
+ * ELLE BIRAKILMIŞ ÖĞRENCİ (11 Ağustos 2026).
+ *
+ * İlk atama öğrencinin HER girişinde çalışıyor. Bayrak olmadan, dün gerekçeyle
+ * bırakılan ya da danışmanlığı kendisi sonlandıran öğrenci bugün aynı
+ * öğretmene sessizce geri bağlanıyordu — bırakma işlemi bir gün ömürlüydü.
+ */
+describe("elle bırakılmış öğrencinin ilk ataması", () => {
+  it("okulda tek aday olsa bile otomatik bağlanmaz", () => {
+    const karar = ilkAtamaKarariVer([aday(201)], KOORDINATOR_ID, true);
+    expect(karar.tur).toBe("SECIM_GEREKLI");
+  });
+
+  it("okulda hiç aday yoksa il koordinatörüne de bağlanmaz", () => {
+    const karar = ilkAtamaKarariVer([], KOORDINATOR_ID, true);
+    expect(karar).toEqual({ tur: "SECIM_GEREKLI", adaylar: [] });
+  });
+
+  it("bayrak yokken davranış eskisi gibi kalır", () => {
+    expect(ilkAtamaKarariVer([aday(201)], KOORDINATOR_ID, false)).toEqual({
+      tur: "OTOMATIK",
+      danismanKullaniciId: 201,
+    });
+  });
+});
+
 describe("danışman ayrıldığında devir", () => {
   it("okulda tek danışman kaldıysa öğrenciler otomatik ona devredilir", () => {
     const karar = devirKarariVer([aday(202)], KOORDINATOR_ID);

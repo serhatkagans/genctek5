@@ -4,7 +4,7 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
 import { prisma } from "@/lib/db";
 import { ogrenciMi } from "@/lib/yetki/izinler";
-import { danismanSecEylemi } from "./eylemler";
+import { danismaniBirakEylemi, danismanSecEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
 
@@ -57,11 +57,18 @@ export default async function DanismanSecimSayfasi({
           Danışman öğretmeniniz kaydedildi.
         </BilgiKutusu>
       )}
+      {durum === "birakildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Danışmanlık sonlandırıldı ve öğretmene bilgi verildi. Yeni
+          danışmanınızı istediğiniz zaman seçebilirsiniz.
+        </BilgiKutusu>
+      )}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
       <DanismanSecimi
         veri={veri}
         secEylemi={danismanSecEylemi}
+        birakEylemi={danismaniBirakEylemi}
         donusYolu="/panel/danisman-secim"
       />
     </div>

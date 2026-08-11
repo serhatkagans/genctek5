@@ -346,12 +346,30 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
         kapsam: KAPSAM_ETIKETLERI[kapsam],
         okulAdi: okul?.ad ?? "—",
       };
+      /*
+       * BİLDİRİM, ETKİNLİĞİN İLİNE GİDER — öğrencinin kayıtlı iline değil
+       * (11 Ağustos 2026). Onay yetkisi etkinliğin iline bakıyor
+       * (`ilKoordinatoruOnaylayabilirMi`: faaliyet.ilKodu → okulun ili →
+       * düzenleyenin ili) ama bildirim yalnızca `kullanici.ilKodu`ya
+       * gidiyordu. Okulu başka ilde olan bir öğrencide ikisi ayrışıyor ve
+       * sonuç ters oluyordu: haberi alan koordinatör onaylayamıyor,
+       * onaylayabilen koordinatörün haberi olmuyor. Öğretmen dalında bu zaten
+       * doğru yazılmıştı (`okul?.ilKodu ?? kullanici.ilKodu`).
+       */
       await ilKoordinatorlerineBildir(
-        kullanici.ilKodu,
+        yer.ilKodu ?? okul?.ilKodu ?? kullanici.ilKodu,
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
         degiskenler,
         etkinlikHedefi(faaliyet.id),
       );
+      /*
+       * MERKEZ HER HÂLÜKÂRDA HABERDAR EDİLİR (istek · 11 Ağustos 2026:
+       * "öğrenci etkinlik açarsa il koordinatöründen hariç her halükarda proje
+       * yöneticisi de onay verebilsin"). Gönderim koordinatöre ulaşıp
+       * ulaşmadığına BAKMAZ — öğretmen dalındaki gibi "koordinatör yoksa
+       * merkeze düş" değil, ikisi birden. Yetki tarafında da öyle:
+       * `faaliyetOnaylayabilirMi` proje yöneticisine her faaliyette evet der.
+       */
       await projeYoneticilerineBildir(
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_FAALIYETI,
         degiskenler,
@@ -373,8 +391,9 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
         kapsam: KAPSAM_ETIKETLERI[kapsam],
         sifat: mezunMu(kullanici) ? "Mezun" : "Paydaş temsilcisi",
       };
+      // Öğrenci dalıyla aynı çözüm: hedef, etkinliğin ili (11 Ağustos 2026).
       await ilKoordinatorlerineBildir(
-        kullanici.ilKodu,
+        yer.ilKodu ?? kullanici.ilKodu,
         BILDIRIM_KODLARI.ONAY_BEKLEYEN_DIS_KULLANICI_ETKINLIGI,
         degiskenler,
         etkinlikHedefi(faaliyet.id),

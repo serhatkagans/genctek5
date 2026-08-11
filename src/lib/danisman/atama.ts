@@ -162,6 +162,16 @@ export interface AtamaSonucu {
    * değişti" bildirimi göndermez.
    */
   degistiMi: boolean;
+  /**
+   * Kapatılan atamanın danışmanı; ilk atamada null (11 Ağustos 2026).
+   *
+   * Bildirim için gerekiyor: öğrenci danışmanını değiştirdiğinde ESKİ
+   * öğretmenin de haberi olmalı. Çağıran bunu işlemden sonra ayrıca
+   * sorgulayamaz — o an kayıt çoktan kapanmıştır ve öğrencinin kapanmış
+   * atamaları arasından "hangisi az önceydi" diye aramak yarış durumuna açık
+   * bir tahmindir.
+   */
+  oncekiDanismanKullaniciId: number | null;
 }
 
 /**
@@ -177,7 +187,11 @@ export async function atamaDegistir(girdi: AtamaGirdisi): Promise<AtamaSonucu> {
     });
 
     if (mevcut?.danismanKullaniciId === girdi.danismanKullaniciId) {
-      return { atamaId: mevcut.id, degistiMi: false };
+      return {
+        atamaId: mevcut.id,
+        degistiMi: false,
+        oncekiDanismanKullaniciId: mevcut.danismanKullaniciId,
+      };
     }
 
     if (mevcut) {
@@ -199,8 +213,39 @@ export async function atamaDegistir(girdi: AtamaGirdisi): Promise<AtamaSonucu> {
       select: { id: true },
     });
 
-    return { atamaId: yeni.id, degistiMi: true };
+    return {
+      atamaId: yeni.id,
+      degistiMi: true,
+      oncekiDanismanKullaniciId: mevcut?.danismanKullaniciId ?? null,
+    };
   });
+}
+
+/**
+ * Öğrencinin son danışmanlığı ELLE mi sonlandırıldı?
+ *
+ * "Elle" = kararı bir insanın verdiği iki hâl: öğretmen gerekçeyle bıraktı
+ * (DANISMANLIK_BIRAKILDI) ya da öğrenci kendisi bıraktı (OGRENCI_BIRAKTI).
+ * Okul değişikliği, öğretmenin ayrılması, devir gibi OTOMATİK kapanmalar
+ * bunun dışındadır — onlarda devir zinciri zaten yeni bir danışman buluyor.
+ *
+ * YALNIZCA EN SON KAPANAN KAYDA bakılır. Öğrencinin geçmişinde bir kez
+ * bırakılmış olması, aradan geçen yeni bir atamadan sonra da otomatik atamayı
+ * kapatsaydı, o öğrenci ömür boyu elle atanmak zorunda kalırdı.
+ */
+async function sonDanismanlikElleMiBirakildi(
+  ogrenciId: number,
+): Promise<boolean> {
+  const sonKapanan = await prisma.danismanAtama.findFirst({
+    where: { ogrenciId, bitisTarihi: { not: null } },
+    orderBy: { bitisTarihi: "desc" },
+    select: { kapanmaNedeni: true },
+  });
+
+  return (
+    sonKapanan?.kapanmaNedeni === "DANISMANLIK_BIRAKILDI" ||
+    sonKapanan?.kapanmaNedeni === "OGRENCI_BIRAKTI"
+  );
 }
 
 /**
@@ -228,7 +273,16 @@ export async function ilkAtamayiYurut(
       ? await danismanAdaylariGetir(ogrenci.kurumKodu)
       : [];
   const koordinatorId = await ilKoordinatoruGetir(ogrenci.ilKodu);
-  const karar = ilkAtamaKarariVer(adaylar, koordinatorId);
+  /*
+   * ELLE BIRAKILMIŞ ÖĞRENCİ OTOMATİK BAĞLANMAZ (11 Ağustos 2026). Bu fonksiyon
+   * öğrencinin HER girişinde çalışıyor; kontrol olmadan, dün gerekçeyle
+   * bırakılan öğrenci bugün aynı öğretmene geri bağlanıyordu.
+   */
+  const karar = ilkAtamaKarariVer(
+    adaylar,
+    koordinatorId,
+    await sonDanismanlikElleMiBirakildi(ogrenciId),
+  );
 
   switch (karar.tur) {
     case "OTOMATIK":
@@ -280,7 +334,7 @@ export async function ogrenciDanismanSecti(
 ): Promise<void> {
   const ogrenci = await prisma.kullanici.findUniqueOrThrow({
     where: { id: ogrenciId },
-    select: { kurumKodu: true },
+    select: { ad: true, soyad: true, sinif: true, kurumKodu: true },
   });
 
   if (ogrenci.kurumKodu === null) {
@@ -300,12 +354,131 @@ export async function ogrenciDanismanSecti(
     );
   }
 
-  await atamaDegistir({
+  const sonuc = await atamaDegistir({
     ogrenciId,
     danismanKullaniciId: secilenDanismanId,
     atamaTipi: "OGRENCI_SECTI",
     kapanmaNedeni: "OGRENCI_ISTEGI",
   });
+
+  // Aynı öğretmen yeniden seçildiyse (ekranda "Danışmanınız" yazan satıra
+  // basılmışsa) kimseye haber gitmez: değişen bir şey yok.
+  if (!sonuc.degistiMi) return;
+
+  const ogrenciAdSoyad = `${ogrenci.ad} ${ogrenci.soyad}`;
+
+  /*
+   * SEÇİLEN ÖĞRETMENE HABER GİDER (11 Ağustos 2026 · soru: "öğrenci bir
+   * öğretmeni danışman seçtiği zaman öğretmene bildirim gidiyor mu").
+   *
+   * Gitmiyordu: öğretmen kendi danışmanlığını ancak "Öğrencilerim" listesine
+   * girip listenin uzadığını fark ederek öğreniyordu. Danışmanlık rızaya
+   * dayanan bir bağ olduğu için (öğrenci seçer, onay aranmaz) haberin
+   * öğretmene ulaşması bağın kurulduğu anın kendisidir.
+   *
+   * Sınıf bilgisi metne giriyor: aynı adı taşıyan iki öğrenci, kalabalık bir
+   * okulda öğretmenin kimden bahsedildiğini anlayamayacağı tek durumdur.
+   */
+  await bildirimGonder({
+    kullaniciId: secilenDanismanId,
+    kod: BILDIRIM_KODLARI.OGRENCI_DANISMAN_SECTI,
+    degiskenler: { ogrenciAdSoyad, sinif: ogrenci.sinif ?? "—" },
+  });
+
+  /*
+   * ESKİ ÖĞRETMENE DE HABER GİDER. Sessiz kalınsaydı, öğretmen listesinden
+   * düşen öğrenciyi kendi hatası sanabilirdi; üstelik bırakılan bağın haberi
+   * yalnızca bırakan tarafa verilmez.
+   */
+  if (sonuc.oncekiDanismanKullaniciId !== null) {
+    await danismanlikBittiBildirimi(
+      sonuc.oncekiDanismanKullaniciId,
+      ogrenciAdSoyad,
+      "başka bir danışman öğretmen seçti",
+    );
+  }
+}
+
+/**
+ * Danışmanlığı biten öğretmene giden haber.
+ *
+ * TEK YERDE: iki çağıranı var (öğrenci başkasını seçti / öğrenci bıraktı) ve
+ * ikisi de aynı cümleyi kurar, yalnızca son eki değişir. Ayrı yazılsaydı biri
+ * güncellenip öbürü unutulurdu.
+ */
+async function danismanlikBittiBildirimi(
+  danismanKullaniciId: number,
+  ogrenciAdSoyad: string,
+  neOldu: string,
+): Promise<void> {
+  await bildirimGonder({
+    kullaniciId: danismanKullaniciId,
+    kod: BILDIRIM_KODLARI.OGRENCI_DANISMANLIKTAN_AYRILDI,
+    degiskenler: { ogrenciAdSoyad, neOldu },
+  });
+}
+
+/**
+ * Öğrenci danışmanlığı KENDİSİ sonlandırır (11 Ağustos 2026 · istek: "öğrenci
+ * danışman öğretmeni bırakacak butonu yok bırakabilsin").
+ *
+ * ÖĞRETMENİN BIRAKMASININ AYNASIDIR (bkz. tekOgrenciyiBirak): atama kapanır,
+ * öğrenci DANIŞMANSIZ kalır, kimseye devredilmez. Yeni danışmanını istediği
+ * zaman kendisi seçer; okulunda danışman öğretmen kalmadıysa öğretmenlerin
+ * "Okulumdaki danışmansız öğrenciler" kartından da alınabilir.
+ *
+ * GEREKÇE İSTENMEZ — öğretmen tarafında istenirken. Fark, kararın kime ait
+ * olduğu: öğretmenin bırakması başkası hakkında verilmiş bir karardır ve
+ * "zor" bulunan öğrencinin sessizce bırakılması riskini taşır, o yüzden
+ * gerekçe zorunlu ve koordinatöre bildirim gidiyor. Öğrencinin kararı ise
+ * kendi hakkındadır; zaten danışmanını dilediği zaman gerekçesiz
+ * değiştirebiliyor (bkz. ogrenciDanismanSecti) ve bırakmayı gerekçeye
+ * bağlamak, aynı özgürlüğü yalnızca "hiçbirini istemiyorum" diyene kapatırdı.
+ *
+ * KOORDİNATÖRE BİLDİRİM GİTMEZ, aynı gerekçeyle. Danışmansız öğrenci zaten
+ * koordinatörün ekranlarında görünür: listede "Atanmadı" rozeti ve "Yalnızca
+ * danışmanı olmayanlar" süzgeci var.
+ */
+export async function ogrenciDanismaniniBirakti(
+  ogrenciId: number,
+): Promise<
+  | { olurMu: false; neden: string }
+  | { olurMu: true; eskiDanismanAdSoyad: string }
+> {
+  const atama = await prisma.danismanAtama.findFirst({
+    where: { ogrenciId, bitisTarihi: null },
+    select: {
+      id: true,
+      danismanKullaniciId: true,
+      danisman: { select: { ad: true, soyad: true } },
+      ogrenci: { select: { ad: true, soyad: true } },
+    },
+  });
+
+  if (!atama) {
+    return { olurMu: false, neden: "Açık bir danışmanlık kaydınız yok." };
+  }
+
+  /*
+   * `updateMany` + `bitisTarihi: null` koşulu: aynı anda öğretmen de bırakmış
+   * olabilir. `update`(id) o durumda kapanmış kaydın nedenini ikinci kez
+   * yazar ve geçmiş, olmamış bir olayı anlatırdı.
+   */
+  await prisma.danismanAtama.updateMany({
+    where: { id: atama.id, bitisTarihi: null },
+    data: { bitisTarihi: new Date(), kapanmaNedeni: "OGRENCI_BIRAKTI" },
+  });
+
+  await danismanlikBittiBildirimi(
+    atama.danismanKullaniciId,
+    `${atama.ogrenci.ad} ${atama.ogrenci.soyad}`,
+    "danışmanlığınızı sonlandırdı",
+  );
+
+  return {
+    olurMu: true,
+    eskiDanismanAdSoyad: `${atama.danisman.ad} ${atama.danisman.soyad}`,
+  };
 }
 
 /**

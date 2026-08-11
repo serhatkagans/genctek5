@@ -6,7 +6,7 @@ import {
 } from "@/lib/ayar";
 import { prisma } from "@/lib/db";
 import { csvBelgesi, csvYaniti } from "@/lib/rapor/csv";
-import { ogrenciMi, projeYoneticisiMi } from "@/lib/yetki/izinler";
+import { ogrenciEnvanteriGorebilirMi } from "@/lib/yetki/izinler";
 import { ogrenciListeFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import { ogrenciFiltreleriniCoz, type SorguParametreleri } from "../filtreler";
@@ -44,8 +44,10 @@ export async function GET(istek: Request) {
     return new Response("Bulunamadı", { status: 404 });
   }
 
-  // Öğrenci bu ekranı göremez; indirme yolu da aynı kuralı uygular.
-  if (ogrenciMi(kullanici) && !projeYoneticisiMi(kullanici)) {
+  // Ekranın kapısı burada da aynen uygulanır: indirme yolu, ekranda kapalı
+  // olan bir listeye arka kapı olamaz (11 Ağustos 2026 · ekran öğrenciden
+  // fazlasını eliyor, bkz. ogrenciEnvanteriGorebilirMi).
+  if (!ogrenciEnvanteriGorebilirMi(kullanici)) {
     return new Response("Bulunamadı", { status: 404 });
   }
 
