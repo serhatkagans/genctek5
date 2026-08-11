@@ -22,20 +22,31 @@ import { BulunamadiHatasi } from "@/lib/yetki/tipler";
  * başvuru benim ilimden mi çıkıyor" sorusu da sorulmalı.
  */
 
-const YOL = "/panel/il-disi-basvurular";
+/**
+ * MODÜLÜN KENDİ EKRANI KALKTI (11 Ağustos 2026 · istek: "koordinatörün
+ * etkinlikler sayfası ile il dışı başvuru sayfalarını birleştirelim, il dışı
+ * başvurular kalksın, hepsi etkinliklerde olsun").
+ *
+ * `/panel/il-disi-basvurular` silindi; liste Etkinlikler ekranının bir bölümü
+ * oldu ve karar iki yerden veriliyor: etkinlik listesindeki toplu bölüm ve
+ * etkinlik detayındaki başvuru satırı. Eylem de bu yüzden buraya taşındı —
+ * artık etkinlik modülünün parçası.
+ *
+ * Varsayılan dönüş adresi de o yüzden etkinlik listesi.
+ */
+const YOL = "/panel/etkinlikler";
 
 /**
  * Karardan sonra dönülecek adres.
  *
- * Form artık İKİ yerden gönderiliyor: bu modülün kendi ekranı ve etkinlik
- * detayındaki başvuru satırı (11 Ağustos 2026). Dönüş adresi sabit kalsaydı,
- * etkinlikte başvuruları değerlendiren proje yöneticisi her kararda başka bir
- * ekrana atılır ve kaldığı yere elle geri dönerdi — asıl işi olan "seç / yedeğe
- * al / reddet" turu her satırda kesilirdi.
+ * Form İKİ yerden gönderiliyor ve karar verildikten sonra kişi BAKTIĞI yerde
+ * kalmalı: etkinlik detayında başvuruları tek tek değerlendiren kişi her
+ * kararda listeye atılsaydı, asıl işi olan "seç / yedeğe al / reddet" turu her
+ * satırda kesilirdi.
  *
  * Değer FORMDAN geldiği için serbest bırakılamaz: açık yönlendirme (open
  * redirect) açığı doğar. Yalnızca bu uygulamanın etkinlik detay adresi kabul
- * edilir; tanınmayan her değer modülün kendi ekranına döner.
+ * edilir; tanınmayan her değer listeye döner.
  */
 const ETKINLIK_YOLU = /^\/panel\/etkinlikler\/[1-9][0-9]*$/;
 

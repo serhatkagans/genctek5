@@ -1,6 +1,8 @@
 import {
+  ArrowRightLeft,
   Award,
   CalendarDays,
+  Check,
   Download,
   FileText,
   Filter,
@@ -30,10 +32,16 @@ import {
 import {
   BilgiKutusu,
   Kart,
+  KartBasligi,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
+  SINIF_GIRDI,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import {
+  ilDisiBasvurulariGetir,
+  type IlDisiBasvuruSatiri,
+} from "@/lib/basvuru/il-disi-veri";
 import { prisma } from "@/lib/db";
 import { uygulamaYolu } from "@/lib/ortam";
 import {
@@ -68,6 +76,7 @@ import {
   faaliyetFiltresiVarMi,
   faaliyetListeFiltresi,
 } from "./filtreler";
+import { kaynakIlKarariEylemi } from "./il-disi-eylemler";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +130,184 @@ interface EtkinlikKarti {
   benimBasvurum: BasvuruDurumu | null;
   raporBekliyor: boolean;
   benimActigim: boolean;
+}
+
+/**
+ * İL DIŞINA GİDEN BAŞVURULAR (11 Ağustos 2026 · istek: "koordinatörün
+ * etkinlikler sayfası ile il dışı başvuru sayfalarını birleştirelim, il dışı
+ * başvurular kalksın, hepsi etkinliklerde olsun").
+ *
+ * `/panel/il-disi-basvurular` silindi ve içeriği buraya taşındı. Karar zaten
+ * bir ETKİNLİK kararıydı — "öğrencim bu etkinliğe gitsin mi" — ve ayrı bir
+ * sekmede durması koordinatörü iki ekran arasında gezdiriyordu: etkinliği
+ * burada, ona yapılan başvuruyu orada görüyordu.
+ *
+ * KURAL DEĞİŞMEDİ, yalnızca yeri: öğrencinin kendi ilinin koordinatörü karar
+ * vermeden etkinliğin ili başvuruyu değerlendiremez (bkz. degerlendirmeyeHazirMi)
+ * ve ret gerekçesi zorunludur. İkisi de aynı sunucu eyleminde duruyor
+ * (kaynakIlKarariEylemi), bu bölüm yalnızca formu basıyor.
+ *
+ * KAPSAM SORULMUYOR çünkü sorgunun kendisi soruyor: `ilDisiBasvurulariGetir`
+ * merkezi filtreden geçiyor ve karar veremeyecek roller boş liste alıyor —
+ * bölüm de o zaman hiç basılmıyor.
+ */
+function IlDisiBasvurular({
+  basvurular,
+}: {
+  basvurular: IlDisiBasvuruSatiri[];
+}) {
+  const bekleyenler = basvurular.filter(
+    (basvuru) => basvuru.kaynakIlOnayDurumu === "BEKLIYOR",
+  );
+  const kararlilar = basvurular.filter(
+    (basvuru) => basvuru.kaynakIlOnayDurumu !== "BEKLIYOR",
+  );
+
+  return (
+    <Kart id="il-disi" className="scroll-mt-6">
+      <KartBasligi
+        baslik="İl dışına giden başvurular"
+        aciklama={`Öğrencinizin başka bir ilin etkinliğine başvurusu · ${bekleyenler.length} karar bekliyor`}
+        Ikon={ArrowRightLeft}
+      />
+
+      {/*
+        Onayın başvuruyu SONUÇLANDIRMADIĞI burada da yazılı. Karar veren kişi
+        "onayladım, öğrenci gidiyor" sanırsa, etkinliğin ilindeki değerlendirme
+        beklenirken öğrenciye yanlış bilgi verir.
+      */}
+      <BilgiKutusu cesit="uyari">
+        Onayınız başvuruyu sonuçlandırmaz. Onaydan sonra etkinliği düzenleyen il
+        kendi değerlendirmesini yapar; öğrenci ancak orada seçilirse katılır.
+      </BilgiKutusu>
+
+      {bekleyenler.length === 0 ? (
+        <p className="mt-4 text-metin-yumusak">
+          Kararınızı bekleyen başvuru yok.
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-4">
+          {bekleyenler.map((basvuru) => (
+            <li
+              key={basvuru.id}
+              className="rounded-kart border border-cizgi p-4"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="font-semibold text-baslik">
+                  {basvuru.ogrenciAdSoyad}
+                  {basvuru.ogrenciSinifi && (
+                    <span className="ml-2 text-sm font-normal text-metin-yumusak">
+                      {basvuru.ogrenciSinifi}
+                    </span>
+                  )}
+                </p>
+                <span className="text-sm text-metin-yumusak">
+                  {tarihYaz(basvuru.basvuruTarihi)}
+                </span>
+              </div>
+
+              <p className="mt-1 text-sm text-metin-yumusak">
+                {basvuru.okulAdi ?? "—"}
+              </p>
+
+              <p className="mt-3 text-metin">
+                <Link
+                  href={`/panel/etkinlikler/${basvuru.faaliyetId}`}
+                  className="font-medium text-vurgu-metin underline underline-offset-2"
+                >
+                  {basvuru.faaliyetAdi}
+                </Link>
+                <span className="text-metin-yumusak">
+                  {" · "}
+                  {basvuru.faaliyetYeri}
+                  {" · "}
+                  {tarihYaz(basvuru.faaliyetTarihi)}
+                </span>
+              </p>
+
+              <p className="mt-2 rounded-md bg-zemin px-3 py-2 text-sm text-metin">
+                <span className="font-medium">Öğrencinin gerekçesi: </span>
+                {basvuru.gerekce}
+              </p>
+
+              <form
+                action={kaynakIlKarariEylemi}
+                className="mt-3 flex flex-wrap items-end gap-3"
+              >
+                <input type="hidden" name="basvuruId" value={basvuru.id} />
+                <label className="block grow">
+                  <span className="text-sm font-medium text-metin">
+                    Gerekçe{" "}
+                    <span className="text-metin-yumusak">(redde zorunlu)</span>
+                  </span>
+                  <input
+                    type="text"
+                    name="gerekce"
+                    maxLength={500}
+                    className={SINIF_GIRDI}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  name="karar"
+                  value="onayla"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-olumlu-zemin px-3 py-2 text-sm font-medium text-olumlu-metin transition hover:opacity-90"
+                >
+                  <Check size={15} aria-hidden />
+                  Onayla
+                </button>
+                <button
+                  type="submit"
+                  name="karar"
+                  value="reddet"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-hata-zemin px-3 py-2 text-sm font-medium text-hata-metin transition hover:opacity-90"
+                >
+                  <X size={15} aria-hidden />
+                  Reddet
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/*
+        GEÇMİŞ KARARLAR katlanabilir: "kimi onayladım" sorusunun cevabı gerekli
+        ama bölümün işi bekleyenlerdir. Açık bırakılsaydı, etkinlik listesinin
+        üstünde her açılışta uzun bir tablo dururdu.
+      */}
+      {kararlilar.length > 0 && (
+        <details className="mt-5">
+          <summary className="cursor-pointer text-sm font-medium text-vurgu-metin">
+            Karara bağladıklarım ({kararlilar.length})
+          </summary>
+          <ul className="mt-2 divide-y divide-cizgi text-sm">
+            {kararlilar.map((basvuru) => (
+              <li key={basvuru.id} className="py-2">
+                <span className="text-metin">{basvuru.ogrenciAdSoyad}</span>
+                <span className="text-metin-yumusak">
+                  {" · "}
+                  {basvuru.faaliyetAdi}
+                  {" · "}
+                  {basvuru.kaynakIlOnayDurumu === "ONAYLANDI"
+                    ? "Onayladınız"
+                    : "Reddettiniz"}
+                  {basvuru.kaynakIlOnayTarihi
+                    ? ` · ${tarihYaz(basvuru.kaynakIlOnayTarihi)}`
+                    : ""}
+                </span>
+                {basvuru.kaynakIlRetGerekcesi && (
+                  <span className="block text-xs text-metin-yumusak">
+                    {basvuru.kaynakIlRetGerekcesi}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </Kart>
+  );
 }
 
 function RaporRozeti() {
@@ -456,6 +643,16 @@ export default async function FaaliyetlerSayfasi({
     ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici);
 
   /*
+   * İl dışı başvurular (11 Ağustos 2026). Sorgu YALNIZCA karar verebilecek
+   * roller için çalıştırılıyor; diğerlerinde `ilDisiBasvuruFiltresi` zaten boş
+   * liste döndürürdü ama her etkinlik listesi açılışında gereksiz bir sorgu
+   * atmanın anlamı yok.
+   */
+  const ilDisiBasvurular = onaylayabilir
+    ? await ilDisiBasvurulariGetir(kullanici)
+    : [];
+
+  /*
    * CSV ÖĞRENCİDE YOK (10 Ağustos 2026 · istek: "öğrenci etkinliklerinde CSV
    * indir kalkacak"). Karar izinler.ts'te tek yerde veriliyor
    * (faaliyetDisaAktarabilirMi); rota da aynı kapıyı soruyor.
@@ -705,6 +902,19 @@ export default async function FaaliyetlerSayfasi({
           )}
         </div>
       </form>
+
+      {/*
+        İL DIŞI BAŞVURULAR, ETKİNLİK LİSTESİNİN ÜSTÜNDE. Bekleyen bir karar
+        varsa o, listeye göz atmaktan önce gelir: koordinatör karar vermeden
+        etkinliğin ili başvuruyu değerlendiremiyor, yani bekleyen her satır bir
+        yerde duran bir işi tutuyor.
+
+        Bölüm kararı olmayanlara da basılıyor ("Kararınızı bekleyen başvuru
+        yok") — sekme kalktığı için kullanıcının "bu iş nereye gitti" sorusunun
+        cevabı bir yerde durmalı. Karar veremeyen rollerde liste zaten boş
+        geliyor ve bölüm hiç basılmıyor.
+      */}
+      {onaylayabilir && <IlDisiBasvurular basvurular={ilDisiBasvurular} />}
 
       {faaliyetler.length === 0 ? (
         <Kart className="text-metin-yumusak">

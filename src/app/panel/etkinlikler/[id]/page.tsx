@@ -93,7 +93,7 @@ import {
   faaliyetIptalEylemi,
   faaliyetOnayEylemi,
 } from "../eylemler";
-import { kaynakIlKarariEylemi } from "../../il-disi-basvurular/eylemler";
+import { kaynakIlKarariEylemi } from "../il-disi-eylemler";
 import {
   ekSilEylemi,
   ekYukleEylemi,
@@ -297,7 +297,7 @@ export default async function FaaliyetDetaySayfasi({
    * koordinatörünün onay verebileceği yer yok etkinliklerde").
    *
    * İl dışı başvurunun ilk onayı öğrencinin KENDİ ilinin koordinatörüne aittir
-   * (bkz. lib/basvuru/il-disi.ts) ve karar ekranı `/panel/il-disi-basvurular`.
+   * (bkz. lib/basvuru/il-disi.ts) ve karar artık bu ekranda veriliyor.
    * Ama koordinatör bu kararı ETKİNLİĞİN sayfasında arıyor — Ağrı'daki öğrenci
    * İstanbul'daki bir etkinliğe başvurduğunda koordinatörün gördüğü tek somut
    * şey o etkinliktir. Sayfada hiçbir iz yoktu: başvuru listesi yalnızca
@@ -721,9 +721,18 @@ export default async function FaaliyetDetaySayfasi({
             }
             Ikon={ArrowRightLeft}
           />
-          <Link href="/panel/il-disi-basvurular" className={SINIF_BIRINCIL_BUTON}>
+          {/*
+            Bağlantı artık Etkinlikler ekranının il dışı bölümüne gidiyor
+            (11 Ağustos 2026): `/panel/il-disi-basvurular` kalktı, liste oraya
+            taşındı. Çapa `#il-disi` — kullanıcı listenin başına değil doğrudan
+            bölüme düşsün.
+          */}
+          <Link
+            href="/panel/etkinlikler#il-disi"
+            className={SINIF_BIRINCIL_BUTON}
+          >
             <ArrowRightLeft size={16} aria-hidden />
-            Tümünü listede gör
+            Tüm il dışı başvuruları gör
           </Link>
         </Kart>
       )}

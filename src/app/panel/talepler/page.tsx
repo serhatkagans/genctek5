@@ -86,10 +86,10 @@ function acanRolleri(roller: { rolKodu: RolKodu }[]): RolKodu[] {
  * MENTÖR HAVUZU IZGARASI (11 Ağustos 2026 · istek: "mentör talebi aç kısmında
  * ızgara şeklinde mentörler listelensin").
  *
- * Talep formunun ÜSTÜNDE duruyor, altında değil: kullanıcı "kime soracağım"
- * sorusunun cevabını görmeden talebini yazarsa, boşluğa sesleniyormuş gibi
- * olur. Havuzu önce göstermek, talebin metnini de iyileştiriyor — kimin hangi
- * konuda yol gösterdiğini gören kişi daha isabetli yazıyor.
+ * TALEP FORMUNUN ALTINDA duruyor (11 Ağustos 2026 · istek: "üstte çok yer
+ * tutuyor onları aşağı alalım"). Önce üstteydi; gerekçe "kime soracağını
+ * görmeden yazma" idi ama ızgara kartın tamamını kaplayıp asıl işi — formu —
+ * ekranın dışına itiyordu. Görünürlük duruyor, sıra değişti.
  *
  * KART BİR BAĞLANTI DEĞİL. Tıklanabilir bir profil bağlantısı vermek, panonun
  * bugün tutmadığı bir sözü verirdi: mentörün profilini görüntüleyecek bir ekran
@@ -102,7 +102,7 @@ function acanRolleri(roller: { rolKodu: RolKodu }[]): RolKodu[] {
 function MentorHavuzu({ mentorler }: { mentorler: HavuzMentoru[] }) {
   if (mentorler.length === 0) {
     return (
-      <div className="mb-5 rounded-kart border border-cizgi bg-zemin p-4 text-sm text-metin-yumusak">
+      <div className="mt-5 rounded-kart border border-cizgi bg-zemin p-4 text-sm text-metin-yumusak">
         Havuzda henüz onaylanmış mentör yok. Talebinizi yine de açabilirsiniz;
         mentörlük onaylandıkça panodaki ilanınız görülecek.
       </div>
@@ -110,14 +110,19 @@ function MentorHavuzu({ mentorler }: { mentorler: HavuzMentoru[] }) {
   }
 
   return (
-    <div className="mb-5">
+    <div className="mt-5 border-t border-cizgi pt-4">
       <p className="mb-2 text-sm font-medium text-metin">
         Havuzdaki mentörler{" "}
         <span className="font-normal text-metin-yumusak">
           ({mentorler.length} kişi · talebinizi buradakiler görür)
         </span>
       </p>
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3">
+      {/*
+        Kartlar formun altına indiği için DARALTILDI (11 Ağustos 2026): 9.5rem
+        yerine 8rem taban ve daha küçük fotoğraf. Aynı satıra daha çok mentör
+        giriyor, bölüm daha az dikey yer kaplıyor.
+      */}
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3">
         {mentorler.map((mentor) => (
           <li
             key={mentor.kullaniciId}
@@ -134,7 +139,7 @@ function MentorHavuzu({ mentorler }: { mentorler: HavuzMentoru[] }) {
               <img
                 src={uygulamaYolu(`/panel/mentorler/${mentor.kullaniciId}/foto`)}
                 alt=""
-                className="h-16 w-16 rounded-full object-cover"
+                className="h-12 w-12 rounded-full object-cover"
               />
             ) : (
               /*
@@ -144,7 +149,7 @@ function MentorHavuzu({ mentorler }: { mentorler: HavuzMentoru[] }) {
                */
               <span
                 aria-hidden
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-vurgu-zemin text-lg font-semibold text-vurgu-metin"
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-vurgu-zemin text-base font-semibold text-vurgu-metin"
               >
                 {mentor.adSoyad
                   .split(" ")
@@ -192,13 +197,12 @@ function TalepFormu({
   yerTutucu: string;
   dugmeMetni: string;
   simdi: Date;
-  /** Form ile başlık arasına giren isteğe bağlı bölüm (mentör havuzu). */
+  /** Formun ALTINA giren isteğe bağlı bölüm (mentör havuzu). */
   children?: React.ReactNode;
 }) {
   return (
     <Kart>
       <KartBasligi baslik={baslik} aciklama={aciklama} Ikon={Ikon} />
-      {children}
       <form action={talepAcEylemi} className="space-y-4">
         <input type="hidden" name="tur" value={tur} />
         <label className="block">
@@ -243,6 +247,17 @@ function TalepFormu({
           {dugmeMetni}
         </button>
       </form>
+      {/*
+        MENTÖR HAVUZU FORMUN ALTINDA (11 Ağustos 2026 · istek: "bu mentör
+        listesini görünür yapmıştık ama üstte çok yer tutuyor onları aşağı
+        alalım").
+
+        Önce üstteydi ve gerekçesi "kime soracağını görmeden yazma" idi; pratikte
+        ızgara kartın tamamını kaplayıp asıl işi — talep formunu — ekranın
+        dışına itiyordu. Görünürlük kaybolmuyor, sıra değişiyor: form kısa,
+        havuz hemen altında.
+      */}
+      {children}
     </Kart>
   );
 }

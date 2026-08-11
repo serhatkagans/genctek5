@@ -294,16 +294,17 @@ export default async function PanelDuzeni({
   }
 
   /*
-   * İl dışına giden başvurular: koordinatör kendi ilinden başka bir ilin
-   * etkinliğine yapılan başvuruları onaylar. Danışman öğretmene GÖSTERİLMEZ —
-   * karar ilin, okulun değil.
+   * İL DIŞI BAŞVURULAR SEKMESİ KALKTI (11 Ağustos 2026 · istek: "koordinatörün
+   * etkinlikler sayfası ile il dışı başvuru sayfalarını birleştirelim, il dışı
+   * başvurular kalksın, hepsi etkinliklerde olsun").
+   *
+   * Sayfa da silindi, menüden çıkarılmakla kalmadı. Karar zaten etkinliğe ait
+   * bir karardı — "öğrencim bu etkinliğe gitsin mi" — ve ayrı bir sekmede
+   * durması koordinatörü iki ekran arasında gezdiriyordu: etkinliği burada,
+   * başvurusunu orada görüyordu. Liste artık Etkinlikler ekranının bir bölümü
+   * (`#il-disi`) ve karar ayrıca her etkinliğin başvuru satırından da
+   * verilebiliyor.
    */
-  if (ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici)) {
-    baglantilar.push({
-      yol: "/panel/il-disi-basvurular",
-      etiket: "İl Dışı Başvurular",
-    });
-  }
 
   /*
    * EBA dışı giriş başvuruları (mezun, paydaş temsilcisi). Talebin kendisi

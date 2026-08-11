@@ -852,7 +852,7 @@ export default async function PanelSayfasi({
                   Ikon={ArrowRightLeft}
                   deger={String(koordinatorOnayKuyrugu.ilDisi)}
                   aciklama="Öğrenciniz başka ilin etkinliğine başvurdu"
-                  yol="/panel/il-disi-basvurular"
+                  yol="/panel/etkinlikler#il-disi"
                 />
               </>
             )}
@@ -1365,7 +1365,7 @@ export default async function PanelSayfasi({
                 etiket: "Bekleyen il dışı başvuru",
                 deger: bosluklar.bekleyenIlDisiBasvuru,
                 alt: "Kaynak ilin kararını bekliyor",
-                yol: "/panel/il-disi-basvurular",
+                yol: "/panel/etkinlikler#il-disi",
               },
               {
                 etiket: "Bekleyen bağlantı isteği",
