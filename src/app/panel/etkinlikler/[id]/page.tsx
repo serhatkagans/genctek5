@@ -93,6 +93,7 @@ import {
   faaliyetIptalEylemi,
   faaliyetOnayEylemi,
 } from "../eylemler";
+import { kaynakIlKarariEylemi } from "../../il-disi-basvurular/eylemler";
 import {
   ekSilEylemi,
   ekYukleEylemi,
@@ -120,6 +121,12 @@ const DURUM_MESAJLARI: Record<string, string> = {
   degerlendirildi: "Başvuru değerlendirildi ve öğrenciye bildirim gönderildi.",
   onaylandi: "Etkinlik onaylandı ve yayına girdi.",
   reddedildi: "Etkinlik reddedildi.",
+  // Kaynak il kararı bu ekrandan da verilebiliyor (11 Ağustos 2026); mesaj
+  // etkinlik onayınınkinden ayrı, yoksa ikisi birbirine karışır.
+  "kaynak-il-onaylandi":
+    "Kaynak il onayı verildi. Başvuru artık değerlendirilebilir.",
+  "kaynak-il-reddedildi":
+    "Başvuru kaynak ilde reddedildi ve öğrenciye gerekçesiyle bildirildi.",
   "ek-yuklendi": "Dosya etkinliğe eklendi.",
   "ek-silindi": "Ek kaldırıldı.",
   "kapak-secildi": "Tanıtıcı görsel güncellendi.",
@@ -309,21 +316,27 @@ export default async function FaaliyetDetaySayfasi({
    */
   const kaynakIlKarariGorebilir =
     ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici);
-  const bekleyenKaynakIlSayisi = kaynakIlKarariGorebilir
-    ? await prisma.basvuru.count({
-        where: {
-          AND: [
-            ilDisiBasvuruFiltresi(kullanici),
-            { faaliyetId: faaliyet.id },
-            // `kaynakIlKarariVerilebilirMi`nin iki koşulu: karar bekliyor ve
-            // başvuru hâlâ canlı. Geri çekilmiş başvuru için kimseyi karar
-            // vermeye çağırmıyoruz.
-            { kaynakIlOnayDurumu: "BEKLIYOR" },
-            { durum: "BEKLIYOR" },
-          ],
-        },
-      })
-    : 0;
+  const kaynakIlKarariVerebildikleri = kaynakIlKarariGorebilir
+    ? new Set(
+        (
+          await prisma.basvuru.findMany({
+            where: {
+              AND: [
+                ilDisiBasvuruFiltresi(kullanici),
+                { faaliyetId: faaliyet.id },
+                // `kaynakIlKarariVerilebilirMi`nin iki koşulu: karar bekliyor
+                // ve başvuru hâlâ canlı. Geri çekilmiş başvuru için kimseyi
+                // karar vermeye çağırmıyoruz.
+                { kaynakIlOnayDurumu: "BEKLIYOR" },
+                { durum: "BEKLIYOR" },
+              ],
+            },
+            select: { id: true },
+          })
+        ).map((basvuru) => basvuru.id),
+      )
+    : new Set<number>();
+  const bekleyenKaynakIlSayisi = kaynakIlKarariVerebildikleri.size;
 
   // Silinen ek dosyası listelenmez; kaydı log için veritabanında durur.
   const ekler = await prisma.faaliyetEk.findMany({
@@ -421,6 +434,22 @@ export default async function FaaliyetDetaySayfasi({
           durum: true,
           gerekce: true,
           basvuruTarihi: true,
+          /*
+           * İL DIŞI BAŞVURUNUN KAYNAK İL DURUMU (11 Ağustos 2026 · istek:
+           * "diğer illere onay ve red veremiyor").
+           *
+           * Alan listede YOKTU ve sonucu şuydu: seç/yedek/reddet düğmeleri her
+           * satırda aynı görünüyor, başka ilden başvuran birine basıldığında
+           * sunucu "öğrencinin kendi ilinin koordinatörünün onayını bekliyor"
+           * diyerek kaydı geri çeviriyordu (bkz. degerlendirmeyeHazirMi).
+           * Değerlendiren, hangi satırın neden çalışmadığını ancak deneyerek
+           * öğreniyordu ve ekranda düzeltme yolu da görünmüyordu.
+           *
+           * Kural değişmedi — sıra hâlâ korunuyor. Değişen, sıranın ekranda
+           * GÖRÜNÜR olması.
+           */
+          kaynakIlOnayDurumu: true,
+          kaynakIlRetGerekcesi: true,
           katilimci: { select: DEGERLENDIRME_KATILIMCI_ALANLARI },
           // Vekaleten başvuruda değerlendiren, başvuruyu kimin yaptığını da
           // görmeli: gerekçeyi yazan kişi öğrencinin kendisi olmayabilir.
@@ -674,14 +703,24 @@ export default async function FaaliyetDetaySayfasi({
 
       {bekleyenKaynakIlSayisi > 0 && (
         <Kart>
+          {/*
+            METİN ROLE GÖRE. Koordinatör için bu "kendi ilimden çıkan
+            başvurular", proje yöneticisi için "hangi il olursa olsun" demektir;
+            merkeze "ilinizden" demek, karar kendisine düştüğü hâlde başkasını
+            beklemesi gerektiğini düşündürürdü.
+          */}
           <KartBasligi
-            baslik="İlinizden gelen başvurular kararınızı bekliyor"
-            aciklama={`Bu etkinliğe ilinizden ${bekleyenKaynakIlSayisi} başvuru yapıldı. Öğrenciyi başka bir ile göndermeye önce siz onay verirsiniz; siz karar verene kadar etkinliğin ili bu başvuruları değerlendiremez.`}
+            baslik="Kaynak il kararı bekleyen başvurular"
+            aciklama={
+              projeYoneticisiMi(kullanici)
+                ? `Bu etkinliğe başka illerden ${bekleyenKaynakIlSayisi} başvuru yapıldı ve öğrencinin kendi ilinin onayı bekleniyor. Bu karar verilmeden başvurular değerlendirilemez; ilde koordinatör yoksa kararı siz verirsiniz. Aşağıdaki başvuru satırlarından tek tek karara bağlayabilirsiniz.`
+                : `Bu etkinliğe ilinizden ${bekleyenKaynakIlSayisi} başvuru yapıldı. Öğrenciyi başka bir ile göndermeye önce siz onay verirsiniz; siz karar verene kadar etkinliğin ili bu başvuruları değerlendiremez.`
+            }
             Ikon={ArrowRightLeft}
           />
           <Link href="/panel/il-disi-basvurular" className={SINIF_BIRINCIL_BUTON}>
             <ArrowRightLeft size={16} aria-hidden />
-            Başvuruları karara bağla
+            Tümünü listede gör
           </Link>
         </Kart>
       )}
@@ -1440,6 +1479,97 @@ export default async function FaaliyetDetaySayfasi({
                     {basvuru.gerekce}
                   </p>
 
+                  {/*
+                    KAYNAK İL SIRASI. Öğrencinin kendi ili karar vermeden bu
+                    başvuru değerlendirilemez (bkz. degerlendirmeyeHazirMi);
+                    düğmeleri açık bırakmak kullanıcıyı sunucudan dönen bir
+                    hataya sürüyordu. Satır artık üç hâli de kendisi anlatıyor.
+                  */}
+                  {basvuru.kaynakIlOnayDurumu === "REDDEDILDI" && (
+                    <p className="mt-3 rounded-md bg-hata-zemin px-3 py-2 text-sm text-hata-metin">
+                      Öğrencinin kendi ilinin koordinatörü bu başvuruyu
+                      reddetti; değerlendirilemez.
+                      {basvuru.kaynakIlRetGerekcesi && (
+                        <span className="block">
+                          Gerekçe: {basvuru.kaynakIlRetGerekcesi}
+                        </span>
+                      )}
+                    </p>
+                  )}
+
+                  {basvuru.kaynakIlOnayDurumu === "BEKLIYOR" &&
+                    (kaynakIlKarariVerebildikleri.has(basvuru.id) ? (
+                      /*
+                       * KARARI VERECEK KİŞİ BURADA. Aynı sunucu eylemi
+                       * kullanılıyor (kaynakIlKarariEylemi): ret gerekçesinin
+                       * zorunluluğu gibi kurallar tek yerde duruyor, ekran
+                       * yalnızca formu gösteriyor. Kuralı buraya kopyalasaydık
+                       * iki ekran er geç ayrışırdı.
+                       *
+                       * Merkez için asıl kazanç, ilinde koordinatör olmayan
+                       * öğrencinin başvurusunun burada çözülebilmesi: eskiden o
+                       * başvuru sonsuza kadar sırada kalıyordu.
+                       */
+                      <form
+                        action={kaynakIlKarariEylemi}
+                        className="mt-3 rounded-md border border-cizgi bg-zemin p-3"
+                      >
+                        <input
+                          type="hidden"
+                          name="basvuruId"
+                          value={basvuru.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="donusYolu"
+                          value={`/panel/etkinlikler/${faaliyet.id}`}
+                        />
+                        <p className="text-sm text-metin">
+                          Bu başvuru il dışından geliyor ve önce{" "}
+                          <strong>kaynak il kararını</strong> bekliyor. Karar
+                          verilmeden seçim yapılamaz.
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-end gap-3">
+                          <label className="block grow">
+                            <span className="text-sm font-medium text-metin">
+                              Gerekçe{" "}
+                              <span className="text-metin-yumusak">
+                                (redde zorunlu)
+                              </span>
+                            </span>
+                            <input
+                              type="text"
+                              name="gerekce"
+                              maxLength={500}
+                              className={SINIF_GIRDI}
+                            />
+                          </label>
+                          <button
+                            type="submit"
+                            name="karar"
+                            value="onayla"
+                            className="inline-flex items-center gap-1.5 rounded-md bg-olumlu-zemin px-3 py-2 text-sm font-medium text-olumlu-metin transition hover:opacity-90"
+                          >
+                            Kaynak il onayı ver
+                          </button>
+                          <button
+                            type="submit"
+                            name="karar"
+                            value="reddet"
+                            className="inline-flex items-center gap-1.5 rounded-md bg-hata-zemin px-3 py-2 text-sm font-medium text-hata-metin transition hover:opacity-90"
+                          >
+                            Reddet
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <p className="mt-3 rounded-md bg-uyari-zemin px-3 py-2 text-sm text-uyari-metin">
+                        Bu başvuru, öğrencinin kendi ilinin koordinatörünün
+                        onayını bekliyor. Onay verilene kadar
+                        değerlendirilemez.
+                      </p>
+                    ))}
+
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["SECILDI", "YEDEK", "REDDEDILDI"] as const).map(
                       (secenek) => (
@@ -1456,7 +1586,13 @@ export default async function FaaliyetDetaySayfasi({
                           />
                           <button
                             type="submit"
-                            disabled={basvuru.durum === secenek}
+                            disabled={
+                              basvuru.durum === secenek ||
+                              // Sıra beklerken düğme kapalı: sunucu zaten
+                              // reddediyordu, kapalı düğme sebebini söylüyor.
+                              basvuru.kaynakIlOnayDurumu === "BEKLIYOR" ||
+                              basvuru.kaynakIlOnayDurumu === "REDDEDILDI"
+                            }
                             className={`rounded-md border border-cizgi px-3 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin disabled:opacity-40`}
                           >
                             {secenek === "SECILDI"

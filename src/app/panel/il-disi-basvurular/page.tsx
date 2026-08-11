@@ -27,8 +27,10 @@ export const dynamic = "force-dynamic";
  */
 
 const DURUM_MESAJLARI: Record<string, string> = {
-  onaylandi: "Başvuru onaylandı. Sıra etkinliğin ilindeki değerlendirmeye geçti.",
-  reddedildi: "Başvuru reddedildi ve öğrenciye gerekçesiyle bildirildi.",
+  "kaynak-il-onaylandi":
+    "Başvuru onaylandı. Sıra etkinliğin ilindeki değerlendirmeye geçti.",
+  "kaynak-il-reddedildi":
+    "Başvuru reddedildi ve öğrenciye gerekçesiyle bildirildi.",
 };
 
 const ONAY_ETIKETLERI: Record<string, string> = {
