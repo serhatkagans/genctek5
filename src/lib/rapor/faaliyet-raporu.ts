@@ -14,6 +14,8 @@
  * Saf tutulur: veritabanına bakmaz, veriyi çağıran hazırlar.
  */
 
+import { RAPOR_ALAN_ADLARI } from "@/lib/faaliyet/rapor-kurallar";
+
 export interface RaporKatilimcisi {
   adSoyad: string;
   sinifVeyaBrans: string | null;
@@ -137,7 +139,7 @@ ${satir("Katılan (seçilmiş)", String(veri.katilanSayisi))}
 ${satir("Farklı kişi sayısı", String(veri.tekilKatilimci))}
 </table>
 
-<h2>Değerlendirme</h2>
+<h2>${RAPOR_ALAN_ADLARI.degerlendirme}</h2>
 ${
   veri.degerlendirme
     ? `<p>${htmlKacir(veri.degerlendirme).replace(/\n/g, "<br>")}</p>` +
@@ -151,7 +153,7 @@ ${
 
 ${
   veri.kazanimlar
-    ? `<h2>Kazanımlar</h2><p>${htmlKacir(veri.kazanimlar).replace(/\n/g, "<br>")}</p>`
+    ? `<h2>${RAPOR_ALAN_ADLARI.kazanimlar}</h2><p>${htmlKacir(veri.kazanimlar).replace(/\n/g, "<br>")}</p>`
     : ""
 }
 

@@ -426,10 +426,18 @@ export default async function TaleplerSayfasi({
                 </option>
               ))}
               {/*
-                Tür alanı sonradan eklendi; eski ilanların türü boş. Bu seçenek
-                olmasaydı o ilanlara filtreyle hiç ulaşılamazdı.
+                "TÜR BELİRTİLMEMİŞ" SEÇENEĞİ KALKTI (11 Ağustos 2026 · istek:
+                "tür belirtilmemiş kalksın"). Süzgeç bir seçim listesidir ve
+                oradaki her satır kullanıcıya "böyle bir ilan türü var" der;
+                oysa bu, tür alanı eklenmeden önce açılmış avuç dolusu eski
+                ilanın hâliydi.
+
+                İLANLAR KAYBOLMADI: türsüz ilanlar "Tümü"nde listelenmeye ve
+                rozetlerinde `TALEP_TURU_BELIRTILMEMIS` yazmaya devam ediyor.
+                Sunucu tarafındaki `belirtilmemis` süzgeci de duruyor —
+                kaydedilmiş bir adres açıldığında boş liste değil beklenen
+                sonucu versin.
               */}
-              <option value="belirtilmemis">{TALEP_TURU_BELIRTILMEMIS}</option>
             </select>
           </label>
           <label className="block">

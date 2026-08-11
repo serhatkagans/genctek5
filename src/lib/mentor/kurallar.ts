@@ -146,6 +146,13 @@ export type KararGirdisi = {
   mevcutDurum: MentorlukDurumu;
   yeniDurum: MentorlukDurumu;
   retGerekcesi: string;
+  /**
+   * Karar veren, başvurunun sahibi mi? (11 Ağustos 2026)
+   *
+   * Belirtilmezse `false` sayılır — eksik veriyle kapıyı kapatmak yerine
+   * açmıyoruz; çağıranın bu bilgiyi vermesi zaten tek satır.
+   */
+  kendiBasvurusuMu?: boolean;
 };
 
 export type KararSonucu =
@@ -165,6 +172,26 @@ export type KararSonucu =
  * ekrandan verilebiliyor ve uygulama katmanındaki kontrol birinde unutulabilir.
  */
 export function mentorlukKarariGecerliMi(girdi: KararGirdisi): KararSonucu {
+  /*
+   * KİMSE KENDİ BAŞVURUSUNU KARARA BAĞLAYAMAZ (11 Ağustos 2026 · istek: "il
+   * koordinatörü mentörlüğe başvurunca kendi kendini onaylıyor").
+   *
+   * Onay yetkisi merkeze alındı ama kural orada bitmiyor: proje yöneticisi de
+   * mentör olabiliyor ve tek başına kalırsa aynı durum onda tekrarlanırdı.
+   * Yetki listesi "kim onaylayabilir" sorusunu cevaplıyor, bu koşul "kendi
+   * işini onaylayamaz" ilkesini — ikisi ayrı sorular ve ikisi de gerekli
+   * (aynı ayrım etkinlik onayında da var).
+   *
+   * Proje yöneticiliği ekip işidir (üç kişi), yani karar sahipsiz kalmıyor.
+   */
+  if (girdi.kendiBasvurusuMu) {
+    return {
+      olurMu: false,
+      neden:
+        "Kendi mentörlük başvurunuzu karara bağlayamazsınız; kararı bir proje yöneticisi meslektaşınız versin.",
+    };
+  }
+
   if (girdi.mevcutDurum !== "BEKLIYOR") {
     return {
       olurMu: false,

@@ -45,6 +45,24 @@ export function raporYazilabilirMi(girdi: {
   return { olurMu: true };
 }
 
+/**
+ * RAPOR ALANLARININ EKRANDAKİ ADLARI (11 Ağustos 2026 · istek: "etkinlik
+ * raporunda Değerlendirme yazan yer bilgi notu olsun, özet bilgi yazsın,
+ * Kazanımlar (isteğe bağlı) yazan yere sosyal medya / haber metni yazsın").
+ *
+ * VERİTABANI SÜTUNLARI DEĞİŞMEDİ (`degerlendirme`, `kazanimlar`): yazılmış
+ * raporları taşımak, geri alınması pahalı bir işi bedavaya yapmak olurdu —
+ * aynı karar talep türü etiketlerinde de verildi (bkz. lib/iletisim/kurallar).
+ *
+ * Adlar TEK YERDE duruyor çünkü üç yerde birden basılıyor: rapor ekranı, Word
+ * çıktısı ve CSV çıktısı. Üçü ayrı yazılsaydı biri güncellenip öbürleri
+ * unutulur, indirilen belge ekranda görünenden başka bir şey derdi.
+ */
+export const RAPOR_ALAN_ADLARI = {
+  degerlendirme: "Bilgi notu",
+  kazanimlar: "Sosyal medya / haber metni",
+} as const;
+
 export interface RaporGirdisi {
   degerlendirme: string;
   kazanimlar: string;
@@ -57,9 +75,13 @@ export type RaporKarari =
 /**
  * Rapor metnini doğrular.
  *
- * DEĞERLENDİRME ZORUNLU, kazanımlar değil: değerlendirmesi olmayan bir kayıt
- * "rapor yazıldı" göstergesini yalancı çıkarır. Kazanım notu ise her faaliyette
- * söylenecek bir şey olmayabilir.
+ * BİLGİ NOTU ZORUNLU, sosyal medya metni değil: bilgi notu olmayan bir kayıt
+ * "rapor yazıldı" göstergesini yalancı çıkarır. Haber metni ise her faaliyette
+ * yazılacak bir şey olmayabilir.
+ *
+ * Hata mesajları alan adlarını TEK KAYNAKTAN okur (RAPOR_ALAN_ADLARI): ekranda
+ * "Bilgi notu" yazan alan için "Değerlendirme boş bırakılamaz" demek,
+ * kullanıcıyı olmayan bir alanı aramaya gönderirdi.
  */
 export function raporMetniniCoz(girdi: RaporGirdisi): RaporKarari {
   const degerlendirme = girdi.degerlendirme.trim();
@@ -68,19 +90,19 @@ export function raporMetniniCoz(girdi: RaporGirdisi): RaporKarari {
   if (!degerlendirme) {
     return {
       olurMu: false,
-      neden: "Değerlendirme boş bırakılamaz: raporun taşıdığı asıl bilgi budur.",
+      neden: `${RAPOR_ALAN_ADLARI.degerlendirme} boş bırakılamaz: raporun taşıdığı asıl bilgi budur.`,
     };
   }
   if (degerlendirme.length > DEGERLENDIRME_MAKS) {
     return {
       olurMu: false,
-      neden: `Değerlendirme en fazla ${DEGERLENDIRME_MAKS} karakter olabilir.`,
+      neden: `${RAPOR_ALAN_ADLARI.degerlendirme} en fazla ${DEGERLENDIRME_MAKS} karakter olabilir.`,
     };
   }
   if (kazanimlar.length > KAZANIM_MAKS) {
     return {
       olurMu: false,
-      neden: `Kazanım notu en fazla ${KAZANIM_MAKS} karakter olabilir.`,
+      neden: `${RAPOR_ALAN_ADLARI.kazanimlar} en fazla ${KAZANIM_MAKS} karakter olabilir.`,
     };
   }
 

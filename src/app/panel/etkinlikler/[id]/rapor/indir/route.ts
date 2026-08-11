@@ -9,6 +9,7 @@ import {
   faaliyetSuresiYaz,
   KAPSAM_ETIKETLERI,
 } from "@/lib/faaliyet/kurallar";
+import { RAPOR_ALAN_ADLARI } from "@/lib/faaliyet/rapor-kurallar";
 import { KATILIM_BICIMI_ETIKETLERI } from "@/lib/kazanim/kurallar";
 import { csvAdParcasi, csvBelgesi, csvYaniti } from "@/lib/rapor/csv";
 import {
@@ -172,8 +173,8 @@ export async function GET(
        * csvHucresi tırnaklama yaptığı için Excel çok satırlı hücreyi doğru
        * okur.
        */
-      ["Değerlendirme", veri.degerlendirme ?? "Rapor henüz yazılmadı."],
-      ["Kazanımlar", veri.kazanimlar ?? "—"],
+      [RAPOR_ALAN_ADLARI.degerlendirme, veri.degerlendirme ?? "Rapor henüz yazılmadı."],
+      [RAPOR_ALAN_ADLARI.kazanimlar, veri.kazanimlar ?? "—"],
       ["Raporu yazan", veri.raporYazan ?? "—"],
       ["Rapor tarihi", veri.raporTarihi ?? "—"],
       ["", ""],

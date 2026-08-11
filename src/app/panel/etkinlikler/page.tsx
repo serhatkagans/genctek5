@@ -357,14 +357,74 @@ function Rozetler({ kart }: { kart: EtkinlikKarti }) {
  * gitmek ya da liste görünümüne geçmek.
  */
 function IzgaraGorunumu({ kartlar }: { kartlar: EtkinlikKarti[] }) {
+  /*
+   * KENDİ AÇTIKLARI EN ÜSTTE (11 Ağustos 2026 · istek: "ızgara diziliminde
+   * kendi açtığı varsa onlar üstte olsun, altında da başkasının açtığı
+   * etkinlikler görünsün, yani kendi açtıkları belirgin olsun").
+   *
+   * Ayrım SIRALAMAYLA DEĞİL BÖLÜMLE yapılıyor: kendi kayıtlarını listenin
+   * başına almak yetmezdi, ızgarada kartlar birbirinin aynı göründüğü için
+   * "nerede bitti" belli olmazdı. İki başlık, sınırı da söylüyor.
+   *
+   * Tek bölüm varsa başlık BASILMAZ: yalnızca kendi etkinliklerini gören bir
+   * koordinatöre "Açtığım etkinlikler" demek, olmayan bir ayrımı anlatmak
+   * olurdu.
+   *
+   * Bölümlerin İÇİNDEKİ sıra sorgudan gelir (tarihe göre) ve bozulmaz.
+   */
+  const benim = kartlar.filter((kart) => kart.benimActigim);
+  const digerleri = kartlar.filter((kart) => !kart.benimActigim);
+
+  if (benim.length === 0 || digerleri.length === 0) {
+    return <IzgaraListesi kartlar={kartlar} />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <section>
+        <h3 className="mb-2 text-sm font-semibold text-baslik">
+          Açtığım etkinlikler
+        </h3>
+        <IzgaraListesi kartlar={benim} />
+      </section>
+      <section>
+        <h3 className="mb-2 text-sm font-semibold text-baslik">
+          Diğer etkinlikler
+        </h3>
+        <IzgaraListesi kartlar={digerleri} />
+      </section>
+    </div>
+  );
+}
+
+/** Izgaranın kendisi; bölümlere ayrılmış hâlde iki kez basılır. */
+function IzgaraListesi({ kartlar }: { kartlar: EtkinlikKarti[] }) {
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
       {kartlar.map((kart) => (
         <li key={kart.id}>
           <Link
             href={`/panel/etkinlikler/${kart.id}`}
-            className="group relative block aspect-square overflow-hidden rounded-kart border border-cizgi bg-zemin transition hover:border-vurgu focus-visible:border-vurgu"
+            className={`group relative block aspect-square overflow-hidden rounded-kart border bg-zemin transition hover:border-vurgu focus-visible:border-vurgu ${
+              /*
+               * Kendi açtığı kart çerçevesinden de belli olur: bölüm başlığı
+               * kaydırılınca ekrandan çıkıyor, kart ise nerede olursa olsun
+               * kimin olduğunu söylüyor.
+               */
+              kart.benimActigim ? "border-vurgu" : "border-cizgi"
+            }`}
           >
+            {/*
+              Rozet HER ZAMAN görünür, üstüne gelince açılan katmanda değil:
+              dokunmatik cihazda katman hiç açılmıyor (bkz. IzgaraGorunumu
+              notu) ve "sizin açtığınız" bilgisi orada kalsaydı telefondan
+              bakan kullanıcı hiç göremezdi.
+            */}
+            {kart.benimActigim && (
+              <span className="absolute left-2 top-2 rounded-full bg-vurgu-zemin px-2 py-0.5 text-[10px] font-semibold text-vurgu-metin">
+                Sizin
+              </span>
+            )}
             {kart.kapak ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -180,9 +180,17 @@ export default async function RolEnvanteriSayfasi({
               <tr className="border-b border-cizgi text-left">
                 <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>İl</th>
                 <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Koordinatör</th>
-                <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
-                  Atanma tarihi
-                </th>
+                {/*
+                  ATANMA TARİHİ YERİNE ÖĞRETMEN SAYISI (11 Ağustos 2026 ·
+                  istek). Tarih, ekranın cevapladığı soruların hiçbirine
+                  girmiyordu: "hangi il boş", "nerede öğrenci danışmansız
+                  kalmış". İlin öğretmen sayısı ise atama kararının kendisine
+                  giriyor — koordinatör adayı o havuzdan çıkıyor.
+
+                  Tarih kaybolmadı: rol kayıtları geçmişli tutuluyor ve
+                  öğretmenin profilinde görev dönemleri yazıyor.
+                */}
+                <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Öğretmen</th>
                 <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Öğrenci</th>
                 <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>İşlem</th>
               </tr>
@@ -229,9 +237,7 @@ export default async function RolEnvanteriSayfasi({
                         )}
                       </td>
                       <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
-                        {il.koordinator
-                          ? tarihYaz(il.koordinator.atamaTarihi)
-                          : "—"}
+                        {il.ogretmenSayisi}
                       </td>
                       <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
                         {il.ogrenciSayisi}

@@ -8,6 +8,7 @@ import {
   Phone,
   Plus,
   User,
+  UserPlus,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -21,11 +22,13 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { bekleyenBasvuruSayisi } from "@/lib/dis-kimlik/basvuru";
 import {
   PAYDAS_TURLERI,
   PAYDAS_TURU_ETIKETLERI,
 } from "@/lib/paydas/kurallar";
 import {
+  disBasvuruYonetebilirMi,
   koordinatorIlKodu,
   paydasEkleyebilirMi,
   paydasGorebilirMi,
@@ -137,6 +140,14 @@ export default async function PaydaslarSayfasi({
     }),
   ]);
 
+  /*
+   * Dış giriş başvurularının bekleyen sayısı — girişin altında yazıyor.
+   * Yalnızca kuyruğun sahibine sorulur; başkasına sayı da göstermiyoruz.
+   */
+  const bekleyenDisBasvuru = disBasvuruYonetebilirMi(kullanici)
+    ? await bekleyenBasvuruSayisi()
+    : 0;
+
   await erisimLoglaCoklu(
     paydaslar.map((paydas) => ({
       kullaniciId: kullanici.id,
@@ -167,6 +178,40 @@ export default async function PaydaslarSayfasi({
         <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>
       )}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
+
+      {/*
+        DIŞ GİRİŞ BAŞVURULARI BU EKRANIN İÇİNDE (11 Ağustos 2026 · istek: "dış
+        giriş başvuruları sayfası paydaşların içine gelecek"). Sekmesi kalktı,
+        sayfası ve yetkisi durduğu yerde.
+
+        Buraya yakışıyor çünkü aynı işin iki ucu: bu ekran paydaş KURUMU
+        envantere alıyor, o ekran o kurumu temsil eden KİŞİYİ sisteme alıyor.
+
+        Bekleyen sayısı rakamla yazılıyor: girişin tıklanmaya değip değmediğini
+        söylemeyen bir bağlantı, kuyruğun sessizce birikmesi demek — koordinatör
+        panosunda aynı ders alınmıştı.
+      */}
+      {disBasvuruYonetebilirMi(kullanici) && (
+        <Link
+          href="/panel/dis-basvurular"
+          className="flex items-start gap-3 rounded-kart border border-cizgi bg-kart p-5 transition hover:border-vurgu"
+        >
+          <UserPlus
+            size={20}
+            className="mt-0.5 shrink-0 text-vurgu-metin"
+            aria-hidden
+          />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-baslik">Dış giriş başvuruları</p>
+            <p className="mt-0.5 text-sm text-metin-yumusak">
+              Mezun, paydaş temsilcisi ve mentörlerin sisteme giriş başvuruları
+              {bekleyenDisBasvuru > 0
+                ? ` · ${bekleyenDisBasvuru} başvuru kararınızı bekliyor`
+                : " · bekleyen başvuru yok"}
+            </p>
+          </div>
+        </Link>
+      )}
 
       {turDagilimi.length > 0 && (
         <div className="flex flex-wrap gap-2">

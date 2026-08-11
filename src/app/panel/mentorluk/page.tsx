@@ -25,12 +25,16 @@ import { mentorlukKararEylemi } from "./eylemler";
 export const dynamic = "force-dynamic";
 
 /**
- * Mentörlük onay kuyruğu — il koordinatörü ve proje yöneticisi.
+ * Mentörlük onay kuyruğu — YALNIZCA proje yöneticisi (11 Ağustos 2026).
  *
- * KAPSAM MERKEZİ FİLTREDEN geçer: koordinatör yalnızca kendi ilindeki
- * başvuruları görür, proje yöneticisi hepsini (istek: "proje yöneticisi de
- * onaylayabilir mentörü"). Yetkisi olmayan 404 görür — ekranın varlığı
- * sızmasın.
+ * İl koordinatörü çıkarıldı: koordinatör de mentör olabiliyor ve kuyruk kendi
+ * iliyle sınırlı olduğu için kendi başvurusunu kendisi onaylayabiliyordu
+ * (bkz. lib/yetki/izinler.ts · mentorlukOnaylayabilirMi).
+ *
+ * KAPSAM MERKEZİ FİLTREDEN geçmeye devam ediyor (mentorlukKapsamFiltresi).
+ * Merkez için filtre boştur, yani bugün hiçbir satırı elemiyor; yerinde
+ * duruyor çünkü yetki yeniden genişletilirse kapsamı tutan tek yer orasıdır.
+ * Yetkisi olmayan 404 görür — ekranın varlığı sızmasın.
  *
  * KARARA BAĞLANMIŞLAR DA LİSTELENİR (ayrı bölümde): "kimi onayladım"
  * sorusunun cevabı, kararın kendisi kadar gerekli. Bekleyenler üstte durur

@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "../db";
+import { OGRETMEN } from "../yetki/kapsam";
 
 /**
  * Rol/Atama Envanteri — proje yöneticisinin "hangi il koordinatörsüz, hangi
@@ -37,6 +38,16 @@ export interface IlKoordinatorDurumu {
   } | null;
   ogrenciSayisi: number;
   /**
+   * İldeki öğretmen sayısı (11 Ağustos 2026 · istek: "rol atama envanterinde
+   * Atanma tarihi yerine o ildeki öğretmen sayısı gelsin").
+   *
+   * "Öğretmen" tanımı ENVANTERLE AYNI kaynaktan geliyor (kapsam.ts · OGRETMEN):
+   * öğrenci, merkez personeli, mezun ve paydaş temsilcisi hariç herkes. Tanım
+   * burada yeniden yazılsaydı, aynı ilin öğretmen sayısı bu ekranda başka,
+   * Öğretmenler ekranında başka görünürdü.
+   */
+  ogretmenSayisi: number;
+  /**
    * Danışmanı da koordinatörü de olmayan öğrenciler. Koordinatör boşaldığında
    * bu sayı sıfırdan büyük olur ve ekranda kırmızı uyarı olarak gösterilir.
    */
@@ -44,7 +55,13 @@ export interface IlKoordinatorDurumu {
 }
 
 export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
-  const [iller, roller, ogrenciSayilari, atanmamisSayilari] = await Promise.all([
+  const [
+    iller,
+    roller,
+    ogrenciSayilari,
+    atanmamisSayilari,
+    ogretmenSayilari,
+  ] = await Promise.all([
     prisma.il.findMany({
       orderBy: { ad: "asc" },
       select: { ilKodu: true, ad: true },
@@ -67,6 +84,11 @@ export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
       where: { AND: [AKTIF_OGRENCI, ATANMAMIS] },
       _count: { _all: true },
     }),
+    prisma.kullanici.groupBy({
+      by: ["ilKodu"],
+      where: { AND: [{ aktif: true }, OGRETMEN] },
+      _count: { _all: true },
+    }),
   ]);
 
   const koordinatorHaritasi = new Map(
@@ -76,6 +98,7 @@ export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
   );
   const ogrenciHaritasi = sayimHaritasi(ogrenciSayilari);
   const atanmamisHaritasi = sayimHaritasi(atanmamisSayilari);
+  const ogretmenHaritasi = sayimHaritasi(ogretmenSayilari);
 
   return iller.map((il) => {
     const rol = koordinatorHaritasi.get(il.ilKodu);
@@ -92,6 +115,7 @@ export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
           }
         : null,
       ogrenciSayisi: ogrenciHaritasi.get(il.ilKodu) ?? 0,
+      ogretmenSayisi: ogretmenHaritasi.get(il.ilKodu) ?? 0,
       atanmamisOgrenciSayisi: atanmamisHaritasi.get(il.ilKodu) ?? 0,
     };
   });

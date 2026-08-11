@@ -13,15 +13,12 @@ import { ilkGirisKilidiVarMi, onayDurumlari } from "@/lib/kvkk/onay";
 import { aktifTema } from "@/lib/tema";
 import {
   danismanMi,
-  disBasvuruYonetebilirMi,
   disKullaniciMi,
   ilKoordinatoruMu,
-  mentorlukOnaylayabilirMi,
-  ogrenciMi,
-  paydasEkleyebilirMi,
   projeYoneticisiMi,
   rolEnvanteriGorebilirMi,
   talepPanosuGorebilirMi,
+  yonetimPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
 
 export const dynamic = "force-dynamic";
@@ -128,36 +125,38 @@ export default async function PanelDuzeni({
   }
 
   /*
-   * ÖĞRENCİLERİM PANEL'DEN HEMEN SONRA (7 Ağustos 2026 · istek: "sekmeler bu
-   * şekilde öğrencininki gibi, farklı olarak öğrencilerim sekmesi olacak").
+   * YÖNETİM PANELİ, PANEL'İN HEMEN ARDINDA (11 Ağustos 2026 · istek: "öğrenciler
+   * ve öğretmenler sekmesi kalkacak yönetim paneli sekmesine gelecek, paydaşlar
+   * ve okullar da yönetim paneline gelecek, görev rolleri de").
    *
-   * Danışman öğretmende "Öğrencilerim", koordinatör ve merkezde "Öğrenciler":
-   * ad kapsamı anlatıyor. Öğretmenler sekmesi ise aşağıda, yönetim
-   * sekmeleriyle birlikte kaldı — öğretmenin günlük işi değil.
+   * Beş sekme tek sekmeye indi: Öğrenciler · Öğretmenler · Paydaşlar · Görev
+   * Rolleri · Mentörlük artık panonun İÇİNDE kart olarak duruyor
+   * (bkz. app/panel/yonetim/page.tsx). Ekranların hiçbiri silinmedi ve hiçbir
+   * yetki daralmadı — değişen tek şey, oraya hangi kapıdan girildiği.
+   *
+   * Yeri eskiden Öğrenciler'in durduğu yer: koordinatörün ve merkezin günlük
+   * işi bu sekmede başlıyor.
    */
-  if (
-    danismanMi(kullanici) ||
-    ilKoordinatoruMu(kullanici) ||
-    projeYoneticisiMi(kullanici)
-  ) {
-    baglantilar.push({
-      yol: "/panel/ogrenciler",
-      etiket: danismanMi(kullanici) ? "Öğrencilerim" : "Öğrenciler",
-    });
+  if (yonetimPanosuGorebilirMi(kullanici)) {
+    baglantilar.push({ yol: "/panel/yonetim", etiket: "Yönetim Paneli" });
   }
 
   /*
-   * ÖĞRETMENLER, ÖĞRENCİLER'İN HEMEN ARDINDA (7 Ağustos 2026 · istek: "il
-   * koordinatörleri için de öğretmen ile benzer yapıyı kur, ek olarak
-   * öğretmenler sekmesi olacak").
+   * DANIŞMAN ÖĞRETMENDE "ÖĞRENCİLERİM" SEKME OLARAK KALDI (7 Ağustos 2026 ·
+   * istek: "sekmeler bu şekilde öğrencininki gibi, farklı olarak öğrencilerim
+   * sekmesi olacak").
    *
-   * Koordinatörün menüsü öğretmeninkiyle aynı sırayı izler; farkı bu sekme ve
-   * altındaki yönetim sekmeleridir. DANIŞMAN ÖĞRETMENDE YOK — öğretmenin
-   * günlük işi kendi öğrencileri, meslektaş envanteri değil; sayfa yine de
-   * silinmedi ve yetkisi daralmadı.
+   * Yönetim panosu ona AÇILMIYOR (bkz. yonetimPanosuGorebilirMi): pano il
+   * kırılımıdır, öğretmenin işi ise kendi öğrencileridir. Sekmesi kalkarsa
+   * listesine gidecek hiçbir yolu kalmazdı — koordinatör ve merkez ise aynı
+   * listeye panodaki karttan giriyor.
    */
-  if (ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici)) {
-    baglantilar.push({ yol: "/panel/ogretmenler", etiket: "Öğretmenler" });
+  if (
+    danismanMi(kullanici) &&
+    !ilKoordinatoruMu(kullanici) &&
+    !projeYoneticisiMi(kullanici)
+  ) {
+    baglantilar.push({ yol: "/panel/ogrenciler", etiket: "Öğrencilerim" });
   }
 
   /*
@@ -235,63 +234,24 @@ export default async function PanelDuzeni({
    */
   baglantilar.push({ yol: "/panel/urunler", etiket: "Market" });
 
-  if (
-    danismanMi(kullanici) ||
-    ilKoordinatoruMu(kullanici) ||
-    projeYoneticisiMi(kullanici)
-  ) {
-    /*
-     * Danışman öğretmende "ÖĞRENCİLERİM" (istek listesi · J2), koordinatör ve
-     * merkezde "Öğrenciler". Ad kapsamı anlatıyor: danışmanın listesi kendi
-     * danışmanlığındaki öğrencilerdir, koordinatörünki ilin tamamı, merkezinki
-     * ülke geneli. "Öğrencilerim" demek koordinatöre yanlış bir sahiplik
-     * duygusu verirdi.
-     */
-    /*
-     * PAYDAŞLAR ve GÖREV ROLLERİ danışman öğretmenin menüsünden kalktı
-     * (B3/J2/J4 · 5 Ağustos 2026); ikisi de kayıt AÇMA ekranı ve iki iş de
-     * il koordinatöründe:
-     *
-     *   - Paydaş envanteri: danışman öğretmen paydaşı etkinlik detayından
-     *     bağlıyor; yeni kurum kaydını koordinatör açıyor (aynı kurumun
-     *     onlarca yazımla girilmemesi için).
-     *   - Görev rolleri: danışman öğretmen Okul Temsilcisi'ni artık
-     *     Öğrencilerim ekranından veriyor; il/ilçe temsilciliği koordinatörde.
-     *
-     * Sayfalar SİLİNMEDİ, yalnızca menüden çıktı: yetkisi olan doğrudan
-     * adresle girebilir, e-postalardaki bağlantılar çalışmaya devam eder.
-     */
-    if (paydasEkleyebilirMi(kullanici)) {
-      baglantilar.push({ yol: "/panel/paydaslar", etiket: "Paydaşlar" });
-    }
-    if (ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici)) {
-      baglantilar.push({ yol: "/panel/gorev-rolleri", etiket: "Görev Rolleri" });
-    }
-
-    /*
-     * RAPORLAR ve BELGE OLUŞTUR MENÜDE YOK (J3 · 6 Ağustos 2026). İkisi de
-     * etkinlikten doğan işler ve girişleri zaten etkinlik detayında vardı;
-     * menüdeki satırlar kestirmeydi.
-     *
-     * Sekmelerin kaybolmasıyla kaybolacak TEK ŞEY, "hangi raporlar eksik"
-     * TOPLU görünümüydü — koordinatörün ilindeki eksikleri etkinlik detayından
-     * tek tek arayarak bulması imkânsızdı. O görünüm Etkinlikler ekranına
-     * "Raporu bekleyenler" filtresi olarak taşındı.
-     *
-     * Sayfalar SİLİNMEDİ: `/panel/raporlar` ve `/panel/belgeler` doğrudan
-     * adresle çalışmaya devam ediyor.
-     */
-  }
-
   /*
-   * MENTÖRLÜK ONAY KUYRUĞU (7 Ağustos 2026). İl koordinatörü kendi ilindeki,
-   * proje yöneticisi tüm başvuruları görür ("proje yöneticisi de onaylayabilir
-   * mentörü"). Danışman öğretmene gösterilmez — mentörlük il düzeyinde bir
-   * karardır.
+   * PAYDAŞLAR, GÖREV ROLLERİ ve MENTÖRLÜK SEKMELERİ KALKTI (11 Ağustos 2026);
+   * üçü de yönetim panosunda kart oldu. Yetkileri değişmedi: paydaş kaydını
+   * yine koordinatör ve merkez açıyor, il/ilçe temsilciliğini yine onlar
+   * veriyor, mentör başvurusunu yine onlar onaylıyor.
+   *
+   * Danışman öğretmen bu üç ekranı zaten menüsünde görmüyordu (B3/J2/J4 ·
+   * 5 Ağustos 2026) ve durumu değişmedi: Okul Temsilcisi'ni Öğrencilerim
+   * ekranından veriyor, paydaşı etkinlik detayından bağlıyor.
+   *
+   * RAPORLAR ve BELGE OLUŞTUR da menüde değil (J3 · 6 Ağustos 2026): ikisi de
+   * etkinlikten doğan işler ve girişleri etkinlik detayında. "Hangi raporlar
+   * eksik" toplu görünümü Etkinlikler ekranındaki "Raporu bekleyenler"
+   * süzgecinde.
+   *
+   * HİÇBİR SAYFA SİLİNMEDİ: adresler ve e-postalardaki bağlantılar çalışmaya
+   * devam ediyor.
    */
-  if (mentorlukOnaylayabilirMi(kullanici)) {
-    baglantilar.push({ yol: "/panel/mentorluk", etiket: "Mentörlük" });
-  }
 
   /*
    * İL DIŞI BAŞVURULAR SEKMESİ KALKTI (11 Ağustos 2026 · istek: "koordinatörün
@@ -307,28 +267,38 @@ export default async function PanelDuzeni({
    */
 
   /*
-   * EBA dışı giriş başvuruları (mezun, paydaş temsilcisi). Talebin kendisi
-   * onayı proje yöneticisine bağladığı için kapı da orada; il koordinatörüne
-   * açmak ayrı bir ürün kararıdır.
+   * DIŞ GİRİŞ BAŞVURULARI SEKMESİ KALKTI (11 Ağustos 2026 · istek: "dış giriş
+   * başvuruları sayfası paydaşların içine gelecek"). Ekranın girişi artık
+   * Paydaşlar sayfasının başında; ikisi aynı işin iki ucu — biri kurumu, öbürü
+   * o kurumu temsil eden kişiyi sisteme alıyor.
+   *
+   * ROL/ATAMA ENVANTERİ SEKMESİ DE KALKTI (aynı gün · istek: "rol atama
+   * envanteri koordinatör kartına gelecek"): yönetim panosunda "Koordinatörler"
+   * kartı olarak duruyor. Ekranın içeriği zaten koordinatör envanteridir.
+   *
+   * İkisinin de sayfası ve yetkisi yerinde; değişen yalnızca kapı.
    */
-  if (disBasvuruYonetebilirMi(kullanici)) {
-    baglantilar.push({
-      yol: "/panel/dis-basvurular",
-      etiket: "Dış Giriş Başvuruları",
-    });
-  }
-
-  // Rol/atama envanteri toplu bir yönetim görünümüdür; tekil profil erişiminden
-  // ayrı bir yetkidir ve yalnızca proje yöneticisine açıktır.
   if (rolEnvanteriGorebilirMi(kullanici)) {
     baglantilar.push(
-      { yol: "/panel/rol-envanteri", etiket: "Rol/Atama Envanteri" },
       // Erişim kayıtları KVKK denetiminin dayanağıdır; yalnızca merkez okur.
       { yol: "/panel/erisim-loglari", etiket: "Erişim Kayıtları" },
-      // Toplu duyuru, bildirim şablonlarıyla aynı sorumluluk düzeyinde:
-      // ikisi de tüm kullanıcılara giden metni belirler.
-      { yol: "/panel/duyurular", etiket: "Duyurular" },
-      { yol: "/panel/ayarlar", etiket: "Yönetim" },
+      /*
+       * Toplu duyuru, bildirim şablonlarıyla aynı sorumluluk düzeyinde: ikisi
+       * de tüm kullanıcılara giden metni belirler.
+       *
+       * SEKME ADI "MESAJ GÖNDER" (11 Ağustos 2026 · istek: "duyurular menüsü,
+       * mesaj gönder olsun"). Ekranın yaptığı iş bir eylem — seçilen kitleye
+       * bildirim yollamak; "Duyurular" ise okunacak bir liste varmış gibi
+       * duruyordu. Adres değişmedi.
+       */
+      { yol: "/panel/duyurular", etiket: "Mesaj Gönder" },
+      /*
+       * SEKME ADI "SİSTEM AYARLARI" (11 Ağustos 2026 · istek: "eski yönetim
+       * sayfası sistem ayarları olacak"). "Yönetim" adı, yönetim panosu
+       * geldikten sonra iki farklı şeyi işaret ediyordu; bu ekran ise çalışma
+       * grupları, etkinlik programları ve sistem ayarlarının bulunduğu yer.
+       */
+      { yol: "/panel/ayarlar", etiket: "Sistem Ayarları" },
     );
   }
 

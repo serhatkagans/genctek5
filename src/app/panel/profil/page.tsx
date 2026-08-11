@@ -258,7 +258,7 @@ export default async function ProfilSayfasi({
   /*
    * MENTÖRLÜK (7 Ağustos 2026 · istek: "Profilde istenen mentör girişi de
    * olsun"). Profil salt okunur olduğu için burada yalnızca DURUM görünüyor;
-   * başvuru ve güncelleme Panel'deki "Mentörlüğüm" bölümünde.
+   * başvuru ve güncelleme Panel'deki "Mentör olarak başvur" bölümünde.
    */
   const mentorluk = await mentorluguGetir(kullanici.id);
 
@@ -938,14 +938,13 @@ export default async function ProfilSayfasi({
         "Rotam" — istekteki profil sırasının SONUNCUSU. Yolculuk kartlarından
         sonra gelmesi anlamlı: yukarısı yapılanlar, burası yapılacaklar.
 
-        DIŞ KULLANICIDA BASILMIYOR (11 Ağustos 2026). Kapı Panel'dekiyle AYNI
-        koşulu soruyor: bölüm yalnızca birinden kaldırılsaydı mezun, Panel'de
-        göremediği bir bölümü profilinde görür ve düzenleme bağlantısı onu
-        var olmayan bir karta (`/panel#rotam`) götürürdü.
+        YALNIZCA ÖĞRENCİDE (11 Ağustos 2026 · istek: "rotam sadece öğrencide
+        olacak"). Kapı Panel'dekiyle AYNI koşulu soruyor: bölüm yalnızca
+        birinden kaldırılsaydı öğretmen, Panel'de göremediği bir bölümü
+        profilinde görür ve düzenleme bağlantısı onu var olmayan bir karta
+        (`/panel#rotam`) götürürdü.
       */}
-      {!disKullaniciMi(kullanici) && (
-        <RotamKarti hedefler={hedefler} duzenlemeYolu="/panel#rotam" />
-      )}
+      {ogrenci && <RotamKarti hedefler={hedefler} duzenlemeYolu="/panel#rotam" />}
 
       {/*
         EN ALTTA duruyor ve `id="kvkk"` taşıyor: şerit ile eski /panel/kvkk

@@ -1,0 +1,206 @@
+/**
+ * Yönetim panosunun saf kuralları.
+ *
+ * Sayımlardan (yonetim-ozeti.ts) AYRI dosyada: o dosya veritabanına bağlanıyor,
+ * bu dosya yalnızca hesap yapıyor ve testten doğrudan çağrılabiliyor
+ * (bkz. tests/yonetim-panosu.test.ts). Aynı ayrım projede başka yerlerde de var
+ * — kural dosyaları hiçbir zaman prisma'ya dokunmuyor.
+ */
+
+export interface OzetToplami {
+  ilce: number;
+  okul: number;
+  ogretmen: number;
+  okulKoordinatoru: number;
+  ogrenci: number;
+  /** Okul koordinatörü atanmamış aktif okul. */
+  koordinatorsuzOkul: number;
+  /** İl koordinatörü atanmamış il — yalnızca il kartlarında dolar. */
+  koordinatorsuzIl: number;
+  /** Aktif danışman ataması olmayan öğrenci. */
+  danismansizOgrenci: number;
+  /** Bu eğitim-öğretim yılının etkinlikleri — yalnızca il kartlarında dolar. */
+  faaliyet: number;
+  /** Bitmiş ama raporu yazılmamış etkinlik. */
+  raporsuzFaaliyet: number;
+}
+
+/**
+ * Kart listesinin üstünde gösterilen toplam.
+ *
+ * Ayrı bir sorgu ile ÇEKİLMEZ, kartlardan toplanır: iki kaynak kullanılsaydı
+ * kartların toplamı ile başlıktaki sayı birbirini tutmayabilir ve hangisinin
+ * doğru olduğu anlaşılmazdı (ilçesi boş bir kayıt tam olarak bunu yapardı).
+ *
+ * ALAN EKSİKLİĞİ BASAMAĞI SÖYLER; her satır kendi basamağında bir birimdir:
+ *
+ *   - Okul kartında `okulSayisi` yoktur, kartın kendisi bir okuldur → satır bir
+ *     okul sayılır. Sıfır sayılsaydı ilçenin okul toplamı, ekranda okullar
+ *     dururken 0 görünürdü.
+ *   - İlçe kartında `ilceSayisi` yoktur, kartın kendisi bir ilçedir → satır bir
+ *     ilçe sayılır. Okul kartında ise ilçe diye bir şey yok, sıfır sayılır;
+ *     ölçüt olarak `okulSayisi`ın varlığına bakılır, çünkü basamağı ayıran alan
+ *     odur.
+ *   - Okul kartında "koordinatörsüz okul" alanı yoktur: koordinatör sayısı
+ *     sıfırsa o kartın kendisi boş bir okuldur.
+ *   - `koordinatorAdi` yalnızca il kartında bulunur; boş olan il, merkezin
+ *     dolduracağı yerdir. Alan hiç yoksa (ilçe/okul kartı) sayılmaz —
+ *     `undefined` ile `null` bilerek ayrı tutuluyor.
+ */
+export function ozetToplami(
+  satirlar: readonly {
+    ilceSayisi?: number;
+    okulSayisi?: number;
+    koordinatorsuzOkulSayisi?: number;
+    ogretmenSayisi: number;
+    okulKoordinatoruSayisi: number;
+    ogrenciSayisi: number;
+    danismansizOgrenciSayisi: number;
+    faaliyetSayisi?: number;
+    raporsuzFaaliyetSayisi?: number;
+    koordinatorAdi?: string | null;
+  }[],
+): OzetToplami {
+  return satirlar.reduce<OzetToplami>(
+    (toplam, satir) => ({
+      ilce:
+        toplam.ilce +
+        (satir.ilceSayisi ?? (satir.okulSayisi === undefined ? 0 : 1)),
+      okul: toplam.okul + (satir.okulSayisi ?? 1),
+      ogretmen: toplam.ogretmen + satir.ogretmenSayisi,
+      okulKoordinatoru: toplam.okulKoordinatoru + satir.okulKoordinatoruSayisi,
+      ogrenci: toplam.ogrenci + satir.ogrenciSayisi,
+      koordinatorsuzOkul:
+        toplam.koordinatorsuzOkul +
+        (satir.koordinatorsuzOkulSayisi ??
+          (satir.okulKoordinatoruSayisi === 0 ? 1 : 0)),
+      koordinatorsuzIl:
+        toplam.koordinatorsuzIl + (satir.koordinatorAdi === null ? 1 : 0),
+      danismansizOgrenci:
+        toplam.danismansizOgrenci + satir.danismansizOgrenciSayisi,
+      /*
+       * Etkinlik yalnızca İL kartında sorulur (bkz. yonetim-ozeti.ts ·
+       * ilOzetleriniGetir); ilçe ve okul satırında alan yoktur ve sıfır
+       * sayılır. Okuldaki gibi "satır bir birimdir" kuralı burada YOK, çünkü
+       * bir ilçe kartı bir etkinlik değildir.
+       */
+      faaliyet: toplam.faaliyet + (satir.faaliyetSayisi ?? 0),
+      raporsuzFaaliyet:
+        toplam.raporsuzFaaliyet + (satir.raporsuzFaaliyetSayisi ?? 0),
+    }),
+    {
+      ilce: 0,
+      okul: 0,
+      ogretmen: 0,
+      okulKoordinatoru: 0,
+      ogrenci: 0,
+      koordinatorsuzOkul: 0,
+      koordinatorsuzIl: 0,
+      danismansizOgrenci: 0,
+      faaliyet: 0,
+      raporsuzFaaliyet: 0,
+    },
+  );
+}
+
+/** İl kartlarının sıralama ölçütü. */
+export type IlSiralamasi = "ad" | "ogrenci" | "bosluk";
+
+export function ilSiralamasiCoz(deger: string | undefined): IlSiralamasi {
+  return deger === "ogrenci" || deger === "bosluk" ? deger : "ad";
+}
+
+/** Türkçe harflere göre karşılaştırma — "Iğdır" ile "İstanbul" doğru sırada. */
+function adaGore(a: { ad: string }, b: { ad: string }): number {
+  return a.ad.localeCompare(b.ad, "tr");
+}
+
+/**
+ * Arama metnini karşılaştırılabilir hâle getirir.
+ *
+ * Küçültme TÜRKÇE yapılır: "Isparta" araması İngilizce küçültmeyle "ısparta"
+ * değil "isparta" olur ve ile hiç ulaşılamazdı.
+ */
+function sadelestir(metin: string): string {
+  return metin.trim().toLocaleLowerCase("tr");
+}
+
+export interface IlSuzgeci {
+  ara?: string;
+  sirala?: IlSiralamasi;
+}
+
+/**
+ * 81 ilin kart listesini süzer ve sıralar.
+ *
+ * SIRALAMA VERİTABANINDA DEĞİL BURADA: "boşluğu çok olan üstte" ölçütü üç ayrı
+ * sayımın bileşimi (koordinatörsüz il, koordinatörsüz okul, danışmansız
+ * öğrenci) ve bu sayımlar ayrı sorgulardan geliyor — tek bir `orderBy` ile
+ * ifade edilemezdi. Liste 81 satır; sıralamanın maliyeti yok.
+ *
+ * "Boşluk" sıralaması TOPLAM BİR PUAN DEĞİL, sıralı bir karşılaştırmadır: önce
+ * koordinatörü olmayan iller, sonra koordinatörsüz okulu çok olanlar, sonra
+ * danışmansız öğrencisi çok olanlar. Üç sayı toplansaydı 200 danışmansız
+ * öğrencisi olan bir il, koordinatörü hiç olmayan ilin üstüne çıkardı; oysa
+ * ikisi aynı ağırlıkta iş değil.
+ */
+export function illeriSuz<
+  T extends {
+    ad: string;
+    koordinatorsuzOkulSayisi: number;
+    danismansizOgrenciSayisi: number;
+    ogrenciSayisi: number;
+    koordinatorAdi: string | null;
+  },
+>(iller: readonly T[], suzgec: IlSuzgeci = {}): T[] {
+  const aranan = sadelestir(suzgec.ara ?? "");
+  const suzulmus = aranan
+    ? iller.filter((il) => sadelestir(il.ad).includes(aranan))
+    : [...iller];
+
+  if (suzgec.sirala === "ogrenci") {
+    return suzulmus.sort(
+      (a, b) => b.ogrenciSayisi - a.ogrenciSayisi || adaGore(a, b),
+    );
+  }
+
+  if (suzgec.sirala === "bosluk") {
+    return suzulmus.sort(
+      (a, b) =>
+        Number(a.koordinatorAdi === null ? 0 : 1) -
+          Number(b.koordinatorAdi === null ? 0 : 1) ||
+        b.koordinatorsuzOkulSayisi - a.koordinatorsuzOkulSayisi ||
+        b.danismansizOgrenciSayisi - a.danismansizOgrenciSayisi ||
+        adaGore(a, b),
+    );
+  }
+
+  return suzulmus.sort(adaGore);
+}
+
+/**
+ * Bir birimin kartında gösterilecek uyarı satırları.
+ *
+ * SIFIR OLAN UYARI YAZILMAZ: "0 danışmansız öğrenci" bir haber değil, gürültü.
+ * Kart yalnızca yapılacak iş varken kırmızıya döner, böylece ekranda kırmızı
+ * görmek bir anlam taşır.
+ */
+export function birimUyarilari(satir: {
+  koordinatorsuzOkulSayisi?: number;
+  danismansizOgrenciSayisi: number;
+  raporsuzFaaliyetSayisi?: number;
+}): string[] {
+  const uyarilar: string[] = [];
+
+  if (satir.koordinatorsuzOkulSayisi) {
+    uyarilar.push(`${satir.koordinatorsuzOkulSayisi} okulda koordinatör yok`);
+  }
+  if (satir.danismansizOgrenciSayisi) {
+    uyarilar.push(`${satir.danismansizOgrenciSayisi} öğrencinin danışmanı yok`);
+  }
+  if (satir.raporsuzFaaliyetSayisi) {
+    uyarilar.push(`${satir.raporsuzFaaliyetSayisi} etkinliğin raporu eksik`);
+  }
+
+  return uyarilar;
+}

@@ -123,6 +123,35 @@ describe("mentörlük kararı", () => {
     expect(karar.olurMu).toBe(false);
   });
 
+  /*
+   * KENDİ BAŞVURUSUNU ONAYLAMA (11 Ağustos 2026 · istek: "il koordinatörü
+   * mentörlüğe başvurunca kendi kendini onaylıyor").
+   *
+   * Onay yetkisi merkeze alındı ama kural yetkiden bağımsız olarak da
+   * duruyor: proje yöneticisi de mentör olabiliyor.
+   */
+  it("kişi kendi başvurusunu karara bağlayamaz", () => {
+    for (const yeniDurum of ["ONAYLANDI", "REDDEDILDI"] as const) {
+      const karar = mentorlukKarariGecerliMi({
+        mevcutDurum: "BEKLIYOR",
+        yeniDurum,
+        retGerekcesi: "Gerekçe yazıldı",
+        kendiBasvurusuMu: true,
+      });
+      expect(karar.olurMu).toBe(false);
+    }
+  });
+
+  it("başkasının başvurusu karara bağlanabilir", () => {
+    const karar = mentorlukKarariGecerliMi({
+      mevcutDurum: "BEKLIYOR",
+      yeniDurum: "ONAYLANDI",
+      retGerekcesi: "",
+      kendiBasvurusuMu: false,
+    });
+    expect(karar.olurMu).toBe(true);
+  });
+
   it("bırakılmış kaydı da doğrudan karara bağlamaz", () => {
     // Doğru yol kişinin yeniden başvurmasıdır; o zaman kayıt BEKLIYOR'a döner.
     const karar = mentorlukKarariGecerliMi({

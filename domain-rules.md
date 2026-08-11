@@ -584,8 +584,14 @@ Mentörlük = **çalışma grupları + serbest konular + onay durumu**. Kim olur
 
 | Kim | Nereden başvurur | Kim onaylar |
 |---|---|---|
-| Öğretmen, il koordinatörü, proje yöneticisi, mezun, paydaş temsilcisi | Panel · "Mentörlüğüm" | **İl koordinatörü ya da proje yöneticisi** |
+| Öğretmen, il koordinatörü, proje yöneticisi, mezun, paydaş temsilcisi | Panel · "Mentör olarak başvur" | **Yalnızca proje yöneticisi** |
 | Dışarıdan gelen (mezun/paydaş/mentör başvurusu) | Başvuru formu | Proje yöneticisi — dış başvuruyu onayladığı anda mentörlük de açılır |
+
+**ONAY 11 AĞUSTOS 2026'DA MERKEZE ALINDI** (istek: "il koordinatörü mentörlüğe başvurunca kendi kendini onaylıyor, mentörlük onaylarını sadece proje yöneticisi onay verebilsin"). Önceki kural onayı il koordinatörüne de veriyordu ve kuyruk koordinatörün **kendi iliyle** sınırlıydı; koordinatör de mentör olabildiği için kendi başvurusu her zaman kendi ekranına düşüyor ve onaylayabiliyordu. Bir ilde tek koordinatör olduğundan "kendisi hariç" demek de yetmezdi — başvurusuna bakacak ikinci bir koordinatör yok, kararın sahibi ilin üstündeki merkez olmalı.
+
+**Kimse kendi başvurusunu karara bağlayamaz** (`mentorlukKarariGecerliMi · kendiBasvurusuMu`). Yetki listesi "kim onaylayabilir" sorusunu cevaplar, bu koşul "kendi işini onaylayamaz" ilkesini: proje yöneticisi de mentör olabiliyor ve yetki kuralı tek başına onu engellemezdi. Proje yöneticiliği ekip işidir, yani karar sahipsiz kalmaz.
+
+**Koordinatör mentörlükten çıkmadı:** mentör olmaya, panodaki havuzda görünmeye ve ilindeki mentörleri görmeye devam ediyor. Kaybettiği tek şey KARAR yetkisi.
 
 **Dışarıdan gelende ayrı bir onay adımı yoktur:** proje yöneticisi başvurunun tamamını zaten onayladı ve mentörlük isteği o başvurunun içindeydi. İkinci bir kuyruğa düşürmek, aynı kararı iki kez sormak olurdu.
 

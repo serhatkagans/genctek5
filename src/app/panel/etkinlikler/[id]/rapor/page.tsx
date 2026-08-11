@@ -14,7 +14,10 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
 import { faaliyetSuresiYaz } from "@/lib/faaliyet/kurallar";
-import { raporYazilabilirMi } from "@/lib/faaliyet/rapor-kurallar";
+import {
+  RAPOR_ALAN_ADLARI,
+  raporYazilabilirMi,
+} from "@/lib/faaliyet/rapor-kurallar";
 import { uygulamaYolu } from "@/lib/ortam";
 import { tarihSaatYaz } from "@/lib/tarih";
 import { faaliyetRaporuYazabilirMi } from "@/lib/yetki/izinler";
@@ -227,7 +230,7 @@ export default async function FaaliyetRaporuSayfasi({
 
       <Kart>
         <KartBasligi
-          baslik="Değerlendirme"
+          baslik="Rapor metni"
           aciklama={
             rapor
               ? `Son güncelleme: ${rapor.yazan.ad} ${rapor.yazan.soyad} · ${tarihSaatYaz(rapor.guncellemeTarihi)}`
@@ -239,13 +242,16 @@ export default async function FaaliyetRaporuSayfasi({
         {!yazabilir ? (
           rapor ? (
             <>
+              <h3 className="mb-1 text-sm font-semibold text-baslik">
+                {RAPOR_ALAN_ADLARI.degerlendirme}
+              </h3>
               <p className="whitespace-pre-line text-metin">
                 {rapor.degerlendirme}
               </p>
               {rapor.kazanimlar && (
                 <>
                   <h3 className="mt-4 mb-1 text-sm font-semibold text-baslik">
-                    Kazanımlar
+                    {RAPOR_ALAN_ADLARI.kazanimlar}
                   </h3>
                   <p className="whitespace-pre-line text-metin">
                     {rapor.kazanimlar}
@@ -263,7 +269,7 @@ export default async function FaaliyetRaporuSayfasi({
             <input type="hidden" name="faaliyetId" value={faaliyet.id} />
             <label className="block">
               <span className="text-sm font-medium text-metin">
-                Değerlendirme
+                {RAPOR_ALAN_ADLARI.degerlendirme}
               </span>
               <textarea
                 name="degerlendirme"
@@ -273,10 +279,19 @@ export default async function FaaliyetRaporuSayfasi({
                 defaultValue={rapor?.degerlendirme ?? ""}
                 className={SINIF_GIRDI}
               />
+              {/*
+                Alan adı ne yazılacağını tek başına söylemiyor; ipucu satırı
+                onu söylüyor. Alanın kendisi değişmedi, adı ve beklenen içeriği
+                değişti (bkz. RAPOR_ALAN_ADLARI).
+              */}
+              <span className="mt-1 block text-sm text-metin-yumusak">
+                Etkinliğin özet bilgisi: ne yapıldı, kimler katıldı, nasıl
+                geçti.
+              </span>
             </label>
             <label className="block">
               <span className="text-sm font-medium text-metin">
-                Kazanımlar{" "}
+                {RAPOR_ALAN_ADLARI.kazanimlar}{" "}
                 <span className="text-metin-yumusak">(isteğe bağlı)</span>
               </span>
               <textarea
@@ -287,7 +302,7 @@ export default async function FaaliyetRaporuSayfasi({
                 className={SINIF_GIRDI}
               />
               <span className="mt-1 block text-sm text-metin-yumusak">
-                Hedeflenen kazanımlar gerçekleşti mi, aksayan ne oldu.
+                Sosyal medyada ya da haberde kullanılabilecek metin.
               </span>
             </label>
             <button type="submit" className={SINIF_BIRINCIL_BUTON}>

@@ -105,18 +105,28 @@ export function mentorlukBasvurabilirMi(kullanici: OturumKullanicisi): boolean {
 /**
  * Mentörlük başvurusunu ONAYLAYABİLİR mi?
  *
- * İl koordinatörü ve proje yöneticisi. Koordinatör kendi ilindeki başvuruları
- * görür; proje yöneticisinin il sınırı yoktur (istek: "proje yöneticisi de
- * onaylayabilir mentörü").
+ * YALNIZCA PROJE YÖNETİCİSİ (11 Ağustos 2026 · istek: "il koordinatörü
+ * mentörlüğe başvurunca kendi kendini onaylıyor, mentörlük onaylarını sadece
+ * proje yöneticisi onay verebilsin").
  *
- * KAPSAM AYRIMI BURADA DEĞİL sorguda yapılır (`mentorlukKapsamFiltresi`):
- * bu fonksiyon "ekranı görebilir mi" sorusuna cevap veriyor, "hangi satırları
- * görür" sorusuna değil — projedeki her yetki kararında olduğu gibi.
+ * İL KOORDİNATÖRÜ ÇIKARILDI ve gerekçesi bir kenar durum değil, kuralın
+ * kendisiydi: koordinatör de mentör olabiliyor (bkz. mentorlukBasvurabilirMi)
+ * ve kuyruk kendi iliyle sınırlı olduğu için kendi başvurusu her zaman kendi
+ * ekranına düşüyordu. Kimse kendi işini onaylamaz — aynı ilke etkinlik
+ * onayında da var (bkz. ilKoordinatoruOnaylayabilirMi · "kendi açtığı elenir").
+ *
+ * "Başvuran kendisi değilse onaylasın" gibi bir kaçamak YETMEZDİ: bir ilde tek
+ * koordinatör var, yani o kişinin başvurusuna bakacak ikinci bir koordinatör
+ * yok. Kararın sahibi ilin üstündeki merkez olmalı.
+ *
+ * KOORDİNATÖR MENTÖRLERİ GÖRMEYE DEVAM EDER: onay kuyruğu kapandı ama panodaki
+ * mentör havuzu ve ilindeki mentörlerin listesi yerinde — kaybolan yalnızca
+ * KARAR yetkisi.
  */
 export function mentorlukOnaylayabilirMi(
   kullanici: OturumKullanicisi,
 ): boolean {
-  return ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici);
+  return projeYoneticisiMi(kullanici);
 }
 
 /** İl koordinatörünün sorumlu olduğu il. Rol yoksa null. */
@@ -687,6 +697,49 @@ export function sistemAyarlariniYonetebilirMi(
   kullanici: OturumKullanicisi,
 ): boolean {
   return projeYoneticisiMi(kullanici);
+}
+
+// ---------------------------------------------------------------------------
+// Yönetim panosu
+// ---------------------------------------------------------------------------
+
+/**
+ * Yönetim panosunu görebilir mi? (11 Ağustos 2026)
+ *
+ * Pano, yönetim ekranlarının ortak girişidir: il/ilçe/okul kırılımı ile
+ * birlikte öğrenci, öğretmen, paydaş ve görev rolleri ekranlarının kartları da
+ * buradadır. Kapı bu yüzden "en dar yönetim yetkisi" ile açılıyor: il
+ * koordinatörü ve merkez. Danışman öğretmen DIŞARIDA — ona ait tek yönetim
+ * ekranı kendi öğrenci listesidir ve menüsünde "Öğrencilerim" olarak duruyor;
+ * pano ona ilinin tamamını gösterirdi.
+ *
+ * Panonun İÇİNDEKİ her ekran kendi yetkisini AYRICA sorar (paydaş, görev
+ * rolleri, envanterler). Buradaki kapı yalnızca "pano açılır mı" sorusunu
+ * cevaplar; kartların hangisinin basılacağına ekran karar verir.
+ */
+export function yonetimPanosuGorebilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return projeYoneticisiMi(kullanici) || ilKoordinatoruMu(kullanici);
+}
+
+/**
+ * Panoda BU İLİN kırılımını açabilir mi?
+ *
+ * Kırılım adresten geliyor (`/panel/yonetim/il/34`), dolayısıyla kapsam
+ * ekranda değil burada kararlaştırılıyor: koordinatör yalnızca kendi ilini,
+ * merkez hepsini açar. Kontrol olmasaydı bir koordinatör adres çubuğuna başka
+ * il kodu yazarak o ilin okul ve öğrenci sayımlarını görebilirdi — sayım da
+ * veridir.
+ *
+ * İli olmayan (merkez dışı) kullanıcı hiçbir ili açamaz: fail closed.
+ */
+export function yonetimPanosuIlErisimi(
+  kullanici: OturumKullanicisi,
+  ilKodu: string,
+): boolean {
+  if (projeYoneticisiMi(kullanici)) return true;
+  return koordinatorIlKodu(kullanici) === ilKodu;
 }
 
 // ---------------------------------------------------------------------------

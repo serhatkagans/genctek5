@@ -113,12 +113,20 @@ export async function mentorluguBirakEylemi(): Promise<void> {
 }
 
 /**
- * Onay/ret kararı — il koordinatörü ve proje yöneticisi.
+ * Onay/ret kararı — YALNIZCA proje yöneticisi (11 Ağustos 2026).
  *
- * Kayıt KAPSAM FİLTRESİYLE BİRLİKTE okunuyor: kimliği adres çubuğuna yazan
- * bir koordinatör, başka ilin başvurusunu karara bağlayamamalı. Bulunamayan
- * kayıt 404 verir (403 değil): 403, "böyle bir başvuru var ama senin ilinde
- * değil" bilgisini sızdırırdı.
+ * İl koordinatörü çıkarıldı: kendi başvurusu her zaman kendi kuyruğuna
+ * düşüyordu ve onaylayabiliyordu (bkz. mentorlukOnaylayabilirMi).
+ *
+ * Kayıt KAPSAM FİLTRESİYLE BİRLİKTE okunmaya devam ediyor. Merkez için filtre
+ * boş dönüyor, yani bugün hiçbir satırı elemiyor; kaldırılmadı çünkü yetki
+ * yeniden genişletilirse (örneğin il koordinatörüne "kendisi hariç" izni)
+ * kapsamı tutan tek yer burasıdır. Bulunamayan kayıt 404 verir (403 değil):
+ * 403, "böyle bir başvuru var" bilgisini sızdırırdı.
+ *
+ * KENDİ BAŞVURUSU AYRICA ELENİR (kendiBasvurusuMu): yetki listesi "kim
+ * onaylayabilir" sorusunu cevaplar, o koşul "kendi işini onaylayamaz"
+ * ilkesini.
  */
 export async function mentorlukKararEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
@@ -145,6 +153,7 @@ export async function mentorlukKararEylemi(veri: FormData): Promise<void> {
     mevcutDurum: mevcut.durum,
     yeniDurum: yeniDurum === "ONAYLA" ? "ONAYLANDI" : "REDDEDILDI",
     retGerekcesi: String(veri.get("retGerekcesi") ?? ""),
+    kendiBasvurusuMu: hedefId === kullanici.id,
   });
   if (!karar.olurMu) {
     revalidatePath(KUYRUK);

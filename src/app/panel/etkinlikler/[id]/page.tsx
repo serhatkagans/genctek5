@@ -1373,6 +1373,46 @@ export default async function FaaliyetDetaySayfasi({
         )}
       </Kart>
 
+      {/*
+        RAPOR VE BELGE KARTI KENDİ BAŞINA DURUYOR (11 Ağustos 2026 · istek:
+        "etkinlik raporunu il koordinatörü de doldurabilsin, şu an sadece o ilin
+        öğretmeni dolduruyor").
+
+        YETKİ ZATEN VARDI, GİRİŞ YOKTU: `faaliyetRaporuYazabilirMi` ilin
+        koordinatörüne baştan beri evet diyor ve rapor ekranı ile kaydetme
+        eylemi onu kabul ediyordu. Ama bu iki düğme "Başvurular" kartının
+        İÇİNDEYDİ ve o kart `basvuruDegerlendirebilirMi` ile açılıyor — yani
+        yalnızca etkinliği AÇANA. Etkinliği açmamış koordinatör raporu ancak
+        adresini elle yazarak doldurabiliyordu.
+
+        Kart artık başvuru kartından bağımsız ve kendi yetkisini soruyor.
+      */}
+      {faaliyetRaporuYazabilirMi(kullanici, kapsamBilgisi) && (
+        <Kart>
+          <KartBasligi
+            baslik="Rapor ve belgeler"
+            aciklama="Etkinlik bittikten sonra raporu doldurun; katılım ve teşekkür belgeleri de buradan üretilir."
+            Ikon={FileText}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/panel/etkinlikler/${faaliyet.id}/rapor`}
+              className={SINIF_IKINCIL_BUTON}
+            >
+              <FileText size={16} aria-hidden />
+              Etkinlik raporu
+            </Link>
+            <Link
+              href={`/panel/etkinlikler/${faaliyet.id}/belgeler`}
+              className={SINIF_IKINCIL_BUTON}
+            >
+              <Award size={16} aria-hidden />
+              Katılım / teşekkür belgesi
+            </Link>
+          </div>
+        </Kart>
+      )}
+
       {degerlendirebilir && (
         <Kart>
           <KartBasligi
@@ -1398,30 +1438,6 @@ export default async function FaaliyetDetaySayfasi({
               <Download size={16} aria-hidden />
               Başvuru listesini CSV indir
             </a>
-          )}
-
-          {/*
-            Rapor kendi sayfasında: katılım özeti, katılımcı listesi, görseller
-            ve değerlendirme metni bir arada. İndirme bağlantıları da orada.
-          */}
-          {faaliyetRaporuYazabilirMi(kullanici, kapsamBilgisi) && (
-            <Link
-              href={`/panel/etkinlikler/${faaliyet.id}/belgeler`}
-              className={`${SINIF_IKINCIL_BUTON} mb-4 ml-2`}
-            >
-              <Award size={16} aria-hidden />
-              Katılım / teşekkür belgesi
-            </Link>
-          )}
-
-          {faaliyetRaporuYazabilirMi(kullanici, kapsamBilgisi) && (
-            <Link
-              href={`/panel/etkinlikler/${faaliyet.id}/rapor`}
-              className={`${SINIF_IKINCIL_BUTON} mb-4`}
-            >
-              <FileText size={16} aria-hidden />
-              Etkinlik raporu
-            </Link>
           )}
 
           {devroldu && (

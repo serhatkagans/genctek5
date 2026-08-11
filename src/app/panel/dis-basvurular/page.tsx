@@ -246,9 +246,29 @@ export default async function DisBasvurularSayfasi({
                 {kararaBaglananlar.map((basvuru) => (
                   <tr key={basvuru.id} className="border-b border-cizgi">
                     <td className="py-2 pr-4">
-                      <span className="font-medium text-metin">
-                        {basvuru.ad} {basvuru.soyad}
-                      </span>
+                      {/*
+                        AD TIKLANABİLİR (11 Ağustos 2026 · istek: "dış girişten
+                        gelen mentör paydaş vs tıklanabilir olsun, onların
+                        profiline gitsin").
+
+                        Yalnızca ONAYLANANLARDA: kullanıcı kaydı onayla birlikte
+                        doğuyor (bkz. lib/dis-kimlik/basvuru.ts), reddedilen
+                        başvurunun arkasında gidilecek bir profil yok. Koşul
+                        `olusanKullanici` üzerinden kuruluyor, duruma bakarak
+                        değil — kaydın kendisi tek doğruluk kaynağı.
+                      */}
+                      {basvuru.olusanKullanici ? (
+                        <Link
+                          href={`/panel/dis-kullanicilar/${basvuru.olusanKullanici.id}`}
+                          className="font-medium text-vurgu-metin underline underline-offset-2"
+                        >
+                          {basvuru.ad} {basvuru.soyad}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-metin">
+                          {basvuru.ad} {basvuru.soyad}
+                        </span>
+                      )}
                       <span className="block text-xs text-metin-yumusak">
                         {basvuru.eposta} · {basvuru.il.ad}
                       </span>

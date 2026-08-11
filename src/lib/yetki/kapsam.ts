@@ -196,7 +196,7 @@ export function ogrenciListeFiltresi(
  *     içeri girer ve il koordinatörü, ilinin öğretmen envanterinde mezunları
  *     görürdü — üstelik ekran onları öğretmen sanarak branş sütunu basardı.
  */
-const OGRETMEN: Prisma.KullaniciWhereInput = {
+export const OGRETMEN: Prisma.KullaniciWhereInput = {
   roller: {
     none: {
       rolKodu: {

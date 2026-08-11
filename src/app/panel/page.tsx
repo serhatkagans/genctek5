@@ -1082,8 +1082,17 @@ export default async function PanelSayfasi({
       */}
       {mentorlukVerisi && (
         <KatlanabilirKart
-          baslik="Mentörlüğüm"
-          aciklama="Bildiğiniz konularda öğrencilere yol gösterin. Başvurunuz il koordinatörünüzün ya da proje yöneticisinin onayından geçer."
+          /*
+           * "MENTÖR OLARAK BAŞVUR" (11 Ağustos 2026 · istek: "mentörlüğüm
+           * kısmını mentör olarak başvur yap"). Bölüm ne yapılacağını söylüyor;
+           * "Mentörlüğüm" bir sahiplik bildiriyordu ve kullanıcıların çoğunda
+           * henüz sahip olunan bir şey yok — başvurulacak bir şey var.
+           *
+           * Çapa `mentorlugum` KALDI: eylemlerin dönüş adresi ve e-postalardaki
+           * bağlantılar bu çapayı taşıyor (bkz. mentorluk/eylemler.ts).
+           */
+          baslik="Mentör olarak başvur"
+          aciklama="Bildiğiniz konularda öğrencilere yol gösterin. Başvurunuz proje yöneticisinin onayından geçer."
           Ikon={GraduationCap}
           capa="mentorlugum"
           baslangictaAcik={acilacakBolum === "mentorlugum"}
@@ -1233,24 +1242,23 @@ export default async function PanelSayfasi({
       )}
 
       {/*
-        ROTAM: ekosistem İÇİNDEKİ herkeste (7 Ağustos 2026 · istek: öğretmen
-        Panel'inde de "Yeni Kayıt Ekle: … Rotam"). Hedef eylemleri zaten rol
-        kısıtı taşımıyordu (bkz. hedef-eylemleri.ts); eksik olan yalnızca
-        bölümün basılmasıydı.
+        ROTAM YALNIZCA ÖĞRENCİDE (11 Ağustos 2026 · istek: "rotam sadece
+        öğrencide olacak, öğretmen koordinatör yönetici paydaş mentör bunlarda
+        rotam olmayacak").
 
-        DIŞ KULLANICIDA YOK (11 Ağustos 2026 · istek: "mezun öğrencide rotam
-        kalksın, paydaş da, mentörde de"). Rotam bir GELİŞİM aracıdır:
-        "öğrenmek istediğim konu, katılmak istediğim yarışma". Mezunun ve
-        paydaş temsilcisinin sistemle ilişkisi gelişme değil KATKI — etkinlik
-        bildirirler, mentörlük yaparlar. Onlara hedef listesi sunmak, sistemin
+        Bölüm önce dış kullanıcılardan (7 ve 11 Ağustos), şimdi de yetişkin
+        rollerin tamamından kalktı. Gerekçe aynı yerde birleşiyor: Rotam bir
+        GELİŞİM aracıdır — "öğrenmek istediğim konu, katılmak istediğim
+        yarışma". Öğretmenin, koordinatörün ve merkez personelinin sistemle
+        ilişkisi gelişme değil YÜRÜTME; onlara hedef listesi sunmak, sistemin
         onları da yetiştirilecek biri gibi gördüğünü söylerdi.
 
-        MENTÖR AYRI BİR ROL DEĞİL, bir durumdur (bkz. model Mentorluk):
-        dışarıdan gelen mentör zaten MEZUN ya da PAYDAS_TEMSILCISI rolüyle
-        girer, yani bu kapının içindedir. Öğretmen mentör ise ÖĞRETMENDİR ve
-        Rotam'ı durur — 7 Ağustos kararı onun için geçerli olmaya devam ediyor.
+        SAYFA VE EYLEMLER SİLİNMEDİ: hedef eylemleri rol kısıtı taşımıyor
+        (bkz. hedef-eylemleri.ts) ve daha önce hedef girmiş bir öğretmenin
+        kayıtları duruyor. Kalkan şey bölümün BASILMASI; kayıtlar profilinde
+        görünmeye devam ediyor.
       */}
-      {!disKullaniciMi(kullanici) && (
+      {ogrenciMi(kullanici) && (
         <KatlanabilirKart
           baslik="Rotam"
           aciklama="Yapmak istediklerin: öğrenmek istediğin bir konu, katılmak istediğin bir yarışma, geliştirmek istediğin bir proje. Yalnızca sen görürsün."

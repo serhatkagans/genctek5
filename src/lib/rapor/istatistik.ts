@@ -94,6 +94,25 @@ export async function merkezIstatistikleriniGetir(
   };
 }
 
+/**
+ * "Bitmiş faaliyet" koşulu — İKİ KOŞULUN BİRLEŞİMİ: çok günlüde bitiş tarihi,
+ * tek günlükte tarihin kendisi. Prisma tek koşulda "varsa şuna, yoksa buna bak"
+ * diyemediği için OR kuruluyor.
+ *
+ * DIŞARI AÇIK ÇÜNKÜ İKİ YERDE SORULUYOR: merkezin boşluk sayımı ve yönetim
+ * panosunun il kırılımı (bkz. yonetim-ozeti.ts). Koşul iki dosyada ayrı ayrı
+ * yazılsaydı, biri düzeltilip öbürü unutulduğunda aynı soru iki ekranda iki
+ * farklı sayı verirdi.
+ */
+export function bitmisFaaliyetKosulu(simdi: Date): Prisma.FaaliyetWhereInput {
+  return {
+    OR: [
+      { bitisTarihi: { not: null, lte: simdi } },
+      { bitisTarihi: null, tarih: { lte: simdi } },
+    ],
+  };
+}
+
 export interface FaaliyetKatilimSayisi {
   /** Seçilmiş başvuru sayısı — aynı kişi iki faaliyete katıldıysa iki kez. */
   toplamKatilim: number;
@@ -166,18 +185,7 @@ export async function merkezBosluklariniGetir(
   belgeGuncellemeleri: Map<OnayBelgesi, Date | null>,
 ): Promise<MerkezBoslugu> {
   const simdi = new Date();
-
-  /*
-   * "Bitmiş faaliyet" iki koşulun birleşimi: çok günlüde bitiş tarihi, tek
-   * günlükte tarihin kendisi. Prisma tek koşulda "varsa şuna, yoksa buna bak"
-   * diyemediği için OR kuruluyor.
-   */
-  const bitmisKosulu = {
-    OR: [
-      { bitisTarihi: { not: null, lte: simdi } },
-      { bitisTarihi: null, tarih: { lte: simdi } },
-    ],
-  };
+  const bitmisKosulu = bitmisFaaliyetKosulu(simdi);
 
   /*
    * Belge eksiği: hiç onaylamamış YA DA metin onaydan sonra güncellenmiş

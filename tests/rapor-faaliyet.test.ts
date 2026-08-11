@@ -1,3 +1,4 @@
+import { RAPOR_ALAN_ADLARI } from "@/lib/faaliyet/rapor-kurallar";
 import {
   faaliyetRaporuHtml,
   htmlKacir,
@@ -160,9 +161,20 @@ describe("raporun yazılı kısmı çıktıya girer", () => {
     expect(html).toContain("raporu henüz yazılmadı");
   });
 
-  it("kazanım boşsa başlığı hiç basmaz", () => {
+  /*
+   * Başlıklar EKRANDAKİ adlarla aynı kaynaktan gelir (RAPOR_ALAN_ADLARI):
+   * indirilen belgenin, doldurulan formdan başka bir şey demesi raporu
+   * okuyanı yanıltırdı.
+   */
+  it("bölüm başlıkları ekrandaki alan adlarıyla aynıdır", () => {
+    const html = faaliyetRaporuHtml(VERI);
+    expect(html).toContain(`<h2>${RAPOR_ALAN_ADLARI.degerlendirme}</h2>`);
+    expect(html).toContain(`<h2>${RAPOR_ALAN_ADLARI.kazanimlar}</h2>`);
+  });
+
+  it("sosyal medya metni boşsa başlığı hiç basmaz", () => {
     const html = faaliyetRaporuHtml({ ...VERI, kazanimlar: null });
-    expect(html).not.toContain("<h2>Kazanımlar</h2>");
+    expect(html).not.toContain(`<h2>${RAPOR_ALAN_ADLARI.kazanimlar}</h2>`);
   });
 
   it("değerlendirmedeki HTML'i kaçırır", () => {

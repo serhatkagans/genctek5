@@ -63,10 +63,18 @@ export const TALEP_TURLERI: TalepTuru[] = [
   "SPONSOR",
 ];
 
+/*
+ * ETİKETLER 11 AĞUSTOS 2026'DA GÜNCELLENDİ (istek: "destek talebi - teknik
+ * destek talebi olsun … duyuru tanıtım desteği açılsın").
+ *
+ * İkisi de yalnızca ETİKET değişikliği; enum değerleri korundu. "Destek
+ * talebi" neyin desteği olduğunu söylemiyordu ve panoda mentör talebiyle
+ * karışıyordu; "Genel" ise ilanın ne olduğunu hiç anlatmıyordu.
+ */
 export const TALEP_TURU_ETIKETLERI: Record<TalepTuru, string> = {
-  TEKNIK_DESTEK: "Destek talebi",
+  TEKNIK_DESTEK: "Teknik destek talebi",
   MENTORE_SOR: "Mentöre sor",
-  DUYURU: "Genel",
+  DUYURU: "Duyuru / tanıtım desteği",
   EKIP_ARKADASI: "Ekip arkadaşı arama",
   SPONSOR: "Sponsor",
 };
@@ -108,8 +116,16 @@ export const PANODAN_ACILABILIR_TURLER: TalepTuru[] = [
  * yapmak, sahiplerinin beklediği bağlantıyı sessizce keserdi (aynı gerekçe
  * PANODAN_ACILABILIR_TURLER notunda da var).
  */
+/*
+ * MENTÖRE SOR DA SÜZGEÇTEN KALKTI (11 Ağustos 2026 · istek: "panodan arama
+ * kısmında … mentöre sor kalksın"). Sponsorla aynı ilke: tür ENUM'da duruyor,
+ * ilanı açılmaya devam ediyor ve panoda rozetiyle listeleniyor — kaybolan tek
+ * şey o türe göre süzme seçeneği.
+ */
+const SUZGECTEN_CIKARILANLAR: TalepTuru[] = ["SPONSOR", "MENTORE_SOR"];
+
 export const SUZGEC_TURLERI: TalepTuru[] = TALEP_TURLERI.filter(
-  (tur) => tur !== "SPONSOR",
+  (tur) => !SUZGECTEN_CIKARILANLAR.includes(tur),
 );
 
 export function talepTuruGecerliMi(deger: string): deger is TalepTuru {

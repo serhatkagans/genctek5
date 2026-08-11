@@ -569,7 +569,7 @@ export function MentorlukDuzenleme({
           {mevcut ? "Başvurumu güncelle" : "Mentör başvurusu yap"}
         </button>
         <p className="text-sm text-metin-yumusak">
-          Başvurunuz il koordinatörünüzün ya da proje yöneticisinin onayına
+          Başvurunuz proje yöneticisinin onayına
           gider. Güncelleme, onaylanmış bir başvuruyu yeniden onaya düşürür.
         </p>
       </form>

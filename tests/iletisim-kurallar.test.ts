@@ -5,11 +5,13 @@ import {
   mesajMetniniCoz,
   mesajYazilabilirMi,
   PANODAN_ACILABILIR_TURLER,
+  SUZGEC_TURLERI,
   TALEP_AZAMI_GUN,
   TALEP_TURLERI,
   TALEP_TURU_ETIKETLERI,
   talebiCoz,
   talepAktifMi,
+  talepTuruGecerliMi,
 } from "@/lib/iletisim/kurallar";
 
 /**
@@ -146,12 +148,29 @@ describe("talebiCoz", () => {
     ]);
   });
 
+  /*
+   * ETİKETLER 11 AĞUSTOS 2026'DA GÜNCELLENDİ (istek: "destek talebi - teknik
+   * destek talebi olsun … duyuru tanıtım desteği açılsın"). Enum değişmedi,
+   * yalnızca ekranda yazan adlar değişti — testin sınadığı da bu.
+   */
   it("istekteki dört başlığın hepsinin bir türü vardır", () => {
-    // Ekrandaki adlar istek listesiyle birebir eşleşmeli.
-    expect(TALEP_TURU_ETIKETLERI.TEKNIK_DESTEK).toBe("Destek talebi");
+    expect(TALEP_TURU_ETIKETLERI.TEKNIK_DESTEK).toBe("Teknik destek talebi");
     expect(TALEP_TURU_ETIKETLERI.MENTORE_SOR).toBe("Mentöre sor");
-    expect(TALEP_TURU_ETIKETLERI.DUYURU).toBe("Genel");
+    expect(TALEP_TURU_ETIKETLERI.DUYURU).toBe("Duyuru / tanıtım desteği");
     expect(TALEP_TURU_ETIKETLERI.EKIP_ARKADASI).toBe("Ekip arkadaşı arama");
+  });
+
+  /*
+   * Süzgeç listesi enum'un TAMAMI DEĞİLDİR: sponsor ve mentöre sor süzgeçten
+   * çıkarıldı ama ilanları panoda listelenmeye ve rozetleri basılmaya devam
+   * ediyor. İkisini karıştırmak, açılmış ilanları görünmez yapardı.
+   */
+  it("süzgeçte sponsor ve mentöre sor yoktur, ilanları durmaya devam eder", () => {
+    expect(SUZGEC_TURLERI).not.toContain("SPONSOR");
+    expect(SUZGEC_TURLERI).not.toContain("MENTORE_SOR");
+    expect(SUZGEC_TURLERI).toEqual(["TEKNIK_DESTEK", "DUYURU", "EKIP_ARKADASI"]);
+    expect(TALEP_TURLERI).toContain("MENTORE_SOR");
+    expect(talepTuruGecerliMi("MENTORE_SOR")).toBe(true);
   });
 
   it("her türün ekran etiketi vardır", () => {
