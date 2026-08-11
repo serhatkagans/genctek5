@@ -23,6 +23,48 @@ import type { MentorlukDurumu } from "@/generated/prisma/enums";
 
 export const MENTOR_KONULARI_AZAMI = 500;
 
+/**
+ * Havuz kartında mentörün altına yazılan SIFAT (11 Ağustos 2026).
+ *
+ * `kullaniciRolEtiketi` kullanılmadı, iki sebeple: (1) o fonksiyon oturum
+ * kullanıcısı ister, burada elimizde bir liste satırı var; (2) çıktısı kart
+ * için fazla uzun — rolsüz öğretmene "Öğretmen (danışmanlık görevi alınmadı)"
+ * diyor. Havuzda aranan cevap "bu kişi kim" değil "hangi sıfatla yol
+ * gösteriyor".
+ *
+ * ROLSÜZ ÖĞRETMEN BOŞ DEĞİL "Öğretmen"dir. Mentörlük başvurusunu öğretmen de
+ * yapabiliyor (bkz. mentorlukBasvurabilirMi) ve görev almamış bir öğretmenin
+ * rol listesi boştur; sıfatsız bırakılsaydı kartta yalnızca adı görünür,
+ * öğrenci karşısındakinin öğretmen olduğunu anlamazdı.
+ *
+ * BİRDEN ÇOK ROLDE İLKİ yazılır. Kart tek satırlık bir sıfat taşıyor; il
+ * koordinatörü olan bir öğretmene "Danışman öğretmen · İl koordinatörü"
+ * demek, öğrencinin sorduğu soruya fazladan bir şey katmıyor.
+ *
+ * Branş varsa parantez içinde eklenir: "Öğretmen (Bilişim Teknolojileri)".
+ * Mentör seçerken en çok işe yarayan ayrım bu.
+ */
+export function mentorSifati(
+  roller: readonly { rolKodu: string }[],
+  brans: string | null,
+): string {
+  const ETIKETLER: Record<string, string> = {
+    DANISMAN: "Danışman öğretmen",
+    IL_KOORDINATOR: "İl koordinatörü",
+    PROJE_YONETICISI: "Proje yöneticisi",
+    MEZUN: "Mezun",
+    PAYDAS_TEMSILCISI: "Paydaş temsilcisi",
+    OGRENCI: "Öğrenci",
+  };
+
+  const temel = roller.length === 0
+    ? "Öğretmen"
+    : (ETIKETLER[roller[0].rolKodu] ?? "Öğretmen");
+
+  const dal = brans?.trim();
+  return dal ? `${temel} (${dal})` : temel;
+}
+
 /** Bir kişinin AKTİF mentör sayılması için gereken durum. */
 export function mentorluguAktifMi(durum: MentorlukDurumu | null): boolean {
   return durum === "ONAYLANDI";

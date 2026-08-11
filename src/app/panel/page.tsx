@@ -1233,12 +1233,24 @@ export default async function PanelSayfasi({
       )}
 
       {/*
-        ROTAM ARTIK HERKESTE (7 Ağustos 2026 · istek: öğretmen Panel'inde de
-        "Yeni Kayıt Ekle: … Rotam"). Hedef eylemleri zaten rol kısıtı
-        taşımıyordu (bkz. hedef-eylemleri.ts); eksik olan yalnızca bölümün
-        basılmasıydı.
+        ROTAM: ekosistem İÇİNDEKİ herkeste (7 Ağustos 2026 · istek: öğretmen
+        Panel'inde de "Yeni Kayıt Ekle: … Rotam"). Hedef eylemleri zaten rol
+        kısıtı taşımıyordu (bkz. hedef-eylemleri.ts); eksik olan yalnızca
+        bölümün basılmasıydı.
+
+        DIŞ KULLANICIDA YOK (11 Ağustos 2026 · istek: "mezun öğrencide rotam
+        kalksın, paydaş da, mentörde de"). Rotam bir GELİŞİM aracıdır:
+        "öğrenmek istediğim konu, katılmak istediğim yarışma". Mezunun ve
+        paydaş temsilcisinin sistemle ilişkisi gelişme değil KATKI — etkinlik
+        bildirirler, mentörlük yaparlar. Onlara hedef listesi sunmak, sistemin
+        onları da yetiştirilecek biri gibi gördüğünü söylerdi.
+
+        MENTÖR AYRI BİR ROL DEĞİL, bir durumdur (bkz. model Mentorluk):
+        dışarıdan gelen mentör zaten MEZUN ya da PAYDAS_TEMSILCISI rolüyle
+        girer, yani bu kapının içindedir. Öğretmen mentör ise ÖĞRETMENDİR ve
+        Rotam'ı durur — 7 Ağustos kararı onun için geçerli olmaya devam ediyor.
       */}
-      {(
+      {!disKullaniciMi(kullanici) && (
         <KatlanabilirKart
           baslik="Rotam"
           aciklama="Yapmak istediklerin: öğrenmek istediğin bir konu, katılmak istediğin bir yarışma, geliştirmek istediğin bir proje. Yalnızca sen görürsün."

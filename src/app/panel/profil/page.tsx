@@ -937,8 +937,15 @@ export default async function ProfilSayfasi({
       {/*
         "Rotam" — istekteki profil sırasının SONUNCUSU. Yolculuk kartlarından
         sonra gelmesi anlamlı: yukarısı yapılanlar, burası yapılacaklar.
+
+        DIŞ KULLANICIDA BASILMIYOR (11 Ağustos 2026). Kapı Panel'dekiyle AYNI
+        koşulu soruyor: bölüm yalnızca birinden kaldırılsaydı mezun, Panel'de
+        göremediği bir bölümü profilinde görür ve düzenleme bağlantısı onu
+        var olmayan bir karta (`/panel#rotam`) götürürdü.
       */}
-      <RotamKarti hedefler={hedefler} duzenlemeYolu="/panel#rotam" />
+      {!disKullaniciMi(kullanici) && (
+        <RotamKarti hedefler={hedefler} duzenlemeYolu="/panel#rotam" />
+      )}
 
       {/*
         EN ALTTA duruyor ve `id="kvkk"` taşıyor: şerit ile eski /panel/kvkk

@@ -4,6 +4,7 @@ import {
   mentorlukKabulEdilirMi,
   mentorlukKarariGecerliMi,
   mentorluguAktifMi,
+  mentorSifati,
 } from "@/lib/mentor/kurallar";
 
 /**
@@ -160,5 +161,52 @@ describe("mentör kapsamının yazılışı", () => {
 
   it("hiçbiri yoksa boş döner", () => {
     expect(mentorKapsamiYaz([], null)).toBe("");
+  });
+});
+
+describe("havuz kartındaki mentör sıfatı", () => {
+  it("rolsüz öğretmene 'Öğretmen' der", () => {
+    /*
+     * ASIL VAKA. Mentörlüğe görev almamış öğretmen de başvurabiliyor
+     * (mentorlukBasvurabilirMi) ve onun rol listesi BOŞTUR. Boş bırakılsaydı
+     * kartta yalnızca ad görünür, öğrenci karşısındakinin öğretmen olduğunu
+     * anlamazdı.
+     */
+    expect(mentorSifati([], null)).toBe("Öğretmen");
+  });
+
+  it("branşı parantez içinde ekler", () => {
+    // Mentör seçerken en çok işe yarayan ayrım budur.
+    expect(mentorSifati([], "Bilişim Teknolojileri")).toBe(
+      "Öğretmen (Bilişim Teknolojileri)",
+    );
+    expect(mentorSifati([{ rolKodu: "DANISMAN" }], "Fizik")).toBe(
+      "Danışman öğretmen (Fizik)",
+    );
+  });
+
+  it("dış kullanıcının sıfatını yazar", () => {
+    expect(mentorSifati([{ rolKodu: "MEZUN" }], null)).toBe("Mezun");
+    expect(mentorSifati([{ rolKodu: "PAYDAS_TEMSILCISI" }], null)).toBe(
+      "Paydaş temsilcisi",
+    );
+  });
+
+  it("birden çok rolde ilkini yazar", () => {
+    // Kart tek satırlık bir sıfat taşıyor; hepsini yazmak öğrencinin sorduğu
+    // soruya bir şey katmıyor.
+    expect(
+      mentorSifati([{ rolKodu: "DANISMAN" }, { rolKodu: "IL_KOORDINATOR" }], null),
+    ).toBe("Danışman öğretmen");
+  });
+
+  it("boş branşı parantezle basmaz", () => {
+    expect(mentorSifati([{ rolKodu: "MEZUN" }], "   ")).toBe("Mezun");
+  });
+
+  it("tanınmayan rol kodunda öğretmene düşer", () => {
+    // Rol listesi büyürse kart boş sıfat basmaktansa güvenli bir varsayılana
+    // düşsün; ekran hiçbir hâlde adsız bir satır göstermemeli.
+    expect(mentorSifati([{ rolKodu: "YENI_ROL" }], null)).toBe("Öğretmen");
   });
 });

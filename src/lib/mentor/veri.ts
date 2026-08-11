@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "../db";
+import { mentorKapsamiYaz, mentorSifati } from "./kurallar";
 import { koordinatorIlKodu, projeYoneticisiMi } from "../yetki/izinler";
 import type { OturumKullanicisi } from "../yetki/tipler";
 
@@ -41,6 +42,85 @@ export interface MentorlukSatiri {
   kararTarihi: Date | null;
   retGerekcesi: string | null;
   grupAdlari: string[];
+}
+
+export interface HavuzMentoru {
+  kullaniciId: number;
+  adSoyad: string;
+  /** Rol etiketi yerine tek kelime sıfat: "Öğretmen", "Mezun", "Paydaş"… */
+  sifat: string;
+  kapsam: string;
+  kurumAdi: string | null;
+  ilAdi: string | null;
+  fotografiVarMi: boolean;
+}
+
+/**
+ * MENTÖR HAVUZU — panodaki "Mentör talebi aç" bölümünde gösterilen liste
+ * (11 Ağustos 2026 · istek: "mentör talebi aç kısmında ızgara şeklinde
+ * mentörler listelensin").
+ *
+ * YALNIZCA ONAYLANDI. Onay bekleyen, reddedilen ve mentörlüğü bırakan kişi
+ * havuzda görünmez; `mentorluguAktifMi` ile aynı ölçüt (bkz. kurallar.ts).
+ * Bekleyeni göstermek, öğrenciyi henüz kimsenin uygun bulmadığı bir kişiye
+ * yönlendirmek olurdu.
+ *
+ * KAPSAM FİLTRESİ YOK ve bu panonun kendi kararıyla tutarlı: pano ülke geneli
+ * çalışıyor ("amaç zaten farklı illerden öğrencilerin birbirini bulması"). İl
+ * sınırı konsaydı, ilinde mentör olmayan öğrenci hiç kimseyi göremezdi — yani
+ * havuzun asıl işe yarayacağı durumda boş kalırdı.
+ *
+ * GÖRÜNEN VERİ, panodaki ilan kartıyla AYNI genişlikte: ad, sıfat, okul, il ve
+ * uzmanlık. Telefon ve e-posta YOK — iletişim yine bağlantı isteğinden geçer.
+ */
+export async function mentorHavuzunuGetir(): Promise<HavuzMentoru[]> {
+  const kayitlar = await prisma.mentorluk.findMany({
+    where: { durum: "ONAYLANDI" },
+    select: {
+      kullaniciId: true,
+      konular: true,
+      gruplar: { select: { calismaGrubu: { select: { ad: true } } } },
+      kullanici: {
+        select: {
+          ad: true,
+          soyad: true,
+          brans: true,
+          fotoDepolamaYolu: true,
+          fotoMimeTipi: true,
+          kurum: { select: { ad: true } },
+          il: { select: { ad: true } },
+          roller: { where: { bitisTarihi: null }, select: { rolKodu: true } },
+        },
+      },
+    },
+    /*
+     * Sıra: FOTOĞRAFLI OLANLAR ÖNDE değil — ada göre. Fotoğrafa göre sıralamak
+     * ızgarayı düzgün gösterirdi ama havuzda öne çıkmayı fotoğraf yüklemeye
+     * bağlardı; mentörün uygunluğu bununla ölçülmez.
+     */
+    orderBy: [{ kullanici: { ad: "asc" } }, { kullanici: { soyad: "asc" } }],
+  });
+
+  return kayitlar.map((kayit) => ({
+    kullaniciId: kayit.kullaniciId,
+    adSoyad: `${kayit.kullanici.ad} ${kayit.kullanici.soyad}`,
+    sifat: mentorSifati(kayit.kullanici.roller, kayit.kullanici.brans),
+    kapsam: mentorKapsamiYaz(
+      kayit.gruplar.map((grup) => grup.calismaGrubu.ad),
+      kayit.konular,
+    ),
+    kurumAdi: kayit.kullanici.kurum?.ad ?? null,
+    ilAdi: kayit.kullanici.il?.ad ?? null,
+    /*
+     * Fotoğrafın VARLIĞI burada belirleniyor, kartta değil: kart yalnızca bunu
+     * okuyup ya <img> ya baş harfleri basıyor. Aksi halde fotoğrafı olmayan
+     * her mentör için tarayıcı 404 dönen bir istek atar ve kırık görsel
+     * simgesi görünürdü.
+     */
+    fotografiVarMi:
+      kayit.kullanici.fotoDepolamaYolu !== null &&
+      kayit.kullanici.fotoMimeTipi !== null,
+  }));
 }
 
 /** Kişinin kendi mentörlük kaydı; yoksa null. */

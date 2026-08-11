@@ -28,6 +28,11 @@ import {
   talepTuruGecerliMi,
 } from "@/lib/iletisim/kurallar";
 import type { RolKodu, TalepTuru } from "@/generated/prisma/enums";
+import {
+  type HavuzMentoru,
+  mentorHavuzunuGetir,
+} from "@/lib/mentor/veri";
+import { uygulamaYolu } from "@/lib/ortam";
 import { girdiTarihi, tarihYaz } from "@/lib/tarih";
 import { talepPanosuGorebilirMi } from "@/lib/yetki/izinler";
 import { baglantiIstegiGonderEylemi } from "../baglantilar/eylemler";
@@ -77,6 +82,99 @@ function acanRolleri(roller: { rolKodu: RolKodu }[]): RolKodu[] {
  * arkadaşı / genel / sponsor ilanları açılmıyor; var olanlar listede ve tür
  * süzgecinde duruyor (10 Ağustos 2026'da açıkça böyle istendi).
  */
+/**
+ * MENTÖR HAVUZU IZGARASI (11 Ağustos 2026 · istek: "mentör talebi aç kısmında
+ * ızgara şeklinde mentörler listelensin").
+ *
+ * Talep formunun ÜSTÜNDE duruyor, altında değil: kullanıcı "kime soracağım"
+ * sorusunun cevabını görmeden talebini yazarsa, boşluğa sesleniyormuş gibi
+ * olur. Havuzu önce göstermek, talebin metnini de iyileştiriyor — kimin hangi
+ * konuda yol gösterdiğini gören kişi daha isabetli yazıyor.
+ *
+ * KART BİR BAĞLANTI DEĞİL. Tıklanabilir bir profil bağlantısı vermek, panonun
+ * bugün tutmadığı bir sözü verirdi: mentörün profilini görüntüleyecek bir ekran
+ * ve onun kapsam kuralı yok. Havuz "kimler var" sorusunu cevaplıyor; temas yine
+ * talep açmaktan ve bağlantı isteğinden geçiyor.
+ *
+ * IZGARA, etkinlik kartlarındaki gibi `auto-fill` ile kuruluyor: mentör sayısı
+ * 3 de olabilir 60 da, sabit sütun sayısı ikisinden birinde kötü görünürdü.
+ */
+function MentorHavuzu({ mentorler }: { mentorler: HavuzMentoru[] }) {
+  if (mentorler.length === 0) {
+    return (
+      <div className="mb-5 rounded-kart border border-cizgi bg-zemin p-4 text-sm text-metin-yumusak">
+        Havuzda henüz onaylanmış mentör yok. Talebinizi yine de açabilirsiniz;
+        mentörlük onaylandıkça panodaki ilanınız görülecek.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-5">
+      <p className="mb-2 text-sm font-medium text-metin">
+        Havuzdaki mentörler{" "}
+        <span className="font-normal text-metin-yumusak">
+          ({mentorler.length} kişi · talebinizi buradakiler görür)
+        </span>
+      </p>
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3">
+        {mentorler.map((mentor) => (
+          <li
+            key={mentor.kullaniciId}
+            className="flex flex-col items-center rounded-kart border border-cizgi p-3 text-center"
+          >
+            {mentor.fotografiVarMi ? (
+              /*
+               * next/image KULLANILMIYOR: kaynak, yetki kontrolü yapan dinamik
+               * bir rota (mentorler/[id]/foto) ve optimizasyon katmanı o
+               * isteği oturum çerezi olmadan yeniden yapardı — her fotoğraf
+               * 404 dönerdi.
+               */
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={uygulamaYolu(`/panel/mentorler/${mentor.kullaniciId}/foto`)}
+                alt=""
+                className="h-16 w-16 rounded-full object-cover"
+              />
+            ) : (
+              /*
+               * Fotoğrafı olmayan mentör için BAŞ HARF. Boş bir çerçeve
+               * bırakmak ızgarayı delik deşik gösterirdi ve fotoğraf yüklemek
+               * zorunlu değil.
+               */
+              <span
+                aria-hidden
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-vurgu-zemin text-lg font-semibold text-vurgu-metin"
+              >
+                {mentor.adSoyad
+                  .split(" ")
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((parca) => parca[0])
+                  .join("")}
+              </span>
+            )}
+            <span className="mt-2 text-sm font-medium text-metin">
+              {mentor.adSoyad}
+            </span>
+            <span className="text-xs text-metin-yumusak">{mentor.sifat}</span>
+            {mentor.kapsam && (
+              <span className="mt-1 text-xs text-vurgu-metin">
+                {mentor.kapsam}
+              </span>
+            )}
+            {mentor.ilAdi && (
+              <span className="mt-1 text-xs text-metin-yumusak">
+                {mentor.ilAdi}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function TalepFormu({
   tur,
   baslik,
@@ -85,6 +183,7 @@ function TalepFormu({
   yerTutucu,
   dugmeMetni,
   simdi,
+  children,
 }: {
   tur: TalepTuru;
   baslik: string;
@@ -93,10 +192,13 @@ function TalepFormu({
   yerTutucu: string;
   dugmeMetni: string;
   simdi: Date;
+  /** Form ile başlık arasına giren isteğe bağlı bölüm (mentör havuzu). */
+  children?: React.ReactNode;
 }) {
   return (
     <Kart>
       <KartBasligi baslik={baslik} aciklama={aciklama} Ikon={Ikon} />
+      {children}
       <form action={talepAcEylemi} className="space-y-4">
         <input type="hidden" name="tur" value={tur} />
         <label className="block">
@@ -180,7 +282,7 @@ export default async function TaleplerSayfasi({
   const seciliTur = talepTuruGecerliMi(tur ?? "") ? (tur as TalepTuru) : null;
   const tursuzIstendi = tur === "belirtilmemis";
 
-  const [gruplar, talepler, kendiTalepleri] = await Promise.all([
+  const [gruplar, talepler, kendiTalepleri, mentorler] = await Promise.all([
     prisma.calismaGrubu.findMany({
       where: { aktif: true },
       orderBy: { siraNo: "asc" },
@@ -241,6 +343,12 @@ export default async function TaleplerSayfasi({
       orderBy: { olusturmaTarihi: "desc" },
       select: { id: true, baslik: true, sonGecerlilik: true },
     }),
+    /*
+     * Mentör havuzu, talep formunun üstünde gösteriliyor (bkz. MentorHavuzu).
+     * Diğer sorgularla AYNI Promise.all içinde: sırayla beklenseydi panonun
+     * açılışına gereksiz bir gidiş dönüş eklenirdi.
+     */
+    mentorHavuzunuGetir(),
   ]);
 
   const filtreVar =
@@ -363,7 +471,9 @@ export default async function TaleplerSayfasi({
             yerTutucu="Hangi alanda yol göstermesini istediğinizi yazın."
             dugmeMetni="Mentör talebi aç"
             simdi={simdi}
-          />
+          >
+            <MentorHavuzu mentorler={mentorler} />
+          </TalepFormu>
         </>
       )}
 
