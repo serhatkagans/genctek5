@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { GOREV_ROL_ETIKETLERI } from "@/lib/yetki/etiketler";
 import {
   ilceTemsilcisiAtayabilirMi,
+  calismaGrubuYoneticisiAtayabilirMi,
   ilTemsilcisiAtayabilirMi,
   okulTemsilcisiAtayabilirMi,
 } from "@/lib/yetki/izinler";
@@ -122,14 +123,16 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
    * çünkü kapsamı bir YER değil bir GRUP: öğrencinin kayıtlı ilinden/okulundan
    * türetilemez, formdan gelen grup kimliğiyle belirlenir.
    *
-   * Yetki İL TEMSİLCİSİ ile aynı kapıdan geçiyor: atama kararı ilin, okulun
-   * değil. Danışman öğretmene açmak ayrı bir karardır — aynı grubun okuldan
-   * okula birden çok yöneticisi doğardı.
+   * YETKİ YALNIZCA MERKEZDE (11 Ağustos 2026 · istek: "koordinatör öğrenciyi
+   * çalışma grubu yöneticisi yapamasın"). Önceden İl Temsilcisi ile aynı
+   * kapıdan geçiyordu; gerekçesi "atama kararı ilin" idi ve o gerekçe çalışma
+   * grubunda tutmuyor — grup ülke geneli bir yapı
+   * (bkz. calismaGrubuYoneticisiAtayabilirMi).
    */
   if (rolKodu === "CALISMA_GRUBU_YONETICISI") {
-    if (!ogrenci.ilKodu || !ilTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu)) {
+    if (!calismaGrubuYoneticisiAtayabilirMi(kullanici)) {
       throw new YetkiHatasi(
-        "Bu ilde Çalışma Grubu Yöneticisi atama yetkiniz yok.",
+        "Çalışma Grubu Yöneticisi görevini yalnızca proje yöneticisi atayabilir. Öğrenciyi çalışma grubuna üye olarak ekleyebilirsiniz.",
       );
     }
     const grupId = Number.parseInt(String(veri.get("calismaGrubuId") ?? ""), 10);
@@ -255,6 +258,18 @@ export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
   });
   if (!gorev) throw new BulunamadiHatasi();
 
+  /*
+   * ÇALIŞMA GRUBU YÖNETİCİLİĞİ AYRI DALDA (11 Ağustos 2026).
+   *
+   * Daha önce kendi dalı yoktu ve son `else`e düşüyordu: o dal
+   * `gorev.kurumKodu !== null` istiyor, oysa bu görevin kapsamı bir OKUL değil
+   * bir GRUP ve `kurumKodu` alanı NULL kalıyor. Sonuç, kimsenin fark etmediği
+   * bir kilit — görev atanabiliyor ama PROJE YÖNETİCİSİ DAHİL hiç kimse
+   * kaldıramıyordu, "Bu görevi kaldırma yetkiniz yok" diyerek.
+   *
+   * Kural ekranın kendi ilkesiyle aynı: "görevi veremeyen kişi kaldıramaz da".
+   * Atama artık yalnızca merkezde olduğuna göre kaldırma da öyle.
+   */
   const yetkili =
     gorev.rolKodu === "IL_TEMSILCISI"
       ? gorev.ilKodu !== null &&
@@ -262,12 +277,14 @@ export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
       : gorev.rolKodu === "ILCE_TEMSILCISI"
         ? gorev.ilce !== null &&
           ilceTemsilcisiAtayabilirMi(kullanici, gorev.ilce.ilKodu)
-        : gorev.kurumKodu !== null &&
-          okulTemsilcisiAtayabilirMi(
-            kullanici,
-            gorev.kurumKodu,
-            gorev.ogrenci.ogrenciAtamalari.length > 0,
-          );
+        : gorev.rolKodu === "CALISMA_GRUBU_YONETICISI"
+          ? calismaGrubuYoneticisiAtayabilirMi(kullanici)
+          : gorev.kurumKodu !== null &&
+            okulTemsilcisiAtayabilirMi(
+              kullanici,
+              gorev.kurumKodu,
+              gorev.ogrenci.ogrenciAtamalari.length > 0,
+            );
 
   if (!yetkili) {
     throw new YetkiHatasi("Bu görevi kaldırma yetkiniz yok.");

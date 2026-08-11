@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { GOREV_ROL_ETIKETLERI } from "@/lib/yetki/etiketler";
 import {
   ilceTemsilcisiAtayabilirMi,
+  calismaGrubuYoneticisiAtayabilirMi,
   ilTemsilcisiAtayabilirMi,
   koordinatorIlKodu,
   okulTemsilcisiAtayabilirMi,
@@ -158,11 +159,15 @@ export default async function GorevRolleriSayfasi({
      * tekillik grup başınadır, kişi başına değil. Aynı gruba ikinci yönetici
      * atanması eylemde engelleniyor.
      *
-     * Yetki il temsilciliğiyle aynı: atama kararı ilin.
+     * YETKİ ARTIK İL TEMSİLCİLİĞİYLE AYNI DEĞİL (11 Ağustos 2026): çalışma
+     * grubu yöneticiliğini yalnızca merkez atar. Çalışma grubu ülke geneli bir
+     * yapıdır; her ilin koordinatörü kendi ilinden birini atayabilseydi aynı
+     * grup için iller yarışırdı (bkz. calismaGrubuYoneticisiAtayabilirMi).
+     * Öğrenciyi gruba ÜYE yapmak koordinatörde kalmaya devam ediyor, o ayrı
+     * bir kapı.
      */
     if (
-      ogrenci.ilKodu &&
-      ilTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu) &&
+      calismaGrubuYoneticisiAtayabilirMi(kullanici) &&
       calismaGruplari.length > 0
     ) {
       roller.push("CALISMA_GRUBU_YONETICISI");

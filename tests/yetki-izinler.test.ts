@@ -15,6 +15,7 @@ import {
   faaliyetGorunurMu,
   faaliyetIptalEdebilirMi,
   faaliyetOnayGerekiyorMu,
+  calismaGrubuYoneticisiAtayabilirMi,
   faaliyetOnaylayabilirMi,
   faaliyetRaporuYazabilirMi,
   ilceTemsilcisiAtayabilirMi,
@@ -566,6 +567,29 @@ describe("rol ve görev atama", () => {
     expect(ilTemsilcisiAtayabilirMi(koordinator, "34")).toBe(true);
     expect(ilTemsilcisiAtayabilirMi(koordinator, "06")).toBe(false);
     expect(ilTemsilcisiAtayabilirMi(danismanYap(), "34")).toBe(false);
+  });
+
+  it("çalışma grubu yöneticisini YALNIZCA merkez atar", () => {
+    /*
+     * 11 Ağustos 2026 · istek: "koordinatör öğrenciyi çalışma grubu yöneticisi
+     * yapamasın, çalışma grubu üyesi yapabilsin sadece".
+     *
+     * Bu görev daha önce `ilTemsilcisiAtayabilirMi` ile aynı kapıdan
+     * geçiyordu. Ayrılmasının sebebi kapsam: çalışma grubu İL DEĞİL ÜLKE
+     * GENELİ bir yapıdır ve grubun yöneticisi tektir. Her ilin koordinatörü
+     * kendi ilinden birini atayabilseydi aynı grup için 81 il yarışırdı.
+     */
+    expect(calismaGrubuYoneticisiAtayabilirMi(projeYoneticisiYap())).toBe(true);
+    expect(calismaGrubuYoneticisiAtayabilirMi(koordinatorYap({ ilKodu: "34" })))
+      .toBe(false);
+    expect(calismaGrubuYoneticisiAtayabilirMi(danismanYap())).toBe(false);
+  });
+
+  it("gruba ÜYE eklemek koordinatörde kalır", () => {
+    // İsteğin ikinci yarısı: yönetici hayır, üye evet. İki yetki ayrı kapılar
+    // ve yalnızca biri daraltıldı.
+    expect(ogrenciCalismaGrubuYonetebilirMi(koordinatorYap())).toBe(true);
+    expect(ogrenciCalismaGrubuYonetebilirMi(danismanYap())).toBe(true);
   });
 
   it("ilçe temsilcisini ilçenin bağlı olduğu ilin koordinatörü atar", () => {

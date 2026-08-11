@@ -585,6 +585,31 @@ export function ilTemsilcisiAtayabilirMi(
 }
 
 /**
+ * Çalışma Grubu Yöneticisi atama yetkisi — YALNIZCA MERKEZ (11 Ağustos 2026 ·
+ * istek: "koordinatör öğrenciyi çalışma grubu yöneticisi yapamasın, çalışma
+ * grubu üyesi yapabilsin sadece").
+ *
+ * NİYE AYRI BİR KAPI: bu rol `ilTemsilcisiAtayabilirMi` ile aynı kapıdan
+ * geçiyordu, yani il koordinatörü kendi ilindeki bir öğrenciyi yönetici
+ * yapabiliyordu. Kapıyı paylaşmaları bir varsayıma dayanıyordu — "atama kararı
+ * ilindir" — ve o varsayım çalışma grubunda tutmuyor: ÇALIŞMA GRUBU İL DEĞİL
+ * ÜLKE GENELİ bir yapıdır. Bir grubun yöneticisi tek kişidir ve o kişi tüm
+ * ülkedeki gruba karşı sorumludur; her ilin koordinatörü kendi ilinden birini
+ * atayabilseydi, aynı grup için 81 il birbiriyle yarışır ve "önce atayan
+ * kazanır" gibi bir kural doğardı.
+ *
+ * ÜYELİK BUNUN DIŞINDA ve koordinatörde KALIYOR: öğrenciyi gruba yazmak ayrı
+ * bir yetkidir (bkz. ogrenciCalismaGrubuYonetebilirMi) ve o kapı
+ * değiştirilmedi. İstek de tam olarak bu ayrımı söylüyor — üye evet, yönetici
+ * hayır.
+ */
+export function calismaGrubuYoneticisiAtayabilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return projeYoneticisiMi(kullanici);
+}
+
+/**
  * İlçe Temsilcisi atama yetkisi — ilçenin BAĞLI OLDUĞU İL üzerinden sorulur.
  *
  * Sistemde ilçe düzeyinde bir görevli yoktur (RolKodu'nda ILCE_KOORDINATOR
