@@ -3,7 +3,6 @@ import Link from "next/link";
 import {
   BilgiKutusu,
   Kart,
-  KartBasligi,
   KatlanabilirKart,
   SayfaBasligi,
   SINIF_GIRDI,
@@ -48,6 +47,12 @@ export const dynamic = "force-dynamic";
  * "Taraf mıyım" ayrımı burada YAPILIR ama gözetimi gizlemez: taraf olduğu
  * satırda karşı taraf tek isimle, gözetim satırında çift isimle yazılır
  * (bkz. `tarafMi`). Danışman "kimin konuşması" bilgisini kaybetmemeli.
+ *
+ * GÖRÜNÜM (12 Ağustos · "pek linkedin gibi de olmamış çok basit"): liste artık
+ * KART İÇİNDE KUTU değil, tek kartın içinde ayırıcı çizgiyle bölünmüş satırlar
+ * — LinkedIn'in bağlantı listesi böyle. Avatar büyütüldü, eylemler hap biçimli
+ * düğme oldu, davet satırında düğmeler sağa alındı (form artık satırın önünü
+ * kapatmıyor) ve listeye süzgeç şeridi eklendi.
  */
 
 const DURUM_MESAJLARI: Record<string, string> = {
@@ -61,6 +66,16 @@ const ONAY_ETIKETLERI: Record<string, string> = {
   REDDEDILDI: "Reddedildi",
 };
 
+/** Hap biçimli eylem düğmeleri — LinkedIn'in satır sonu düğmeleri gibi. */
+const SINIF_HAP_VURGU =
+  "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-vurgu px-4 py-1.5 text-sm font-semibold text-vurgu-metin transition group-hover:bg-vurgu-zemin";
+
+const SINIF_HAP_OLUMLU =
+  "inline-flex items-center gap-1.5 rounded-full bg-olumlu-zemin px-4 py-2 text-sm font-semibold text-olumlu-metin transition hover:opacity-90";
+
+const SINIF_HAP_HATA =
+  "inline-flex items-center gap-1.5 rounded-full border border-cizgi px-4 py-2 text-sm font-medium text-metin transition hover:border-hata-cizgi hover:bg-hata-zemin hover:text-hata-metin";
+
 /**
  * Baş harf çemberi — stil `mentorluk/page.tsx`'teki mentör kimliğiyle aynı,
  * yeni bir tasarım dili çıkmasın diye. Profil fotoğrafı BİLEREK kapsam dışı:
@@ -72,7 +87,7 @@ function BasHarfCemberi({ ad, soyad }: { ad: string; soyad: string }) {
   return (
     <span
       aria-hidden
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-vurgu-zemin text-sm font-semibold text-vurgu-metin"
+      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-vurgu-zemin text-lg font-semibold text-vurgu-metin"
     >
       {basHarfler(ad, soyad)}
     </span>
@@ -89,9 +104,9 @@ function GozetimCemberi() {
   return (
     <span
       aria-hidden
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cizgi bg-zemin text-metin-yumusak"
+      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-cizgi bg-zemin text-metin-yumusak"
     >
-      <Users size={18} />
+      <Users size={22} />
     </span>
   );
 }
@@ -101,13 +116,20 @@ function altBasligiYaz(parcalar: (string | null | undefined)[]): string {
   return parcalar.filter((parca) => parca && parca.trim()).join(" · ");
 }
 
+const SUZGECLER = ["tumu", "benim", "gozetim"] as const;
+type Suzgec = (typeof SUZGECLER)[number];
+
 export default async function BaglantilarimSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ durum?: string; hata?: string }>;
+  searchParams: Promise<{ durum?: string; hata?: string; suzgec?: string }>;
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
-  const { durum, hata } = await searchParams;
+  const { durum, hata, suzgec } = await searchParams;
+
+  const secili: Suzgec = SUZGECLER.includes(suzgec as Suzgec)
+    ? (suzgec as Suzgec)
+    : "tumu";
 
   const onayVerebilir =
     danismanMi(kullanici) ||
@@ -209,8 +231,80 @@ export default async function BaglantilarimSayfasi({
   const bekleyenler = istekler.filter((i) => i.onayDurumu === "BEKLIYOR");
   const gecmis = istekler.filter((i) => i.onayDurumu !== "BEKLIYOR");
 
+  /*
+   * Satırlar önce ZENGİNLEŞTİRİLİR, sonra süzülür. Süzgeç şeridi "0 sonuç"
+   * gösterebilmeli ve sayıları başlıkta yazabilmeli; bunun için her iki kümenin
+   * de sayısı lazım, dolayısıyla süzme sorguda değil burada yapılır (liste
+   * zaten `take: 100`).
+   */
+  const satirlar = yazismalar.map((yazisma) => {
+    const { isteyen, hedef, talep } = yazisma.baglantiIstegi;
+    const bendenMi = yazisma.baglantiIstegi.isteyenKullaniciId === kullanici.id;
+    const tarafMi =
+      bendenMi || yazisma.baglantiIstegi.hedefKullaniciId === kullanici.id;
+
+    /*
+     * TARAF OLUNAN SATIR KARŞI TARAFI GÖSTERİR, ÇİFTİ DEĞİL: LinkedIn kartı
+     * "sen ↔ o" demez. Kendi adını her satırda okumak bilgi taşımıyor.
+     *
+     * GÖZETİM SATIRI ÇİFT İSİM KALIR: bakan kişi bağlantının tarafı değil,
+     * tek isme indirmek konuşmanın kime ait olduğunu gizlerdi.
+     */
+    const karsiTaraf = bendenMi ? hedef : isteyen;
+
+    /*
+     * Gözetim satırında iki kurum yazılır ama AYNI KURUMSA TEK KEZ: "Kadıköy
+     * Anadolu Lisesi → Kadıköy Anadolu Lisesi" okuyana hiçbir şey söylemiyor.
+     * Okul arkadaşlarının bağlantısı en sık görülen durum.
+     */
+    const kurumlar = [
+      ...new Set([isteyen.kurum?.ad, hedef.kurum?.ad].filter(Boolean)),
+    ].join(" → ");
+
+    return {
+      id: yazisma.baglantiIstegiId,
+      tarafMi,
+      karsiTaraf,
+      baslik: tarafMi
+        ? `${karsiTaraf.ad} ${karsiTaraf.soyad}`
+        : `${isteyen.ad} ${isteyen.soyad} ↔ ${hedef.ad} ${hedef.soyad}`,
+      altBaslik: tarafMi
+        ? altBasligiYaz([
+            karsiTaraf.sinif ?? karsiTaraf.brans,
+            karsiTaraf.kurum?.ad,
+          ])
+        : kurumlar,
+      meta: [
+        `${yazisma._count.mesajlar} mesaj`,
+        tarihSaatYaz(yazisma.olusturmaTarihi),
+        talep?.baslik,
+        yazisma.kapatildiMi ? "kapatıldı" : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  });
+
+  const benimSayisi = satirlar.filter((s) => s.tarafMi).length;
+  const gozetimSayisi = satirlar.length - benimSayisi;
+
+  const gorunen = satirlar.filter((satir) =>
+    secili === "benim"
+      ? satir.tarafMi
+      : secili === "gozetim"
+        ? !satir.tarafMi
+        : true,
+  );
+
+  /*
+   * Süzgeç şeridi yalnızca İKİ TÜR DE VARSA basılır: sadece kendi bağlantıları
+   * olan öğrenciye "Tümü / Bağlantılarım / Gözetim" göstermek, üçü de aynı
+   * listeyi veren üç düğme demek olurdu.
+   */
+  const suzgecGoster = benimSayisi > 0 && gozetimSayisi > 0;
+
   const ozet = [
-    `${yazismalar.length} bağlantı`,
+    `${satirlar.length} bağlantı`,
     bekleyenler.length > 0 ? `${bekleyenler.length} istek karar bekliyor` : null,
   ]
     .filter(Boolean)
@@ -236,31 +330,41 @@ export default async function BaglantilarimSayfasi({
       */}
       {bekleyenler.length > 0 && (
         <Kart id="istekler">
-          <KartBasligi
-            baslik="Kararınızı bekleyen istekler"
-            aciklama="Onaylanana kadar taraflar birbirine ulaşamaz; hedef kişi istekten haberdar değildir."
-            Ikon={Handshake}
-          />
-          <ul className="space-y-4">
+          <div className="mb-1 flex items-center gap-2">
+            <Handshake size={18} className="text-vurgu-metin" />
+            <h2 className="text-lg font-semibold text-baslik">Davetler</h2>
+            <span className="rounded-full bg-vurgu-zemin px-2 py-0.5 text-sm font-semibold text-vurgu-metin">
+              {bekleyenler.length}
+            </span>
+          </div>
+          <p className="mb-2 text-sm text-metin-yumusak">
+            Onaylanana kadar taraflar birbirine ulaşamaz; hedef kişi istekten
+            haberdar değildir.
+          </p>
+
+          <ul className="-mx-6 divide-y divide-cizgi border-t border-cizgi">
             {bekleyenler.map((istek) => (
-              <li
-                key={istek.id}
-                className="rounded-kart border border-cizgi p-4"
-              >
-                <div className="flex items-start gap-3">
+              <li key={istek.id} className="px-6 py-5">
+                <form
+                  action={baglantiKarariEylemi}
+                  className="flex flex-wrap items-start gap-4"
+                >
+                  <input type="hidden" name="istekId" value={istek.id} />
+
                   <BasHarfCemberi
                     ad={istek.isteyen.ad}
                     soyad={istek.isteyen.soyad}
                   />
-                  <div className="min-w-0 grow">
-                    <p className="font-semibold text-baslik">
+
+                  <div className="min-w-0 grow basis-64">
+                    <p className="text-base font-semibold text-baslik">
                       {istek.isteyen.ad} {istek.isteyen.soyad}
                       <span className="mx-2 font-normal text-metin-yumusak">
                         →
                       </span>
                       {istek.hedef.ad} {istek.hedef.soyad}
                     </p>
-                    <p className="mt-0.5 text-sm text-metin-yumusak">
+                    <p className="mt-0.5 text-sm text-metin">
                       {altBasligiYaz([
                         istek.isteyen.sinif,
                         istek.isteyen.kurum?.ad ?? "—",
@@ -272,49 +376,49 @@ export default async function BaglantilarimSayfasi({
                       {istek.talep && `${istek.talep.baslik} · `}
                       {tarihSaatYaz(istek.olusturmaTarihi)}
                     </p>
+
+                    <p className="mt-3 border-l-2 border-cizgi pl-3 text-sm text-metin italic">
+                      {istek.mesaj}
+                    </p>
+
+                    {/*
+                      Gerekçe artık satırın ÖNÜNÜ KAPATMIYOR. Eskiden formun
+                      ilk öğesiydi ve daveti bir evrak gibi gösteriyordu; oysa
+                      yalnızca redde zorunlu. Düğmeler sağda, alan altta.
+                    */}
+                    <label className="mt-3 block max-w-md">
+                      <span className="text-xs font-medium text-metin-yumusak">
+                        Gerekçe (redde zorunlu)
+                      </span>
+                      <input
+                        type="text"
+                        name="gerekce"
+                        maxLength={500}
+                        className={SINIF_GIRDI}
+                      />
+                    </label>
                   </div>
-                </div>
 
-                <p className="mt-3 rounded-md bg-zemin px-3 py-2 text-sm text-metin">
-                  <span className="font-medium">Öğrencinin mesajı: </span>
-                  {istek.mesaj}
-                </p>
-
-                <form
-                  action={baglantiKarariEylemi}
-                  className="mt-3 flex flex-wrap items-end gap-3"
-                >
-                  <input type="hidden" name="istekId" value={istek.id} />
-                  <label className="block grow">
-                    <span className="text-sm font-medium text-metin">
-                      Gerekçe{" "}
-                      <span className="text-metin-yumusak">(redde zorunlu)</span>
-                    </span>
-                    <input
-                      type="text"
-                      name="gerekce"
-                      maxLength={500}
-                      className={SINIF_GIRDI}
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    name="karar"
-                    value="onayla"
-                    className="inline-flex items-center gap-1.5 rounded-md bg-olumlu-zemin px-3 py-2 text-sm font-medium text-olumlu-metin transition hover:opacity-90"
-                  >
-                    <Check size={15} aria-hidden />
-                    Onayla
-                  </button>
-                  <button
-                    type="submit"
-                    name="karar"
-                    value="reddet"
-                    className="inline-flex items-center gap-1.5 rounded-md bg-hata-zemin px-3 py-2 text-sm font-medium text-hata-metin transition hover:opacity-90"
-                  >
-                    <X size={15} aria-hidden />
-                    Reddet
-                  </button>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="submit"
+                      name="karar"
+                      value="reddet"
+                      className={SINIF_HAP_HATA}
+                    >
+                      <X size={15} aria-hidden />
+                      Reddet
+                    </button>
+                    <button
+                      type="submit"
+                      name="karar"
+                      value="onayla"
+                      className={SINIF_HAP_OLUMLU}
+                    >
+                      <Check size={15} aria-hidden />
+                      Onayla
+                    </button>
+                  </div>
                 </form>
               </li>
             ))}
@@ -323,109 +427,104 @@ export default async function BaglantilarimSayfasi({
       )}
 
       <Kart>
-        <KartBasligi
-          baslik="Bağlantılarım"
-          aciklama="Onaylanmış bağlantılar; satıra tıklayarak yazışmayı açarsınız."
-          Ikon={MessagesSquare}
-        />
-        {yazismalar.length === 0 ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
+            <MessagesSquare size={18} className="text-vurgu-metin" />
+            Bağlantılarım
+          </h2>
+
+          {suzgecGoster && (
+            /*
+              Süzgeç JAVASCRIPT'SİZ: her sekme bir bağlantı, sayfa sunucuda
+              yeniden basılıyor. Ekranın geri kalanı da böyle çalışıyor.
+            */
+            <nav className="flex gap-1 rounded-full border border-cizgi p-1">
+              {(
+                [
+                  ["tumu", "Tümü", satirlar.length],
+                  ["benim", "Bağlantılarım", benimSayisi],
+                  ["gozetim", "Gözetim", gozetimSayisi],
+                ] as const
+              ).map(([kod, etiket, sayi]) => (
+                <Link
+                  key={kod}
+                  href={
+                    kod === "tumu"
+                      ? "/panel/yazismalar"
+                      : `/panel/yazismalar?suzgec=${kod}`
+                  }
+                  aria-current={secili === kod ? "page" : undefined}
+                  className={`rounded-full px-3 py-1 text-sm transition ${
+                    secili === kod
+                      ? "bg-secili-zemin font-semibold text-secili-metin"
+                      : "text-metin-yumusak hover:text-metin"
+                  }`}
+                >
+                  {etiket} <span className="tabular-nums">{sayi}</span>
+                </Link>
+              ))}
+            </nav>
+          )}
+        </div>
+
+        {gorunen.length === 0 ? (
           <p className="text-metin-yumusak">
-            Görüntüleyebileceğiniz bağlantı yok. Panodan bağlantı isteği
-            gönderebilirsiniz.
+            {satirlar.length === 0
+              ? "Görüntüleyebileceğiniz bağlantı yok. Panodan bağlantı isteği gönderebilirsiniz."
+              : "Bu süzgeçte bağlantı yok."}
           </p>
         ) : (
-          <ul className="space-y-3">
-            {yazismalar.map((yazisma) => {
-              const { isteyen, hedef, talep } = yazisma.baglantiIstegi;
-              const tarafMi =
-                yazisma.baglantiIstegi.isteyenKullaniciId === kullanici.id ||
-                yazisma.baglantiIstegi.hedefKullaniciId === kullanici.id;
+          /*
+            TEK KART, AYIRICI ÇİZGİLİ SATIRLAR — kart içinde ayrı ayrı çerçeveli
+            kutular değil (12 Ağustos · "çok basit"). Negatif kenar boşluğu,
+            çizgilerin kartın tam genişliğinde durması için: LinkedIn listesi
+            böyle, satır kenarda kesilmiyor.
+          */
+          <ul className="-mx-6 -mb-6 divide-y divide-cizgi border-t border-cizgi">
+            {gorunen.map((satir) => (
+              <li key={satir.id} className="group">
+                {/*
+                  SATIRIN TAMAMI TIKLANIR. Sağdaki eylem bir <span>: iki hedef
+                  de aynı adres ve <a> içine <a> geçersiz HTML.
+                */}
+                <Link
+                  href={`/panel/yazismalar/${satir.id}`}
+                  className="flex items-center gap-4 px-6 py-4 transition hover:bg-zemin"
+                >
+                  {satir.tarafMi ? (
+                    <BasHarfCemberi
+                      ad={satir.karsiTaraf.ad}
+                      soyad={satir.karsiTaraf.soyad}
+                    />
+                  ) : (
+                    <GozetimCemberi />
+                  )}
 
-              /*
-               * TARAF OLUNAN SATIR KARŞI TARAFI GÖSTERİR, ÇİFTİ DEĞİL: LinkedIn
-               * kartı "sen ↔ o" demez. Kendi adını her satırda okumak bilgi
-               * taşımıyor, satırı da iki katına çıkarıyordu.
-               *
-               * GÖZETİM SATIRI ÇİFT İSİM KALIR: bakan kişi bağlantının tarafı
-               * değil, tek isme indirmek konuşmanın kime ait olduğunu gizlerdi.
-               */
-              const karsiTaraf =
-                yazisma.baglantiIstegi.isteyenKullaniciId === kullanici.id
-                  ? hedef
-                  : isteyen;
-
-              const baslik = tarafMi
-                ? `${karsiTaraf.ad} ${karsiTaraf.soyad}`
-                : `${isteyen.ad} ${isteyen.soyad} ↔ ${hedef.ad} ${hedef.soyad}`;
-
-              /*
-               * Gözetim satırında iki kurum yazılır ama AYNI KURUMSA TEK KEZ:
-               * "Kadıköy Anadolu Lisesi → Kadıköy Anadolu Lisesi" okuyana
-               * hiçbir şey söylemiyor, satırı da gereksiz uzatıyor. Okul
-               * arkadaşlarının bağlantısı en sık görülen durum.
-               */
-              const kurumlar = [
-                ...new Set(
-                  [isteyen.kurum?.ad, hedef.kurum?.ad].filter(Boolean),
-                ),
-              ].join(" → ");
-
-              const altBaslik = tarafMi
-                ? altBasligiYaz([
-                    karsiTaraf.sinif ?? karsiTaraf.brans,
-                    karsiTaraf.kurum?.ad,
-                  ])
-                : kurumlar;
-
-              return (
-                <li key={yazisma.baglantiIstegiId}>
-                  {/*
-                    SATIRIN TAMAMI TIKLANIR. Sağdaki eylem bir <span>: iki
-                    hedef de aynı adres ve <a> içine <a> geçersiz HTML.
-                  */}
-                  <Link
-                    href={`/panel/yazismalar/${yazisma.baglantiIstegiId}`}
-                    className="flex items-center gap-3 rounded-kart border border-cizgi p-4 transition hover:border-vurgu"
-                  >
-                    {tarafMi ? (
-                      <BasHarfCemberi
-                        ad={karsiTaraf.ad}
-                        soyad={karsiTaraf.soyad}
-                      />
-                    ) : (
-                      <GozetimCemberi />
-                    )}
-
-                    <span className="min-w-0 grow">
-                      <span className="block truncate font-medium text-metin">
-                        {baslik}
-                      </span>
-                      {altBaslik && (
-                        <span className="block truncate text-sm text-metin-yumusak">
-                          {altBaslik}
-                        </span>
-                      )}
-                      <span className="mt-0.5 block text-xs text-metin-yumusak">
-                        {yazisma._count.mesajlar} mesaj
-                        {" · "}
-                        {tarihSaatYaz(yazisma.olusturmaTarihi)}
-                        {talep && ` · ${talep.baslik}`}
-                        {yazisma.kapatildiMi && " · kapatıldı"}
-                      </span>
+                  <span className="min-w-0 grow">
+                    <span className="block truncate text-base font-semibold text-baslik underline-offset-2 group-hover:text-vurgu-metin group-hover:underline">
+                      {satir.baslik}
                     </span>
-
-                    {!tarafMi && (
-                      <span className="hidden shrink-0 rounded-md border border-cizgi px-2 py-1 text-xs text-metin-yumusak sm:inline">
-                        gözetim
+                    {satir.altBaslik && (
+                      <span className="block truncate text-sm text-metin">
+                        {satir.altBaslik}
                       </span>
                     )}
-                    <span className="hidden shrink-0 rounded-md border border-cizgi px-4 py-2 text-sm font-medium text-metin sm:inline">
-                      {tarafMi ? "Mesaj" : "Aç"}
+                    <span className="mt-1 block text-xs text-metin-yumusak">
+                      {satir.meta}
                     </span>
-                  </Link>
-                </li>
-              );
-            })}
+                  </span>
+
+                  {!satir.tarafMi && (
+                    <span className="hidden shrink-0 rounded-full border border-cizgi px-2.5 py-0.5 text-xs text-metin-yumusak sm:inline">
+                      gözetim
+                    </span>
+                  )}
+                  <span className={`hidden sm:inline-flex ${SINIF_HAP_VURGU}`}>
+                    {satir.tarafMi ? "Mesaj" : "Aç"}
+                  </span>
+                </Link>
+              </li>
+            ))}
           </ul>
         )}
       </Kart>
