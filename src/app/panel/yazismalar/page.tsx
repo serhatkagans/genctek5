@@ -1,8 +1,9 @@
-import { Check, Handshake, MessagesSquare, Users, X } from "lucide-react";
+import { Check, Handshake, MessagesSquare, Send, Users, X } from "lucide-react";
 import Link from "next/link";
 import {
   BilgiKutusu,
   Kart,
+  KartBasligi,
   KatlanabilirKart,
   SayfaBasligi,
   SINIF_GIRDI,
@@ -141,7 +142,7 @@ export default async function BaglantilarimSayfasi({
    * sorgulanır: onay yetkisi olmayanda `baglantiKarariFiltresi` zaten boş küme
    * döndürüyor, o sorguyu hiç açmamak bir gidiş dönüş kazandırır.
    */
-  const [yazismalar, istekler] = await Promise.all([
+  const [yazismalar, istekler, gonderdiklerim] = await Promise.all([
     prisma.yazisma.findMany({
       where: yazismaKapsamFiltresi(kullanici),
       orderBy: { olusturmaTarihi: "desc" },
@@ -212,6 +213,46 @@ export default async function BaglantilarimSayfasi({
           },
         })
       : Promise.resolve([]),
+
+    /*
+     * GÖNDERDİĞİM İSTEKLER (12 Ağustos 2026 · kullanıcı fark etti: "arda
+     * erdoğandan elif yılmaza bağlantı isteği gönderdim, ancak elifin
+     * bağlantılarım sayfasında çıkmadı" → istek hedefe değil onaylayana gider,
+     * ama GÖNDEREN de isteğini hiçbir yerde göremiyordu).
+     *
+     * Yalnızca BEKLİYOR ve REDDEDİLDİ çekilir. ONAYLANDI BİLEREK DIŞARIDA:
+     * onaylanan istek zaten yukarıdaki bağlantı listesinde yazışmasıyla
+     * duruyor, buraya da konsaydı aynı bağlantı ekranda iki kez görünürdü.
+     *
+     * Kapsam filtresi YOK ve gerekmiyor: koşul `isteyenKullaniciId = ben`,
+     * yani kişinin kendi gönderdiği istekler. Kendi verisine bakmak için
+     * yetki sorusu sorulmaz.
+     */
+    prisma.baglantiIstegi.findMany({
+      where: {
+        isteyenKullaniciId: kullanici.id,
+        onayDurumu: { in: ["BEKLIYOR", "REDDEDILDI"] },
+      },
+      orderBy: [{ onayDurumu: "asc" }, { olusturmaTarihi: "desc" }],
+      take: 50,
+      select: {
+        id: true,
+        onayDurumu: true,
+        retGerekcesi: true,
+        kararTarihi: true,
+        olusturmaTarihi: true,
+        talep: { select: { baslik: true } },
+        hedef: {
+          select: {
+            ad: true,
+            soyad: true,
+            sinif: true,
+            brans: true,
+            kurum: { select: { ad: true } },
+          },
+        },
+      },
+    }),
   ]);
 
   // Erişim loglaması eski onay ekranından aynen taşındı: bekleyen isteklerin
@@ -230,6 +271,10 @@ export default async function BaglantilarimSayfasi({
 
   const bekleyenler = istekler.filter((i) => i.onayDurumu === "BEKLIYOR");
   const gecmis = istekler.filter((i) => i.onayDurumu !== "BEKLIYOR");
+
+  const yanitBekleyenlerim = gonderdiklerim.filter(
+    (i) => i.onayDurumu === "BEKLIYOR",
+  );
 
   /*
    * Satırlar önce ZENGİNLEŞTİRİLİR, sonra süzülür. Süzgeç şeridi "0 sonuç"
@@ -470,7 +515,7 @@ export default async function BaglantilarimSayfasi({
         {gorunen.length === 0 ? (
           <p className="text-metin-yumusak">
             {satirlar.length === 0
-              ? "Görüntüleyebileceğiniz bağlantı yok. Panodan bağlantı isteği gönderebilirsiniz."
+              ? "Görüntüleyebileceğiniz bağlantı yok. Panodaki bir ilandan ya da Akış'taki bir paylaşımdan bağlantı isteği gönderebilirsiniz."
               : "Bu süzgeçte bağlantı yok."}
           </p>
         ) : (
@@ -528,6 +573,105 @@ export default async function BaglantilarimSayfasi({
           </ul>
         )}
       </Kart>
+
+      {/*
+        GÖNDERDİĞİM İSTEKLER — isteği yapanın kendi takip ekranı.
+
+        Bekleyeni varsa AÇIK kart, yoksa (yalnızca ret geçmişi kaldıysa) katlı:
+        "isteğim ne oldu" sorusunun cevabı bekleyen varken günlük iş, ret
+        geçmişi ise arşivdir. Aynı ayrım Davetler kartında da var.
+      */}
+      {gonderdiklerim.length > 0 &&
+        (() => {
+          /*
+           * Yalnızca YATAY negatif boşluk: bu gövde hem `Kart` (p-6) hem
+           * `KatlanabilirKart` (px-6 py-5) içinde basılıyor, alt boşlukları
+           * farklı. Tek bir `-mb-*` ikisinde birden doğru duramazdı.
+           */
+          const govde = (
+            <ul className="-mx-6 divide-y divide-cizgi border-t border-cizgi">
+              {gonderdiklerim.map((istek) => {
+                const reddedildi = istek.onayDurumu === "REDDEDILDI";
+                return (
+                  <li
+                    key={istek.id}
+                    className="flex items-start gap-4 px-6 py-4"
+                  >
+                    <BasHarfCemberi
+                      ad={istek.hedef.ad}
+                      soyad={istek.hedef.soyad}
+                    />
+                    <div className="min-w-0 grow">
+                      <p className="text-base font-semibold text-baslik">
+                        {istek.hedef.ad} {istek.hedef.soyad}
+                      </p>
+                      <p className="truncate text-sm text-metin">
+                        {altBasligiYaz([
+                          istek.hedef.sinif ?? istek.hedef.brans,
+                          istek.hedef.kurum?.ad,
+                        ])}
+                      </p>
+                      <p className="mt-0.5 text-xs text-metin-yumusak">
+                        {istek.talep
+                          ? `${istek.talep.baslik} · `
+                          : "Akıştaki paylaşımı üzerinden · "}
+                        {tarihSaatYaz(istek.olusturmaTarihi)}
+                      </p>
+
+                      {/*
+                        RET GEREKÇESİ GÖSTERİLİR: kural gereği zorunlu tutuluyor
+                        (bkz. iletisim/kurallar.ts) ve zorunlu tutulmasının tek
+                        anlamı, öğrencinin onu OKUYABİLMESİ. Bugüne kadar
+                        yazılıyor ama hiçbir ekranda gösterilmiyordu.
+                      */}
+                      {reddedildi && istek.retGerekcesi && (
+                        <p className="mt-2 border-l-2 border-hata-cizgi pl-3 text-sm text-metin">
+                          <span className="font-medium">Gerekçe: </span>
+                          {istek.retGerekcesi}
+                        </p>
+                      )}
+                    </div>
+
+                    <span
+                      className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${
+                        reddedildi
+                          ? "border-hata-cizgi bg-hata-zemin text-hata-metin"
+                          : "border-uyari-cizgi bg-uyari-zemin text-uyari-metin"
+                      }`}
+                    >
+                      {reddedildi ? "Reddedildi" : "Onay bekliyor"}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          );
+
+          const aciklama =
+            yanitBekleyenlerim.length > 0
+              ? `${yanitBekleyenlerim.length} isteğiniz danışman onayını bekliyor. Onaylanana kadar karşı tarafa iletilmez.`
+              : "Sonuçlanan istekleriniz ve ret gerekçeleri.";
+
+          return yanitBekleyenlerim.length > 0 ? (
+            <Kart id="gonderdiklerim">
+              <KartBasligi
+                baslik="Gönderdiğim istekler"
+                aciklama={aciklama}
+                Ikon={Send}
+              />
+              {govde}
+            </Kart>
+          ) : (
+            <KatlanabilirKart
+              baslik="Gönderdiğim istekler"
+              aciklama={aciklama}
+              Ikon={Send}
+              capa="gonderdiklerim"
+            >
+              {govde}
+            </KatlanabilirKart>
+          );
+        })()}
 
       {/*
         Karara bağlananlar KATLI GELİR: bu bir arşiv, günlük iş değil. Eski
