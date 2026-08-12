@@ -198,6 +198,18 @@ export default async function PanelDuzeni({
   baglantilar.push({ yol: "/panel/yazismalar", etiket: "Bağlantılarım" });
 
   /*
+   * "AKIŞ" — LinkedIn tarzı paylaşım alanı (12 Ağustos 2026 · istek: "kullanıcı
+   * linkedin gibi mesaj yazabilsin, o alanda kendini tanıtabilsin diğer kişiler
+   * altına mesaj yazabilsin, kariyeri hakkında paylaşım yapabilsin").
+   *
+   * BAĞLANTILARIM'IN HEMEN ARDINDA ve ondan AYRI bir sekme: ikisi farklı
+   * şeyler. Bağlantılarım özeldir (iki kişi, danışman onaylı); Akış yayındır
+   * (herkes okur, onay yok). Aynı sekmenin içine konsalardı, öğrenci "kime
+   * yazdığını" ekrandan ayırt edemezdi — bu sistemde en pahalı karışıklık odur.
+   */
+  baglantilar.push({ yol: "/panel/akis", etiket: "Akış" });
+
+  /*
    * "İLETİŞİM ONAYLARI" ARTIK AYRI EKRAN DEĞİL (12 Ağustos 2026 · istek:
    * "yazışmalar ve bağlantılar isminde iki bölüm var, onları birleştirip
    * linkedin tarzı bir bölüm yapmak istiyorum · menüdeki bağlantılarım
