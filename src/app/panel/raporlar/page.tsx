@@ -149,31 +149,63 @@ export default async function RaporlarSayfasi() {
                 aciklama="Rapor düzeltilebilir; silinmez."
                 Ikon={CalendarCheck}
               />
-              <ul className="divide-y divide-cizgi">
+              {/*
+                IZGARA (12 Ağustos 2026 · istek: "yazılan etkinlik raporları da
+                ızgara görünümü olsun"). Mentör kartlarıyla aynı kurulum:
+                `auto-fill` ile sütun sayısı içeriğe göre değişiyor.
+
+                YALNIZCA BU BÖLÜM IZGARA, üstteki "Raporu bekleyenler" liste
+                kaldı ve ayrım kasıtlı: bekleyenler bir GÖREV LİSTESİDİR,
+                yukarıdan aşağı okunup bitirilir; yazılanlar ise bir ARŞİVDİR
+                ve orada aranan şey tek tek satırlar değil "hangi etkinliğin
+                raporu var" bütünü. İki bölümün farklı görünmesi, ekranı açan
+                kişinin işinin hangisi olduğunu da söylüyor.
+              */}
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
                 {yazilanlar.map((faaliyet) => (
                   <li
                     key={faaliyet.id}
-                    className="flex flex-wrap items-baseline justify-between gap-3 py-3"
+                    className="flex flex-col rounded-kart border border-cizgi p-4"
                   >
-                    <div className="min-w-0">
-                      <Link
-                        href={`/panel/etkinlikler/${faaliyet.id}/rapor`}
-                        className="inline-flex items-center gap-1.5 font-medium text-metin underline underline-offset-2"
-                      >
-                        <FileText size={15} aria-hidden />
+                    <Link
+                      href={`/panel/etkinlikler/${faaliyet.id}/rapor`}
+                      className="flex items-start gap-2 font-medium text-metin transition hover:text-vurgu-metin"
+                    >
+                      <FileText
+                        size={16}
+                        className="mt-0.5 shrink-0 text-vurgu-metin"
+                        aria-hidden
+                      />
+                      <span className="underline underline-offset-2">
                         {faaliyet.ad}
-                      </Link>
-                      <p className="mt-0.5 text-sm text-metin-yumusak">
-                        {faaliyet.rapor?.yazan.ad} {faaliyet.rapor?.yazan.soyad}
-                        {" · "}
+                      </span>
+                    </Link>
+
+                    <p className="mt-2 text-sm text-metin-yumusak">
+                      {faaliyet.kurum?.ad ?? faaliyet.il?.ad ?? "Ülke geneli"}
+                      {" · "}
+                      {faaliyet._count.basvurular} başvuru
+                    </p>
+
+                    {/*
+                      `mt-auto`: kartlar ızgarada aynı yüksekliğe uzuyor;
+                      etkinlik adı iki satıra taşan kartla tek satırlık kartın
+                      alt bilgisi aynı hizada dursun.
+                    */}
+                    <div className="mt-auto pt-3 text-sm text-metin-yumusak">
+                      <p>
+                        Bitiş: {tarihYaz(faaliyet.bitisTarihi ?? faaliyet.tarih)}
+                      </p>
+                      <p className="mt-0.5">
+                        Raporu yazan: {faaliyet.rapor?.yazan.ad}{" "}
+                        {faaliyet.rapor?.yazan.soyad}
+                      </p>
+                      <p className="mt-0.5">
                         {faaliyet.rapor
                           ? tarihSaatYaz(faaliyet.rapor.guncellemeTarihi)
                           : "—"}
                       </p>
                     </div>
-                    <span className="text-sm text-metin-yumusak">
-                      {tarihYaz(faaliyet.bitisTarihi ?? faaliyet.tarih)}
-                    </span>
                   </li>
                 ))}
               </ul>
