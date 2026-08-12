@@ -1,4 +1,14 @@
-import { EyeOff, MessageCircle, PenLine, Send, UserRound } from "lucide-react";
+import {
+  Check,
+  EyeOff,
+  Handshake,
+  Hourglass,
+  MessageCircle,
+  PenLine,
+  Send,
+  UserRound,
+} from "lucide-react";
+import Link from "next/link";
 import { MetinBaglantili } from "@/components/MetinBaglantili";
 import {
   BilgiKutusu,
@@ -23,7 +33,9 @@ import {
   danismanMi,
   ilKoordinatoruMu,
   projeYoneticisiMi,
+  talepPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
+import { kisiyeBaglantiIstegiEylemi } from "../yazismalar/baglanti-eylemleri";
 import {
   gonderiGizleEylemi,
   gonderiPaylasEylemi,
@@ -60,7 +72,17 @@ const DURUM_MESAJLARI: Record<string, string> = {
   paylasildi: "Gönderiniz yayımlandı.",
   gizlendi: "İçerik kaldırıldı. Silinmedi; yetkililer görmeye devam eder.",
   "hakkinda-kaydedildi": "Hakkımda metniniz kaydedildi.",
+  "istek-gonderildi":
+    "Bağlantı isteğiniz danışman öğretmeninizin onayına gönderildi. Onaylanana kadar karşı tarafa iletilmez.",
 };
+
+/**
+ * Bir kişiyle aramdaki bağlantının durumu — düğmenin hangi hâli basılacağını
+ * belirler. `null` = hiç istek yok.
+ */
+type BaglantiDurumu =
+  | { hal: "bekliyor" }
+  | { hal: "bagli"; yazismaVarMi: boolean; istekId: number };
 
 function Cember({
   ad,
@@ -115,6 +137,9 @@ export default async function AkisSayfasi({
     kurum: { select: { ad: true } },
   } as const;
 
+  // Merkez personeli bağlantı isteği göndermez (panodakiyle aynı kapı).
+  const baglanabilir = talepPanosuGorebilirMi(kullanici);
+
   const [ben, gonderiler] = await Promise.all([
     prisma.kullanici.findUniqueOrThrow({
       where: { id: kullanici.id },
@@ -146,6 +171,71 @@ export default async function AkisSayfasi({
       },
     }),
   ]);
+
+  /*
+   * BAĞLANTI DURUMLARI TEK SORGUDA. Gönderi başına sorgu açmak, akış
+   * uzadıkça N+1'e dönerdi; burada görünen yazarların tamamı için bir kez
+   * sorulup haritaya yazılıyor.
+   *
+   * Yalnızca BEKLİYOR ve ONAYLANDI çekiliyor: reddedilmiş istek düğmeyi
+   * kilitlemez, kişi yeniden isteyebilir (bkz. iletisim/kurallar.ts —
+   * "karara bağlanmış istek geçmişte kalır, yenisi açılabilir").
+   */
+  const yazarKimlikleri = [
+    ...new Set(gonderiler.map((g) => g.yazanKullaniciId)),
+  ].filter((id) => id !== kullanici.id);
+
+  const baglantiDurumlari = new Map<number, BaglantiDurumu>();
+  if (baglanabilir && yazarKimlikleri.length > 0) {
+    const istekler = await prisma.baglantiIstegi.findMany({
+      where: {
+        onayDurumu: { in: ["BEKLIYOR", "ONAYLANDI"] },
+        OR: [
+          {
+            isteyenKullaniciId: kullanici.id,
+            hedefKullaniciId: { in: yazarKimlikleri },
+          },
+          {
+            isteyenKullaniciId: { in: yazarKimlikleri },
+            hedefKullaniciId: kullanici.id,
+          },
+        ],
+      },
+      select: {
+        id: true,
+        onayDurumu: true,
+        isteyenKullaniciId: true,
+        hedefKullaniciId: true,
+        yazisma: { select: { baglantiIstegiId: true } },
+      },
+    });
+
+    for (const istek of istekler) {
+      const karsiTaraf =
+        istek.isteyenKullaniciId === kullanici.id
+          ? istek.hedefKullaniciId
+          : istek.isteyenKullaniciId;
+
+      /*
+       * ONAYLANDI, BEKLİYOR'u EZER: iki kişi arasında hem geçmiş bir onaylı
+       * bağlantı hem yeni bir bekleyen istek bulunabilir (ret sonrası tekrar
+       * denenmişse). Böyle bir durumda "bağlantınız var" doğru cevaptır.
+       */
+      const mevcut = baglantiDurumlari.get(karsiTaraf);
+      if (mevcut?.hal === "bagli") continue;
+
+      baglantiDurumlari.set(
+        karsiTaraf,
+        istek.onayDurumu === "ONAYLANDI"
+          ? {
+              hal: "bagli",
+              yazismaVarMi: istek.yazisma !== null,
+              istekId: istek.id,
+            }
+          : { hal: "bekliyor" },
+      );
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -277,24 +367,110 @@ export default async function AkisSayfasi({
                   </p>
                 </div>
 
-                {gizleyebilir && (
-                  <form action={gonderiGizleEylemi}>
-                    <input
-                      type="hidden"
-                      name="gonderiId"
-                      value={gonderi.id}
-                    />
-                    <button
-                      type="submit"
-                      className="inline-flex items-center gap-1 text-xs font-medium text-metin-yumusak transition hover:text-hata-metin"
-                    >
-                      <EyeOff size={13} aria-hidden />
-                      {gonderi.yazanKullaniciId === kullanici.id
-                        ? "Kaldır"
-                        : "Gizle"}
-                    </button>
-                  </form>
-                )}
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  {gizleyebilir && (
+                    <form action={gonderiGizleEylemi}>
+                      <input
+                        type="hidden"
+                        name="gonderiId"
+                        value={gonderi.id}
+                      />
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-metin-yumusak transition hover:text-hata-metin"
+                      >
+                        <EyeOff size={13} aria-hidden />
+                        {gonderi.yazanKullaniciId === kullanici.id
+                          ? "Kaldır"
+                          : "Gizle"}
+                      </button>
+                    </form>
+                  )}
+
+                  {/*
+                    BAĞLAN — akıştan bağlantı isteği (12 Ağustos 2026).
+                    Kendi gönderinde ve merkez personelinde hiç basılmaz.
+
+                    Tanıtım mesajı ZORUNLU olduğu için düğme doğrudan istek
+                    göndermiyor, `<details>` ile küçük bir form açıyor: isteği
+                    danışman değerlendirecek ve değerlendireceği şey bu metin
+                    (bkz. iletisim/kurallar.ts · istekMesajiniCoz).
+                  */}
+                  {baglanabilir &&
+                    gonderi.yazanKullaniciId !== kullanici.id &&
+                    (() => {
+                      const durum = baglantiDurumlari.get(
+                        gonderi.yazanKullaniciId,
+                      );
+
+                      if (durum?.hal === "bagli") {
+                        return durum.yazismaVarMi ? (
+                          <Link
+                            href={`/panel/yazismalar/${durum.istekId}`}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-vurgu px-3 py-1 text-xs font-semibold text-vurgu-metin transition hover:bg-vurgu-zemin"
+                          >
+                            <MessageCircle size={13} aria-hidden />
+                            Mesaj
+                          </Link>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-cizgi px-3 py-1 text-xs text-metin-yumusak">
+                            <Check size={13} aria-hidden />
+                            Bağlantınız var
+                          </span>
+                        );
+                      }
+
+                      if (durum?.hal === "bekliyor") {
+                        return (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-cizgi px-3 py-1 text-xs text-metin-yumusak">
+                            <Hourglass size={13} aria-hidden />
+                            İstek gönderildi
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <details className="text-right">
+                          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-vurgu px-3 py-1 text-xs font-semibold text-vurgu-metin transition hover:bg-vurgu-zemin">
+                            <Handshake size={13} aria-hidden />
+                            Bağlan
+                          </summary>
+                          <form
+                            action={kisiyeBaglantiIstegiEylemi}
+                            className="mt-2 w-64 space-y-2 text-left"
+                          >
+                            <input
+                              type="hidden"
+                              name="hedefId"
+                              value={gonderi.yazanKullaniciId}
+                            />
+                            <label className="block">
+                              <span className="text-xs font-medium text-metin">
+                                Kendinizi tanıtın
+                              </span>
+                              <input
+                                type="text"
+                                name="mesaj"
+                                required
+                                maxLength={1000}
+                                placeholder="Neden bağlanmak istediğinizi kısaca yazın."
+                                className={SINIF_GIRDI}
+                              />
+                            </label>
+                            <button
+                              type="submit"
+                              className="inline-flex items-center gap-1.5 rounded-full bg-birincil px-3 py-1.5 text-xs font-semibold text-birincil-metin transition hover:bg-birincil-koyu"
+                            >
+                              İstek gönder
+                            </button>
+                            <p className="text-xs text-metin-yumusak">
+                              İstek önce danışman öğretmeninizin onayına gider.
+                            </p>
+                          </form>
+                        </details>
+                      );
+                    })()}
+                </div>
               </div>
 
               {gonderi.gizlendiMi && (

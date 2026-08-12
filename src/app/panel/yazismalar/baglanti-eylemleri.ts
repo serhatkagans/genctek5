@@ -14,6 +14,7 @@ import { talepPanosuGorebilirMi } from "@/lib/yetki/izinler";
 import { baglantiKarariFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
+import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 
 /**
  * Bağlantı isteği: gönderme ve karara bağlama.
@@ -22,9 +23,17 @@ import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
  * (bkz. baglantiKarariFiltresi). Hedefin tarafı karar vermez: bu "kabul ediyor
  * musun" sorusu değil, "öğrencimin bu teması kurmasına izin veriyor muyum"
  * sorusudur.
+ *
+ * İKİ GİRİŞ VAR, TEK KAPI (12 Ağustos 2026):
+ *   1. Panodaki ilandan  → `baglantiIstegiGonderEylemi`
+ *   2. Akıştaki gönderiden → `kisiyeBaglantiIstegiEylemi`
+ * İkisi de `istegiKur` içinden geçer; kurallar, bildirim ve loglama tek yerde.
+ * Ayrı ayrı yazılsalardı biri güncellenip diğeri unutulurdu ve "hangi kapıdan
+ * girdiğine göre farklı davranan bir yetki" en tehlikeli hata türüdür.
  */
 
 const PANO = "/panel/talepler";
+const AKIS = "/panel/akis";
 
 /*
  * Karar sonrası dönülecek yer, 12 Ağustos 2026'da "Bağlantılarım"a taşındı:
@@ -38,6 +47,127 @@ const ISTEK_CAPASI = "#istekler";
 
 function hataylaDon(yol: string, mesaj: string): never {
   redirect(`${yol}?hata=${encodeURIComponent(mesaj)}`);
+}
+
+/**
+ * İki girişin ORTAK GÖVDESİ: kurallar, kayıt, bildirim ve loglama.
+ *
+ * Hedef ÇAĞIRANDAN GELİR ve burada bir daha sorgulanmaz — çünkü onu bulmak
+ * iki kapıda farklı: panoda ilandan türetiliyor (ilan aktif mi?), akışta
+ * doğrudan veriliyor (kişi var mı, aktif mi?). Ortaklaşan şey hedefin NASIL
+ * bulunduğu değil, bulunduktan SONRA uygulanan kurallar.
+ *
+ * Yönlendirme yapmaz, karar döndürür: her kapı kendi ekranına dönmeli.
+ */
+async function istegiKur(girdi: {
+  kullanici: OturumKullanicisi;
+  hedefId: number;
+  mesaj: string;
+  talepId: number | null;
+  talepBasligi: string | null;
+}): Promise<{ olurMu: true; istekId: number } | { olurMu: false; neden: string }> {
+  const { kullanici, hedefId } = girdi;
+
+  const [bekleyen, onayli] = await Promise.all([
+    prisma.baglantiIstegi.findFirst({
+      where: {
+        isteyenKullaniciId: kullanici.id,
+        hedefKullaniciId: hedefId,
+        onayDurumu: "BEKLIYOR",
+      },
+      select: { id: true },
+    }),
+    prisma.baglantiIstegi.findFirst({
+      where: {
+        onayDurumu: "ONAYLANDI",
+        OR: [
+          { isteyenKullaniciId: kullanici.id, hedefKullaniciId: hedefId },
+          { isteyenKullaniciId: hedefId, hedefKullaniciId: kullanici.id },
+        ],
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  const karar = baglantiIstegiGonderilebilirMi({
+    isteyenId: kullanici.id,
+    hedefId,
+    bekleyenIstekVarMi: bekleyen !== null,
+    onayliBaglantiVarMi: onayli !== null,
+  });
+  if (!karar.olurMu) {
+    return { olurMu: false, neden: karar.neden ?? "İstek gönderilemedi." };
+  }
+
+  const istek = await prisma.baglantiIstegi.create({
+    data: {
+      talepId: girdi.talepId,
+      isteyenKullaniciId: kullanici.id,
+      hedefKullaniciId: hedefId,
+      mesaj: girdi.mesaj,
+    },
+    select: { id: true },
+  });
+
+  /*
+   * Uyarı ONAYLAYACAK KİŞİLERE gider, hedefe DEĞİL: hedef, onay verilene kadar
+   * kendisiyle iletişim kurulmak istendiğini bilmez. Aksi halde reddedilen bir
+   * istek bile hedefe "biri sana ulaşmaya çalıştı" bilgisi sızdırırdı.
+   */
+  const [danismanAtama, koordinatorler, hedefKisi] = await Promise.all([
+    prisma.danismanAtama.findFirst({
+      where: { ogrenciId: kullanici.id, bitisTarihi: null },
+      select: { danismanKullaniciId: true },
+    }),
+    kullanici.ilKodu
+      ? prisma.kullaniciRol.findMany({
+          where: {
+            rolKodu: "IL_KOORDINATOR",
+            ilKodu: kullanici.ilKodu,
+            bitisTarihi: null,
+          },
+          select: { kullaniciId: true },
+        })
+      : [],
+    prisma.kullanici.findUniqueOrThrow({
+      where: { id: hedefId },
+      select: { ad: true, soyad: true },
+    }),
+  ]);
+
+  const degiskenler = {
+    isteyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+    hedefAdSoyad: `${hedefKisi.ad} ${hedefKisi.soyad}`,
+    /*
+     * İlansız istekte de bu alan DOLU gitmeli: bildirim şablonu
+     * `{{talepBasligi}}` yer tutucusunu basıyor ve boş bırakılsaydı
+     * onaylayana "… ilanı için" diye yarım bir cümle giderdi.
+     */
+    talepBasligi: girdi.talepBasligi ?? "Akıştaki paylaşımı üzerinden",
+  };
+
+  const onaylayacaklar = new Set<number>(
+    koordinatorler.map((k) => k.kullaniciId),
+  );
+  if (danismanAtama) onaylayacaklar.add(danismanAtama.danismanKullaniciId);
+
+  for (const kullaniciId of onaylayacaklar) {
+    await bildirimGonder({
+      kullaniciId,
+      kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_BAGLANTI,
+      degiskenler,
+    });
+  }
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId,
+    detay: `Bağlantı isteği gönderildi: ${degiskenler.hedefAdSoyad}`,
+  });
+
+  return { olurMu: true, istekId: istek.id };
 }
 
 export async function baglantiIstegiGonderEylemi(
@@ -64,108 +194,78 @@ export async function baglantiIstegiGonderEylemi(
     hataylaDon(PANO, "Bu ilan artık aktif değil.");
   }
 
-  const [bekleyen, onayli] = await Promise.all([
-    prisma.baglantiIstegi.findFirst({
-      where: {
-        isteyenKullaniciId: kullanici.id,
-        hedefKullaniciId: talep.acanKullaniciId,
-        onayDurumu: "BEKLIYOR",
-      },
-      select: { id: true },
-    }),
-    prisma.baglantiIstegi.findFirst({
-      where: {
-        onayDurumu: "ONAYLANDI",
-        OR: [
-          {
-            isteyenKullaniciId: kullanici.id,
-            hedefKullaniciId: talep.acanKullaniciId,
-          },
-          {
-            isteyenKullaniciId: talep.acanKullaniciId,
-            hedefKullaniciId: kullanici.id,
-          },
-        ],
-      },
-      select: { id: true },
-    }),
-  ]);
-
-  const karar = baglantiIstegiGonderilebilirMi({
-    isteyenId: kullanici.id,
+  const sonuc = await istegiKur({
+    kullanici,
     hedefId: talep.acanKullaniciId,
-    bekleyenIstekVarMi: bekleyen !== null,
-    onayliBaglantiVarMi: onayli !== null,
-  });
-  if (!karar.olurMu) hataylaDon(PANO, karar.neden ?? "İstek gönderilemedi.");
-
-  const istek = await prisma.baglantiIstegi.create({
-    data: {
-      talepId: talep.id,
-      isteyenKullaniciId: kullanici.id,
-      hedefKullaniciId: talep.acanKullaniciId,
-      mesaj: mesajKarari.mesaj,
-    },
-    select: { id: true },
-  });
-
-  /*
-   * Uyarı ONAYLAYACAK KİŞİLERE gider, hedefe DEĞİL: hedef, onay verilene kadar
-   * kendisiyle iletişim kurulmak istendiğini bilmez. Aksi halde reddedilen bir
-   * istek bile hedefe "biri sana ulaşmaya çalıştı" bilgisi sızdırırdı.
-   */
-  const [danismanAtama, koordinatorler] = await Promise.all([
-    prisma.danismanAtama.findFirst({
-      where: { ogrenciId: kullanici.id, bitisTarihi: null },
-      select: { danismanKullaniciId: true },
-    }),
-    kullanici.ilKodu
-      ? prisma.kullaniciRol.findMany({
-          where: {
-            rolKodu: "IL_KOORDINATOR",
-            ilKodu: kullanici.ilKodu,
-            bitisTarihi: null,
-          },
-          select: { kullaniciId: true },
-        })
-      : [],
-  ]);
-
-  const hedefKisi = await prisma.kullanici.findUniqueOrThrow({
-    where: { id: talep.acanKullaniciId },
-    select: { ad: true, soyad: true },
-  });
-
-  const degiskenler = {
-    isteyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
-    hedefAdSoyad: `${hedefKisi.ad} ${hedefKisi.soyad}`,
+    mesaj: mesajKarari.mesaj,
+    talepId: talep.id,
     talepBasligi: talep.baslik,
-  };
-
-  const onaylayacaklar = new Set<number>(
-    koordinatorler.map((k) => k.kullaniciId),
-  );
-  if (danismanAtama) onaylayacaklar.add(danismanAtama.danismanKullaniciId);
-
-  for (const kullaniciId of onaylayacaklar) {
-    await bildirimGonder({
-      kullaniciId,
-      kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_BAGLANTI,
-      degiskenler,
-    });
-  }
-
-  await erisimLogla({
-    kullaniciId: kullanici.id,
-    islem: "DEGISIKLIK",
-    hedefTip: "PROFIL",
-    hedefId: talep.acanKullaniciId,
-    detay: `Bağlantı isteği gönderildi: ${degiskenler.hedefAdSoyad}`,
   });
+  if (!sonuc.olurMu) hataylaDon(PANO, sonuc.neden);
 
   revalidatePath(PANO);
   revalidatePath(YOL);
-  redirect(`${PANO}?durum=istek-gonderildi&id=${istek.id}`);
+  redirect(`${PANO}?durum=istek-gonderildi&id=${sonuc.istekId}`);
+}
+
+/**
+ * AKIŞTAKİ GÖNDERİDEN BAĞLANTI (12 Ağustos 2026 · istek: "akış kısmında
+ * iletişim alanı yok, diğer kişilerle … bağlantı kur tarzında" → "ekle bağlan").
+ *
+ * Bugüne kadar bağlantının TEK girişi panodaki ilandı; yani ilan açmamış bir
+ * kişiye kimse ulaşamıyordu. Bu kapı onu genişletir ve genişlettiği yer
+ * bilinçlidir: **paylaşım yapmak, ulaşılabilir olmak demektir.**
+ *
+ * ONAY KAPISI AYNEN DURUYOR — istek yine danışman/koordinatör kararına gider,
+ * hedef kişi onaya kadar habersizdir. Genişleyen tek şey isteğin nereden
+ * başlayabildiği; kimin karar verdiği ve neyin serbest olduğu değişmedi.
+ *
+ * `talepId` NULL kaydedilir. Sütun zaten `Int?` olduğu için migration
+ * gerekmedi: veri modeli ilansız bağlantıya baştan izin veriyordu, kısıt
+ * yalnızca ekrandaydı.
+ */
+export async function kisiyeBaglantiIstegiEylemi(
+  veri: FormData,
+): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  /*
+   * Panodakiyle AYNI kapı: gönderen kitlesi aynı kitledir (merkez personeli
+   * bağlantı isteği göndermez, onun kanalı ayrıdır). Ayrı bir izin adı
+   * uydurmak, aynı kuralın iki yerde ayrışmasına açık kapı bırakırdı.
+   */
+  if (!talepPanosuGorebilirMi(kullanici)) {
+    throw new YetkiHatasi("Bağlantı isteği gönderme yetkiniz yok.");
+  }
+
+  const hedefId = Number.parseInt(String(veri.get("hedefId") ?? ""), 10);
+  if (!Number.isFinite(hedefId)) throw new BulunamadiHatasi();
+
+  const mesajKarari = istekMesajiniCoz(String(veri.get("mesaj") ?? ""));
+  if (!mesajKarari.olurMu) hataylaDon(AKIS, mesajKarari.neden);
+
+  /*
+   * Hedef GERÇEKTEN VAR VE AKTİF olmalı. Kimlik gizli form alanından geliyor
+   * ve kurcalanabilir; ekranda görünmeyen (pasife alınmış) bir kişiye istek
+   * gönderilebilmesi, ekrandan kaldırılmış olmasını anlamsız kılardı.
+   */
+  const hedef = await prisma.kullanici.findFirst({
+    where: { id: hedefId, aktif: true },
+    select: { id: true },
+  });
+  if (!hedef) hataylaDon(AKIS, "Bu kullanıcıya şu anda istek gönderilemiyor.");
+
+  const sonuc = await istegiKur({
+    kullanici,
+    hedefId: hedef.id,
+    mesaj: mesajKarari.mesaj,
+    talepId: null,
+    talepBasligi: null,
+  });
+  if (!sonuc.olurMu) hataylaDon(AKIS, sonuc.neden);
+
+  revalidatePath(AKIS);
+  revalidatePath(YOL);
+  redirect(`${AKIS}?durum=istek-gonderildi`);
 }
 
 export async function baglantiKarariEylemi(veri: FormData): Promise<void> {
