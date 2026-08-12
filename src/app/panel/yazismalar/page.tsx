@@ -358,16 +358,24 @@ export default async function BaglantilarimSayfasi({
                 ? `${karsiTaraf.ad} ${karsiTaraf.soyad}`
                 : `${isteyen.ad} ${isteyen.soyad} ↔ ${hedef.ad} ${hedef.soyad}`;
 
+              /*
+               * Gözetim satırında iki kurum yazılır ama AYNI KURUMSA TEK KEZ:
+               * "Kadıköy Anadolu Lisesi → Kadıköy Anadolu Lisesi" okuyana
+               * hiçbir şey söylemiyor, satırı da gereksiz uzatıyor. Okul
+               * arkadaşlarının bağlantısı en sık görülen durum.
+               */
+              const kurumlar = [
+                ...new Set(
+                  [isteyen.kurum?.ad, hedef.kurum?.ad].filter(Boolean),
+                ),
+              ].join(" → ");
+
               const altBaslik = tarafMi
                 ? altBasligiYaz([
                     karsiTaraf.sinif ?? karsiTaraf.brans,
                     karsiTaraf.kurum?.ad,
                   ])
-                : altBasligiYaz([
-                    [isteyen.kurum?.ad, hedef.kurum?.ad]
-                      .filter(Boolean)
-                      .join(" → "),
-                  ]);
+                : kurumlar;
 
               return (
                 <li key={yazisma.baglantiIstegiId}>
