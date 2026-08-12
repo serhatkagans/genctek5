@@ -17,8 +17,12 @@ describe("katkı kartı metni", () => {
       aktifDanismanlik: 3,
       gorev: 2,
     });
-    expect(metin.deger).toBe("7 etkinlik");
-    expect(metin.aciklama).toBe("3 aktif danışmanlık · 2 görev · ayrıntı için tıklayın");
+    // Büyük satırda birim YOK: panelin bütün ölçüm kartları orada çıplak bir
+    // sayı gösteriyor, biri birim taşıyınca ızgara hizasız görünüyordu.
+    expect(metin.deger).toBe("7");
+    expect(metin.aciklama).toBe(
+      "Düzenlediğiniz etkinlik · 3 aktif danışmanlık · 2 görev",
+    );
   });
 
   it("danışmanlığı olmayanda o satır hiç yazılmaz", () => {
@@ -28,7 +32,7 @@ describe("katkı kartı metni", () => {
       aktifDanismanlik: 0,
       gorev: 1,
     });
-    expect(metin.aciklama).toBe("1 görev · ayrıntı için tıklayın");
+    expect(metin.aciklama).toBe("Düzenlediğiniz etkinlik · 1 görev");
   });
 
   it("yalnızca etkinliği olanda açıklama kısaya döner", () => {
@@ -37,8 +41,8 @@ describe("katkı kartı metni", () => {
       aktifDanismanlik: 0,
       gorev: 0,
     });
-    expect(metin.deger).toBe("2 etkinlik");
-    expect(metin.aciklama).toBe("Ayrıntı için tıklayın");
+    expect(metin.deger).toBe("2");
+    expect(metin.aciklama).toBe("Düzenlediğiniz etkinlik");
   });
 
   /*
@@ -51,7 +55,7 @@ describe("katkı kartı metni", () => {
       aktifDanismanlik: 0,
       gorev: 0,
     });
-    expect(metin.deger).toBe("0 etkinlik");
+    expect(metin.deger).toBe("0");
     expect(metin.aciklama).toBe(
       "Görevleriniz, danışmanlığınız ve düzenlediğiniz etkinlikler",
     );

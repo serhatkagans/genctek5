@@ -1,12 +1,14 @@
-import { BadgeCheck, ShieldQuestion, UserCog } from "lucide-react";
+import { BadgeCheck, Filter, ShieldQuestion, UserCog, X } from "lucide-react";
 import Link from "next/link";
 import {
   BilgiKutusu,
   Kart,
   KartBasligi,
   SayfaBasligi,
+  SINIF_BIRINCIL_BUTON,
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
 import type { GorevRolKodu } from "@/generated/prisma/enums";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
@@ -19,7 +21,14 @@ import {
   okulTemsilcisiAtayabilirMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
-import { ogrenciKapsamFiltresi } from "@/lib/yetki/kapsam";
+import { ogrenciListeFiltresi } from "@/lib/yetki/kapsam";
+import {
+  ogrenciFiltreleriniCoz,
+  SINIF_SECENEKLERI,
+  type SorguParametreleri,
+  sorguMetni,
+  tekil,
+} from "../ogrenciler/filtreler";
 import { gorevRoluAtaEylemi, gorevRoluKaldirEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
@@ -39,15 +48,33 @@ export const dynamic = "force-dynamic";
 const SINIF_ATA_BUTON =
   "rounded-md border border-cizgi px-3 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin";
 
+const SINIF_ETIKET = "text-sm font-medium text-metin-yumusak";
+const SINIF_SECIM =
+  "mt-1 w-full rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu";
+
 /** Eylemler bu ekrandan çağrıldığında buraya geri döner. */
 const YOL = "/panel/gorev-rolleri";
+
+/**
+ * Tek seferde basılan en fazla satır (12 Ağustos 2026 · istek: "arama
+ * filtreleme özelliği gerekiyor").
+ *
+ * Süzgeçlerin gerekçesi de bu: merkez ülke genelini, il koordinatörü ilinin
+ * tamamını görüyor ve liste sayfalanmıyordu — her satır dört ayrı form basıyor,
+ * binlerce öğrencide ekran kullanılamaz hâle geliyordu. Sınır aşıldığında
+ * kullanıcıya söyleniyor; sessizce kesilen bir liste "bu öğrenci kapsamımda
+ * yok" diye okunurdu.
+ */
+const LISTE_SINIRI = 100;
 
 export default async function GorevRolleriSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ hata?: string; durum?: string }>;
+  searchParams: Promise<SorguParametreleri>;
 }) {
-  const { hata, durum } = await searchParams;
+  const parametreler = await searchParams;
+  const hata = tekil(parametreler.hata);
+  const durum = tekil(parametreler.durum);
   const kullanici = await oturumKullanicisiZorunlu();
 
   const ilKodu = koordinatorIlKodu(kullanici);
@@ -77,9 +104,86 @@ export default async function GorevRolleriSayfasi({
     );
   }
 
+  /*
+   * SÜZGEÇLER (12 Ağustos 2026 · istek: "arama filtreleme özelliği gerekiyor").
+   *
+   * Çözümleme öğrenci envanteriyle ORTAK (bkz. ogrenciler/filtreler.ts): iki
+   * ekran aynı sorgu adlarını kullanınca bir ekrandan öbürüne yapıştırılan
+   * adres de çalışıyor ve süzgeç mantığı tek yerde duruyor.
+   *
+   * Süzgeçler kapsamın YERİNE geçmez, üstüne eklenir (ogrenciListeFiltresi):
+   * adres çubuğuna `?il=06` yazan bir koordinatör başka ilin öğrencisini
+   * göremez, en kötü ihtimalle boş liste alır.
+   */
+  const filtreler = ogrenciFiltreleriniCoz(parametreler);
+
+  /*
+   * Bu ekrana özgü süzgeç: görev durumu. Envanterde karşılığı yok çünkü
+   * "kimde görev var" sorusu yalnızca burada soruluyor ve cevabı BAKILAN
+   * DÖNEME bağlı. İki yönü de gerekiyor: "ilimde kim temsilci" (var) ve
+   * "kime atayabilirim" (yok).
+   */
+  const gorevSuzgeci = tekil(parametreler.gorev);
+  const gorevKosulu: Prisma.KullaniciWhereInput =
+    gorevSuzgeci === "var"
+      ? {
+          gorevRolleri: {
+            some: { egitimOgretimYili: kullanici.egitimOgretimYili },
+          },
+        }
+      : gorevSuzgeci === "yok"
+        ? {
+            gorevRolleri: {
+              none: { egitimOgretimYili: kullanici.egitimOgretimYili },
+            },
+          }
+        : {};
+
+  const filtreVar =
+    Boolean(gorevSuzgeci) ||
+    Object.values(filtreler).some(
+      (deger) => deger !== null && deger !== false && deger !== undefined,
+    );
+
+  const nerede: Prisma.KullaniciWhereInput = {
+    AND: [ogrenciListeFiltresi(kullanici, filtreler), gorevKosulu],
+  };
+
+  /*
+   * Süzgeç seçenekleri de kapsamla sınırlı: proje yöneticisi tüm illeri,
+   * il koordinatörü yalnızca kendi ilini görür. İlçe ve okul listesi SEÇİLİ
+   * İLE bağlı — koordinatörde seçim yapılmasa bile kendi ili varsayılır,
+   * yoksa ilçe süzgeci hiç dolmazdı ve bu ekran tam olarak ilçe temsilciliği
+   * içindir.
+   */
+  const seciliIl = filtreler.ilKodu ?? ilKodu;
+
+  const [iller, ilceler, okullar, toplam] = await Promise.all([
+    merkezMi
+      ? prisma.il.findMany({ orderBy: { ad: "asc" } })
+      : ilKodu
+        ? prisma.il.findMany({ where: { ilKodu } })
+        : [],
+    seciliIl
+      ? prisma.ilce.findMany({
+          where: { ilKodu: seciliIl },
+          orderBy: { ad: "asc" },
+        })
+      : [],
+    seciliIl
+      ? prisma.kurum.findMany({
+          where: { ilKodu: seciliIl, aktif: true },
+          orderBy: { ad: "asc" },
+          select: { kurumKodu: true, ad: true },
+        })
+      : [],
+    prisma.kullanici.count({ where: nerede }),
+  ]);
+
   const ogrenciler = await prisma.kullanici.findMany({
-    where: ogrenciKapsamFiltresi(kullanici),
+    where: nerede,
     orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+    take: LISTE_SINIRI,
     select: {
       id: true,
       ad: true,
@@ -175,11 +279,23 @@ export default async function GorevRolleriSayfasi({
     return roller;
   };
 
+  /*
+   * Atama sonrası bu ekrana SÜZGEÇLER KORUNARAK dönülür: bir ilçeyi süzüp
+   * temsilci atayan koordinatör, işlem sonrası baştan süzmek zorunda
+   * kalmamalı. Durum/hata parametreleri eylemde ekleniyor, bu yüzden
+   * dışarıda bırakılıyor; adresin geçerliliği eylemde ayrıca doğrulanıyor
+   * (bkz. donusYolunuCoz).
+   */
+  const mevcutSorgu = sorguMetni(parametreler, ["durum", "hata"]);
+  const donusYolu = mevcutSorgu ? `${YOL}?${mevcutSorgu}` : YOL;
+
+  const yerSuzgeciVar = iller.length > 0;
+
   return (
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Görev rolleri"
-        aciklama={`İl ve İlçe Temsilcisi atamaları · ${kullanici.egitimOgretimYili} dönemi · ${ogrenciler.length} öğrenci`}
+        aciklama={`İl ve İlçe Temsilcisi atamaları · ${kullanici.egitimOgretimYili} dönemi · ${toplam} öğrenci`}
       />
 
       {!merkezMi && (
@@ -217,13 +333,168 @@ export default async function GorevRolleriSayfasi({
         </span>
       </BilgiKutusu>
 
+      {/*
+        SÜZGEÇ FORMU. Öğrenci ve öğretmen envanterindeki formla aynı biçim ve
+        aynı sorgu adları: bu üç ekran arasında geçen kullanıcı her seferinde
+        yeni bir arayüz öğrenmiyor.
+      */}
+      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
+            <Filter size={16} className="text-vurgu-metin" aria-hidden />
+            Öğrenci ara
+          </h2>
+          {filtreVar && (
+            <Link
+              href={YOL}
+              className="inline-flex items-center gap-1 text-sm font-medium text-vurgu-metin"
+            >
+              <X size={14} aria-hidden />
+              Filtreleri temizle
+            </Link>
+          )}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="block">
+            <span className={SINIF_ETIKET}>Ad veya soyad</span>
+            <input
+              type="text"
+              name="ara"
+              placeholder="Ara"
+              defaultValue={filtreler.ara ?? ""}
+              className={SINIF_SECIM}
+            />
+          </label>
+
+          {yerSuzgeciVar && (
+            <>
+              <label className="block">
+                <span className={SINIF_ETIKET}>İl</span>
+                <select
+                  name="il"
+                  defaultValue={filtreler.ilKodu ?? ""}
+                  className={SINIF_SECIM}
+                  disabled={iller.length <= 1}
+                >
+                  <option value="">
+                    {iller.length <= 1 ? (iller[0]?.ad ?? "—") : "Tüm iller"}
+                  </option>
+                  {iller.map((il) => (
+                    <option key={il.ilKodu} value={il.ilKodu}>
+                      {il.ad}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className={SINIF_ETIKET}>İlçe</span>
+                <select
+                  name="ilce"
+                  defaultValue={filtreler.ilceKodu ?? ""}
+                  className={SINIF_SECIM}
+                  disabled={ilceler.length === 0}
+                >
+                  <option value="">
+                    {ilceler.length === 0 ? "Önce il seçin" : "Tüm ilçeler"}
+                  </option>
+                  {ilceler.map((ilce) => (
+                    <option key={ilce.ilceKodu} value={ilce.ilceKodu}>
+                      {ilce.ad}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className={SINIF_ETIKET}>Okul</span>
+                <select
+                  name="okul"
+                  defaultValue={
+                    filtreler.kurumKodu ? String(filtreler.kurumKodu) : ""
+                  }
+                  className={SINIF_SECIM}
+                  disabled={okullar.length === 0}
+                >
+                  <option value="">
+                    {okullar.length === 0 ? "Önce il seçin" : "Tüm okullar"}
+                  </option>
+                  {okullar.map((okul) => (
+                    <option key={okul.kurumKodu} value={okul.kurumKodu}>
+                      {okul.ad}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
+
+          <label className="block">
+            <span className={SINIF_ETIKET}>Sınıf</span>
+            <select
+              name="sinif"
+              defaultValue={filtreler.sinif ?? ""}
+              className={SINIF_SECIM}
+            >
+              <option value="">Tüm sınıflar</option>
+              {SINIF_SECENEKLERI.map((secenek) => (
+                <option key={secenek.deger} value={secenek.deger}>
+                  {secenek.etiket}
+                </option>
+              ))}
+              {/*
+                Adresten gelen ama listede olmayan değer (eski yer imi, elle
+                yazılmış sorgu) kendi seçeneği olarak eklenir; aksi halde
+                süzgeç uygulanmışken kutu "Tüm sınıflar" görünürdü.
+              */}
+              {filtreler.sinif &&
+                !SINIF_SECENEKLERI.some(
+                  (secenek) => secenek.deger === filtreler.sinif,
+                ) && (
+                  <option value={filtreler.sinif}>{filtreler.sinif}</option>
+                )}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className={SINIF_ETIKET}>Görev durumu</span>
+            <select
+              name="gorev"
+              defaultValue={gorevSuzgeci ?? ""}
+              className={SINIF_SECIM}
+            >
+              <option value="">Hepsi</option>
+              <option value="var">Yalnızca görevi olanlar</option>
+              <option value="yok">Yalnızca görevi olmayanlar</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-4">
+          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+            Filtrele
+          </button>
+        </div>
+      </form>
+
       {ogrenciler.length === 0 ? (
         <Kart className="text-metin-yumusak">
-          Kapsamınızda görev rolü atanabilecek öğrenci yok.
+          {filtreVar
+            ? "Bu filtrelerle eşleşen öğrenci yok."
+            : "Kapsamınızda görev rolü atanabilecek öğrenci yok."}
         </Kart>
       ) : (
         <Kart>
-          <KartBasligi baslik="Öğrenciler" Ikon={UserCog} />
+          <KartBasligi
+            baslik="Öğrenciler"
+            aciklama={
+              toplam > LISTE_SINIRI
+                ? `${toplam} öğrenciden ilk ${LISTE_SINIRI} tanesi gösteriliyor; aradığınız kişiyi bulmak için yukarıdaki süzgeçleri kullanın.`
+                : `${toplam} öğrenci`
+            }
+            Ikon={UserCog}
+          />
           <ul className="space-y-3">
             {ogrenciler.map((ogrenci) => (
               <li
@@ -275,7 +546,11 @@ export default async function GorevRolleriSayfasi({
                         value={ogrenci.id}
                       />
                       <input type="hidden" name="rolKodu" value={rolKodu} />
-                      <input type="hidden" name="donusYolu" value={YOL} />
+                      <input
+                        type="hidden"
+                        name="donusYolu"
+                        value={donusYolu}
+                      />
                       {/*
                         Çalışma grubu yöneticiliğinde HANGİ GRUP sorulur:
                         kapsam öğrencinin kayıtlı yerinden türetilemiyor.
@@ -314,7 +589,11 @@ export default async function GorevRolleriSayfasi({
                   {ogrenci.gorevRolleri.map((gorev) => (
                     <form key={gorev.id} action={gorevRoluKaldirEylemi}>
                       <input type="hidden" name="gorevId" value={gorev.id} />
-                      <input type="hidden" name="donusYolu" value={YOL} />
+                      <input
+                        type="hidden"
+                        name="donusYolu"
+                        value={donusYolu}
+                      />
                       <button type="submit" className={SINIF_IKINCIL_BUTON}>
                         {GOREV_ROL_ETIKETLERI[gorev.rolKodu]} görevini kaldır
                       </button>

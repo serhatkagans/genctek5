@@ -48,6 +48,7 @@ import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import {
   filtreVarMi,
   ogrenciFiltreleriniCoz,
+  SINIF_SECENEKLERI,
   type SorguParametreleri,
   sayiVeyaNull,
   sorguMetni,
@@ -73,22 +74,6 @@ const SINIF_SECIM =
   "mt-1 w-full rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu";
 
 const SAYFA_BOYUTU = 50;
-
-/**
- * Sınıf süzgecinin seçenekleri (10 Ağustos 2026).
- *
- * Değer, e-Okul'dan gelen `sinif` alanının ÖN EKİDİR ve süzgeç "içeren"
- * eşleşmesi yapar: "9" seçimi 9-A ve 9/B'yi de kapsar. Şube listesi
- * TEKLİF EDİLMİYOR — şubeler okuldan okula değişir, sabit bir listeye
- * sığmaz ve seviye zaten aranan ayrımı veriyor.
- */
-const SINIF_SECENEKLERI: { deger: string; etiket: string }[] = [
-  { deger: "Haz", etiket: "Hazırlık" },
-  { deger: "9", etiket: "9. sınıf" },
-  { deger: "10", etiket: "10. sınıf" },
-  { deger: "11", etiket: "11. sınıf" },
-  { deger: "12", etiket: "12. sınıf" },
-];
 
 const SINIF_SAYFA_BUTON =
   "inline-flex items-center gap-1 rounded-md border border-cizgi px-3 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin";

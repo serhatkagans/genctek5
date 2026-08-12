@@ -24,6 +24,25 @@ import type { MentorlukDurumu } from "@/generated/prisma/enums";
 export const MENTOR_KONULARI_AZAMI = 500;
 
 /**
+ * Kart avatarındaki BAŞ HARFLER — fotoğrafı olmayan (ya da fotoğrafı
+ * gösterilemeyen) mentörün yerine basılır.
+ *
+ * En fazla iki harf: üç adlı bir kişide daire dolar ve harfler okunmaz hâle
+ * gelir. Panodaki havuz ızgarası ile onay kuyruğu aynı hesabı kullanıyor;
+ * iki yerde ayrı yazıldığında birinin "Ayşe Nur Yılmaz"ı "AN", öbürünün "AY"
+ * yapması gibi sessiz bir tutarsızlık doğuyordu.
+ */
+export function basHarfler(adSoyad: string): string {
+  return adSoyad
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parca) => parca[0])
+    .join("")
+    .toLocaleUpperCase("tr-TR");
+}
+
+/**
  * Havuz kartında mentörün altına yazılan SIFAT (11 Ağustos 2026).
  *
  * `kullaniciRolEtiketi` kullanılmadı, iki sebeple: (1) o fonksiyon oturum

@@ -797,6 +797,21 @@ export default async function PanelSayfasi({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {ogrenciMi(kullanici) && (
           <>
+            {/*
+              KARTLAR AYNI SAYFADAKİ BÖLÜME İNİYOR (12 Ağustos 2026 · istek:
+              "Çalışma grubu seçimim panelde hâlâ tıklanabilir değil").
+
+              Bu iki kartın hedefi başka bir EKRAN değil, sayfanın altındaki
+              katlanır bölüm — o yüzden `yol` verilmemişti ve kartlar ölü
+              duruyordu. Açıklama "aşağıdaki bölümden güncelleyebilirsiniz"
+              diyordu ama oraya inmenin yolunu vermiyordu; kullanıcı sayfayı
+              elle arıyordu.
+
+              Adres iki parça taşır: `#capa` bölüme kaydırır, `?bolum=` ise
+              katlanır kartı AÇIK basar (bkz. ui.tsx · KatlanabilirKart).
+              Yalnızca çapa verilseydi kapalı bir kartın başlığına inilir ve
+              kullanıcının bir de "Aç / kapat"a basması gerekirdi.
+            */}
             <OlcumKarti
               baslik="Danışman öğretmenim"
               Ikon={UserCheck}
@@ -805,12 +820,17 @@ export default async function PanelSayfasi({
                   ? `${atama.danisman.ad} ${atama.danisman.soyad}`
                   : "Atanmadı"
               }
+              aciklama={
+                atama ? "Değiştirmek için tıklayın" : "Seçmek için tıklayın"
+              }
+              yol="/panel?bolum=danismanim#danismanim"
             />
             <OlcumKarti
               baslik="Çalışma grubu seçimim"
               Ikon={Layers}
               deger={String(grupSayisi)}
-              aciklama="Aşağıdaki bölümden güncelleyebilirsiniz"
+              aciklama="Güncellemek için tıklayın"
+              yol="/panel?bolum=calisma-gruplarim#calisma-gruplarim"
             />
             <OlcumKarti
               baslik="Etkinlik başvurularım"
@@ -1025,7 +1045,7 @@ export default async function PanelSayfasi({
           }
           Ikon={UserCheck}
           capa="danismanim"
-          baslangictaAcik={atama === null}
+          baslangictaAcik={atama === null || acilacakBolum === "danismanim"}
         >
           <DanismanSecimi
             veri={danismanVerisi}
@@ -1061,7 +1081,9 @@ export default async function PanelSayfasi({
           }
           Ikon={Layers}
           capa="calisma-gruplarim"
-          baslangictaAcik={grupSayisi === 0}
+          baslangictaAcik={
+            grupSayisi === 0 || acilacakBolum === "calisma-gruplarim"
+          }
         >
           <CalismaGrubuSecimi
             gruplar={calismaGruplari.gruplar}

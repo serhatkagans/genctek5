@@ -28,6 +28,7 @@ import {
   talepTuruGecerliMi,
 } from "@/lib/iletisim/kurallar";
 import type { RolKodu, TalepTuru } from "@/generated/prisma/enums";
+import { basHarfler } from "@/lib/mentor/kurallar";
 import {
   type HavuzMentoru,
   mentorHavuzunuGetir,
@@ -151,12 +152,7 @@ function MentorHavuzu({ mentorler }: { mentorler: HavuzMentoru[] }) {
                 aria-hidden
                 className="flex h-12 w-12 items-center justify-center rounded-full bg-vurgu-zemin text-base font-semibold text-vurgu-metin"
               >
-                {mentor.adSoyad
-                  .split(" ")
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .map((parca) => parca[0])
-                  .join("")}
+                {basHarfler(mentor.adSoyad)}
               </span>
             )}
             <span className="mt-2 text-sm font-medium text-metin">

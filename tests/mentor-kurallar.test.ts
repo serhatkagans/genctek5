@@ -1,4 +1,5 @@
 import {
+  basHarfler,
   MENTOR_KONULARI_AZAMI,
   mentorKapsamiYaz,
   mentorlukKabulEdilirMi,
@@ -190,6 +191,36 @@ describe("mentör kapsamının yazılışı", () => {
 
   it("hiçbiri yoksa boş döner", () => {
     expect(mentorKapsamiYaz([], null)).toBe("");
+  });
+});
+
+describe("kart avatarındaki baş harfler", () => {
+  /*
+   * Fotoğrafı olmayan mentörün yerine basılıyor. Pano havuzu ve mentörlük onay
+   * kuyruğu aynı hesabı kullanıyor (12 Ağustos 2026); ayrı yazıldıklarında iki
+   * ekran aynı kişiyi farklı harflerle gösterebiliyordu.
+   */
+  it("ad ve soyadın ilk harflerini büyütür", () => {
+    expect(basHarfler("Selin Mentör")).toBe("SM");
+  });
+
+  it("üç adlı kişide ilk iki harfle yetinir", () => {
+    // Daire dolar ve harfler okunmaz hâle gelirdi.
+    expect(basHarfler("Ayşe Nur Yılmaz")).toBe("AN");
+  });
+
+  it("Türkçe küçük i'yi İ'ye çevirir", () => {
+    // "ilker" varsayılan büyütmeyle "Ilker"in harfini verirdi.
+    expect(basHarfler("ilker deniz")).toBe("İD");
+  });
+
+  it("fazladan boşluklardan harf üretmez", () => {
+    expect(basHarfler("  Mert   Kaya ")).toBe("MK");
+  });
+
+  it("boş adda boş döner", () => {
+    // Kart yine de basılır; daire boş kalır, hata vermez.
+    expect(basHarfler("   ")).toBe("");
   });
 });
 

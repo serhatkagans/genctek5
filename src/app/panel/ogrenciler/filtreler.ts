@@ -11,6 +11,25 @@ import type { OgrenciListeFiltreleri } from "@/lib/yetki/kapsam";
 
 export type SorguParametreleri = Record<string, string | string[] | undefined>;
 
+/**
+ * Sınıf süzgecinin seçenekleri (10 Ağustos 2026).
+ *
+ * Değer, e-Okul'dan gelen `sinif` alanının ÖN EKİDİR ve süzgeç "içeren"
+ * eşleşmesi yapar: "9" seçimi 9-A ve 9/B'yi de kapsar. Şube listesi
+ * TEKLİF EDİLMİYOR — şubeler okuldan okula değişir, sabit bir listeye
+ * sığmaz ve seviye zaten aranan ayrımı veriyor.
+ *
+ * Öğrenci envanteri ve Görev Rolleri ekranı aynı listeyi kullanır; iki yerde
+ * ayrı yazılsaydı biri "Hazırlık"ı unuttuğunda fark edilmezdi.
+ */
+export const SINIF_SECENEKLERI: { deger: string; etiket: string }[] = [
+  { deger: "Haz", etiket: "Hazırlık" },
+  { deger: "9", etiket: "9. sınıf" },
+  { deger: "10", etiket: "10. sınıf" },
+  { deger: "11", etiket: "11. sınıf" },
+  { deger: "12", etiket: "12. sınıf" },
+];
+
 export function tekil(deger: string | string[] | undefined): string | null {
   const ilk = Array.isArray(deger) ? deger[0] : deger;
   const kirpilmis = ilk?.trim();

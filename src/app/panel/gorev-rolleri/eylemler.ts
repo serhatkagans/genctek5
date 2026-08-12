@@ -40,14 +40,17 @@ const GOREV_ROLLERI: GorevRolKodu[] = [
  * Okul Temsilcisi ataması Öğrencilerim ekranına taşındı (J2 · 5 Ağustos 2026)
  * ama il ve ilçe ataması Görev Rolleri ekranında kaldı; aynı eylem iki yerden
  * çağrılıyor. Değer FORMDAN geldiği için serbest bırakılamaz — açık yönlendirme
- * açığı doğar. Öğrencilerim'e dönerken filtreler korunsun diye sorgu dizesi de
- * taşınıyor, ama YALNIZCA bilinen önek doğrulandıktan sonra.
+ * açığı doğar. İki ekranda da filtreler korunsun diye sorgu dizesi taşınıyor
+ * (Görev Rolleri'ne süzgeç eklendi · 12 Ağustos 2026), ama YALNIZCA bilinen
+ * önek doğrulandıktan sonra: eşleşme "/panel/... " ile başlayıp hemen ardından
+ * `?` gelmesini şart koşuyor, yani `//baska-site` gibi bir değer geçemez.
  */
+const IZINLI_ONEKLER = [YOL, "/panel/ogrenciler"] as const;
+
 function donusYolunuCoz(veri: FormData): string {
   const istenen = String(veri.get("donusYolu") ?? "");
-  if (istenen === YOL) return YOL;
-  if (istenen === "/panel/ogrenciler" || istenen.startsWith("/panel/ogrenciler?")) {
-    return istenen;
+  for (const onek of IZINLI_ONEKLER) {
+    if (istenen === onek || istenen.startsWith(`${onek}?`)) return istenen;
   }
   return YOL;
 }

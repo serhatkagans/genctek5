@@ -12,13 +12,14 @@ import {
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
+  basHarfler,
   MENTORLUK_DURUM_ETIKETLERI,
   MENTORLUK_DURUM_SINIFLARI,
   mentorKapsamiYaz,
+  mentorSifati,
 } from "@/lib/mentor/kurallar";
 import { mentorlukKapsamFiltresi } from "@/lib/mentor/veri";
 import { tarihSaatYaz } from "@/lib/tarih";
-import { kullaniciRolEtiketi } from "@/lib/yetki/etiketler";
 import { mentorlukOnaylayabilirMi } from "@/lib/yetki/izinler";
 import { mentorlukKararEylemi } from "./eylemler";
 
@@ -51,6 +52,50 @@ function tekil(deger: string | string[] | undefined): string | null {
   return deger ?? null;
 }
 
+/**
+ * Izgara kartının kimlik bölümü (12 Ağustos 2026 · istek: "mentörler sayfası
+ * ızgara görünüme benzer bir şey olmalı, panodaki mentör listesi gibi olsun").
+ *
+ * PANODAKİ HAVUZ KARTIYLA AYNI DÜZEN: yuvarlak avatar, ad, sıfat, kapsam. Aynı
+ * kişi iki ekranda aynı görünüyor — onaylayan kişi, kararını verdikten sonra
+ * öğrencinin ne göreceğini de görmüş oluyor.
+ *
+ * FOTOĞRAF BASILMIYOR, baş harfler basılıyor. Sebep bir tasarım tercihi değil
+ * yetki kuralı: `/panel/mentorler/[id]/foto` yalnızca PANOYU GÖREBİLEN kişiye
+ * ve yalnızca ONAYLANMIŞ mentör için cevap veriyor. Bu ekranın tek sahibi
+ * proje yöneticisi ve `talepPanosuGorebilirMi` ona kapalı — buraya konacak her
+ * <img> istisnasız kırık görsel olurdu. Kuralı gevşetmek yerine kuyruk baş
+ * harfle yetiniyor; onay kararı fotoğrafa bakılarak verilmez.
+ */
+function MentorKimligi({
+  adSoyad,
+  sifat,
+  kapsam,
+  yer,
+}: {
+  adSoyad: string;
+  sifat: string;
+  kapsam: string;
+  yer: string;
+}) {
+  return (
+    <div className="flex flex-col items-center text-center">
+      <span
+        aria-hidden
+        className="flex h-12 w-12 items-center justify-center rounded-full bg-vurgu-zemin text-base font-semibold text-vurgu-metin"
+      >
+        {basHarfler(adSoyad)}
+      </span>
+      <span className="mt-2 font-medium text-metin">{adSoyad}</span>
+      <span className="text-xs text-metin-yumusak">{sifat}</span>
+      {kapsam && (
+        <span className="mt-1 text-xs text-vurgu-metin">{kapsam}</span>
+      )}
+      {yer && <span className="mt-1 text-xs text-metin-yumusak">{yer}</span>}
+    </div>
+  );
+}
+
 export default async function MentorlukKuyruguSayfasi({
   searchParams,
 }: {
@@ -81,10 +126,9 @@ export default async function MentorlukKuyruguSayfasi({
           brans: true,
           kurum: { select: { ad: true } },
           il: { select: { ad: true } },
-          roller: {
-            where: { bitisTarihi: null },
-            select: { rolKodu: true, ilKodu: true, kurumKodu: true },
-          },
+          // Sıfat için yalnızca rol KODU gerekiyor; kapsam alanları
+          // (il/kurum) kartta yazmıyor (bkz. mentorSifati).
+          roller: { where: { bitisTarihi: null }, select: { rolKodu: true } },
         },
       },
     },
@@ -125,33 +169,34 @@ export default async function MentorlukKuyruguSayfasi({
         {bekleyenler.length === 0 ? (
           <p className="text-metin-yumusak">Bekleyen başvuru yok.</p>
         ) : (
-          <ul className="divide-y divide-cizgi">
+          /*
+            IZGARA, panodaki mentör havuzuyla aynı kurulumda: `auto-fill` ile
+            sütun sayısı içeriğe göre değişiyor. Taban genişlik havuzunkinden
+            (8rem) FAZLA, çünkü bu kartlar karar formunu da taşıyor — 8rem'de
+            gerekçe kutusu ve iki düğme okunmaz hâle gelirdi.
+          */
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-4">
             {bekleyenler.map((kayit) => (
-              <li key={kayit.kullaniciId} className="py-4 first:pt-0 last:pb-0">
-                <p className="font-medium text-metin">
-                  {kayit.kullanici.ad} {kayit.kullanici.soyad}
-                </p>
-                <p className="mt-0.5 text-sm text-metin-yumusak">
-                  {[
-                    kullaniciRolEtiketi({
-                      ...kullanici,
-                      roller: kayit.kullanici.roller,
-                    }),
+              <li
+                key={kayit.kullaniciId}
+                className="flex flex-col rounded-kart border border-cizgi p-4"
+              >
+                <MentorKimligi
+                  adSoyad={`${kayit.kullanici.ad} ${kayit.kullanici.soyad}`}
+                  sifat={mentorSifati(
+                    kayit.kullanici.roller,
                     kayit.kullanici.brans,
-                    kayit.kullanici.kurum?.ad,
-                    kayit.kullanici.il?.ad,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-                <p className="mt-2 text-sm text-metin">
-                  <span className="font-medium">Kapsam: </span>
-                  {mentorKapsamiYaz(
+                  )}
+                  kapsam={mentorKapsamiYaz(
                     kayit.gruplar.map((g) => g.calismaGrubu.ad),
                     kayit.konular,
-                  ) || "—"}
-                </p>
-                <p className="mt-0.5 text-sm text-metin-yumusak">
+                  )}
+                  yer={[kayit.kullanici.kurum?.ad, kayit.kullanici.il?.ad]
+                    .filter(Boolean)
+                    .join(" · ")}
+                />
+
+                <p className="mt-2 text-center text-xs text-metin-yumusak">
                   {tarihSaatYaz(kayit.basvuruTarihi)} tarihinde başvurdu
                 </p>
 
@@ -159,18 +204,22 @@ export default async function MentorlukKuyruguSayfasi({
                   ONAY ve RET AYNI FORMDA, iki düğme. Ret gerekçesi zorunlu
                   olduğu için alan hep basılıyor — ayrı bir "reddet" ekranına
                   götürmek, karar verecek kişiyi listeden koparırdı.
+
+                  `mt-auto`: kartlar ızgarada aynı yüksekliğe uzuyor ve kapsam
+                  metni kısa olan kartta düğmeler havada kalırdı; form her
+                  kartın dibine yapışıyor.
                 */}
                 <form
                   action={mentorlukKararEylemi}
-                  className="mt-3 flex flex-wrap items-end gap-3"
+                  className="mt-auto border-t border-cizgi pt-3"
                 >
                   <input
                     type="hidden"
                     name="kullaniciId"
                     value={kayit.kullaniciId}
                   />
-                  <label className="block grow">
-                    <span className="text-sm text-metin-yumusak">
+                  <label className="block">
+                    <span className="text-xs text-metin-yumusak">
                       Ret gerekçesi (yalnızca reddederken zorunlu)
                     </span>
                     <input
@@ -180,22 +229,24 @@ export default async function MentorlukKuyruguSayfasi({
                       className={SINIF_GIRDI}
                     />
                   </label>
-                  <button
-                    type="submit"
-                    name="karar"
-                    value="ONAYLA"
-                    className={SINIF_BIRINCIL_BUTON}
-                  >
-                    Onayla
-                  </button>
-                  <button
-                    type="submit"
-                    name="karar"
-                    value="REDDET"
-                    className={SINIF_IKINCIL_BUTON}
-                  >
-                    Reddet
-                  </button>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="submit"
+                      name="karar"
+                      value="ONAYLA"
+                      className={`${SINIF_BIRINCIL_BUTON} flex-1 justify-center`}
+                    >
+                      Onayla
+                    </button>
+                    <button
+                      type="submit"
+                      name="karar"
+                      value="REDDET"
+                      className={`${SINIF_IKINCIL_BUTON} flex-1 justify-center`}
+                    >
+                      Reddet
+                    </button>
+                  </div>
                 </form>
               </li>
             ))}
@@ -209,36 +260,49 @@ export default async function MentorlukKuyruguSayfasi({
             baslik="Karara bağlananlar"
             aciklama="Onaylananlar, reddedilenler ve mentörlüğü bırakanlar."
           />
-          <ul className="divide-y divide-cizgi">
+          {/*
+            Aynı ızgara, DAHA DAR taban: bu kartlarda form yok, yalnızca kimlik
+            ve durum rozeti var. Onaylananların satırı havuzdaki kartın birebir
+            karşılığı — proje yöneticisi "panoda kim görünüyor" sorusunun
+            cevabını buradan da okuyor.
+          */}
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-4">
             {kararlilar.map((kayit) => (
               <li
                 key={kayit.kullaniciId}
-                className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                className="flex flex-col rounded-kart border border-cizgi p-4"
               >
-                <div className="min-w-0">
-                  <p className="font-medium text-metin">
-                    {kayit.kullanici.ad} {kayit.kullanici.soyad}
-                  </p>
-                  <p className="mt-0.5 text-sm text-metin-yumusak">
-                    {mentorKapsamiYaz(
-                      kayit.gruplar.map((g) => g.calismaGrubu.ad),
-                      kayit.konular,
-                    ) || "—"}
-                  </p>
-                  {kayit.retGerekcesi && (
-                    <p className="mt-1 text-sm text-hata-metin">
-                      Gerekçe: {kayit.retGerekcesi}
-                    </p>
+                <MentorKimligi
+                  adSoyad={`${kayit.kullanici.ad} ${kayit.kullanici.soyad}`}
+                  sifat={mentorSifati(
+                    kayit.kullanici.roller,
+                    kayit.kullanici.brans,
                   )}
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${MENTORLUK_DURUM_SINIFLARI[kayit.durum]}`}
-                >
-                  {MENTORLUK_DURUM_ETIKETLERI[kayit.durum]}
-                  {kayit.kararTarihi
-                    ? ` · ${tarihSaatYaz(kayit.kararTarihi)}`
-                    : ""}
-                </span>
+                  kapsam={mentorKapsamiYaz(
+                    kayit.gruplar.map((g) => g.calismaGrubu.ad),
+                    kayit.konular,
+                  )}
+                  yer={[kayit.kullanici.kurum?.ad, kayit.kullanici.il?.ad]
+                    .filter(Boolean)
+                    .join(" · ")}
+                />
+
+                {kayit.retGerekcesi && (
+                  <p className="mt-2 text-center text-xs text-hata-metin">
+                    Gerekçe: {kayit.retGerekcesi}
+                  </p>
+                )}
+
+                <p className="mt-auto pt-3 text-center">
+                  <span
+                    className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${MENTORLUK_DURUM_SINIFLARI[kayit.durum]}`}
+                  >
+                    {MENTORLUK_DURUM_ETIKETLERI[kayit.durum]}
+                    {kayit.kararTarihi
+                      ? ` · ${tarihSaatYaz(kayit.kararTarihi)}`
+                      : ""}
+                  </span>
+                </p>
               </li>
             ))}
           </ul>
