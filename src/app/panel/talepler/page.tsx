@@ -36,7 +36,7 @@ import {
 import { uygulamaYolu } from "@/lib/ortam";
 import { girdiTarihi, tarihYaz } from "@/lib/tarih";
 import { talepPanosuGorebilirMi } from "@/lib/yetki/izinler";
-import { baglantiIstegiGonderEylemi } from "../baglantilar/eylemler";
+import { baglantiIstegiGonderEylemi } from "../yazismalar/baglanti-eylemleri";
 import { talepKapatEylemi, talepAcEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";

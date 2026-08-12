@@ -25,7 +25,16 @@ import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
  */
 
 const PANO = "/panel/talepler";
-const YOL = "/panel/baglantilar";
+
+/*
+ * Karar sonrası dönülecek yer, 12 Ağustos 2026'da "Bağlantılarım"a taşındı:
+ * onay ekranı o sayfanın içinde eridi (bkz. yazismalar/page.tsx). Çapa
+ * bilerek var — istek listesi sayfanın başında ama karar verildikten sonra
+ * sayfa yeniden basıldığında o kart küçülüp kaybolabiliyor; çapa, kullanıcıyı
+ * kalan isteklerin bulunduğu yere indirir.
+ */
+const YOL = "/panel/yazismalar";
+const ISTEK_CAPASI = "#istekler";
 
 function hataylaDon(yol: string, mesaj: string): never {
   redirect(`${yol}?hata=${encodeURIComponent(mesaj)}`);
@@ -240,6 +249,8 @@ export async function baglantiKarariEylemi(veri: FormData): Promise<void> {
 
   revalidatePath(YOL);
   redirect(
-    `${YOL}?durum=${karar.durum === "ONAYLANDI" ? "onaylandi" : "reddedildi"}`,
+    `${YOL}?durum=${
+      karar.durum === "ONAYLANDI" ? "onaylandi" : "reddedildi"
+    }${ISTEK_CAPASI}`,
   );
 }

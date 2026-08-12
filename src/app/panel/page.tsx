@@ -1484,7 +1484,7 @@ export default async function PanelSayfasi({
                 etiket: "Bekleyen bağlantı isteği",
                 deger: bosluklar.bekleyenBaglantiIstegi,
                 alt: "Öğrenciler iletişim için bekliyor",
-                yol: "/panel/baglantilar",
+                yol: "/panel/yazismalar#istekler",
               },
               {
                 etiket: "Belgesi eksik koordinatör",

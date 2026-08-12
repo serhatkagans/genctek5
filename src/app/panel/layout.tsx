@@ -193,15 +193,20 @@ export default async function PanelDuzeni({
    *
    * İSTEKTEKİ ALT BAŞLIKLAR: "Mesajlar · Sohbet · Bağlantılarım". Mesajlar ve
    * bağlantı onayları bu ekranın içinde; **Sohbet (grup) HENÜZ YOK** — G
-   * maddesi S19/S20 cevaplarını bekliyor (bkz. YAPILACAKLAR.md).
+   * maddesi S19/S20 cevaplarını bekliyor.
    */
   baglantilar.push({ yol: "/panel/yazismalar", etiket: "Bağlantılarım" });
 
   /*
-   * "İLETİŞİM ONAYLARI" SEKMESİ KALKTI (7 Ağustos 2026 · menü küçültme).
-   * İstek onayları Bağlantılarım'ın alt başlıklarından biri sayıyor; ekran
-   * silinmedi, girişi Bağlantılarım sayfasının başına taşındı. Sekme olarak
-   * kalsaydı menüde neredeyse aynı adlı iki giriş yan yana dururdu.
+   * "İLETİŞİM ONAYLARI" ARTIK AYRI EKRAN DEĞİL (12 Ağustos 2026 · istek:
+   * "yazışmalar ve bağlantılar isminde iki bölüm var, onları birleştirip
+   * linkedin tarzı bir bölüm yapmak istiyorum · menüdeki bağlantılarım
+   * alanında olsun").
+   *
+   * 7 Ağustos'ta sekmesi kalkmış, girişi bu sayfanın başına bir kart olarak
+   * konmuştu; o kart da kalktı. Bekleyen istekler doğrudan Bağlantılarım'ın
+   * içinde, bağlantı listesinin üstünde basılıyor. `/panel/baglantilar` adresi
+   * duruyor ve buraya yönlendiriyor.
    */
 
   /*
