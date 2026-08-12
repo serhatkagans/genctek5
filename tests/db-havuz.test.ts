@@ -25,9 +25,7 @@ describe("havuz sınırı çözümlemesi", () => {
 
   it("diğer parametrelerin arasından okur", () => {
     expect(
-      havuzSiniriniCoz(
-        `${TEMEL}?sslmode=disable&connection_limit=6&pgbouncer=true`,
-      ),
+      havuzSiniriniCoz(`${TEMEL}?sslmode=disable&connection_limit=6&application_name=x`),
     ).toBe(6);
   });
 
@@ -48,5 +46,49 @@ describe("havuz sınırı çözümlemesi", () => {
 
   it("çözümlenemeyen adreste patlamaz", () => {
     expect(havuzSiniriniCoz("bu bir adres değil")).toBe(4);
+  });
+});
+
+/**
+ * HAVUZLAYICI UÇ (12 Ağustos 2026).
+ *
+ * `pgbouncer=true` yazan bir uç bağlantıları çoğullar: açık bir işlem varken
+ * ikinci bir bağlantıdan gelen sorgu aynı arka uca düşüyor, adsız prepared
+ * statement eziliyor ve sorgu `08P01` ile patlıyor — ya da daha kötüsü, BAŞKA
+ * bir sorgunun sonucunu alıyor. Ölçümde bugünkü ayarla her dört sorgudan biri
+ * düşüyordu; tek bağlantıyla hiçbiri düşmedi.
+ *
+ * Gerekçenin tamamı `db-havuz.ts` · HAVUZLAYICI_SINIRI başlığındadır.
+ */
+describe("havuzlayıcı uç", () => {
+  it("pgbouncer=true görünce tek bağlantıya iner", () => {
+    expect(havuzSiniriniCoz(`${TEMEL}?pgbouncer=true`)).toBe(1);
+  });
+
+  /*
+   * ASIL VAKA: yereldeki adres ikisini birden yazıyor. `connection_limit`
+   * kazansaydı düzeltme kendi ortamında hiç çalışmazdı — 4 bağlantı, hatanın
+   * ta kendisi.
+   */
+  it("connection_limit yazılmış olsa da havuzlayıcı kuralı kazanır", () => {
+    expect(
+      havuzSiniriniCoz(
+        `${TEMEL}?sslmode=disable&connection_limit=4&statement_cache_size=0&pgbouncer=true`,
+      ),
+    ).toBe(1);
+  });
+
+  /*
+   * Üretimdeki adres gerçek PostgreSQL'e doğrudan gidiyor ve bu parametreyi
+   * hiç taşımıyor; kural orada kendiliğinden devre dışı kalmalı, yoksa canlı
+   * sunucu tek bağlantıya inerdi.
+   */
+  it("parametre yoksa üretim davranışı değişmez", () => {
+    expect(havuzSiniriniCoz(TEMEL)).toBe(4);
+    expect(havuzSiniriniCoz(`${TEMEL}?connection_limit=20`)).toBe(20);
+  });
+
+  it("pgbouncer=false kuralı açmaz", () => {
+    expect(havuzSiniriniCoz(`${TEMEL}?connection_limit=6&pgbouncer=false`)).toBe(6);
   });
 });

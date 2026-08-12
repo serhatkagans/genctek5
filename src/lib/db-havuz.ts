@@ -29,6 +29,65 @@
 export const VARSAYILAN_HAVUZ_SINIRI = 4;
 
 /**
+ * HAVUZLAYICI BİR UCA BAĞLANIRKEN kullanılan sınır (12 Ağustos 2026).
+ *
+ * BİR: uygulama veritabanına tek bağlantıdan, sırayla gider.
+ *
+ * ---------------------------------------------------------------------------
+ * NEDEN
+ * ---------------------------------------------------------------------------
+ * Belirti: sayfalar rastgele 500 veriyordu ve günlükte tek bir hata vardı —
+ * `Database error. Code: 08P01. Message: bind message supplies 2 parameters,
+ * but prepared statement "" requires 8`. Bir günde 172 hata kaydının 125'i
+ * buydu; her seferinde BAŞKA bir sorguda ve başka parametre sayılarıyla.
+ *
+ * `08P01` bir protokol hatasıdır: gönderilen Bind mesajı, o bağlantıda ayrıştırılmış
+ * olan ifadeye uymuyor. Yani İKİ AYRI SORGU tek bir oturumda birbirine giriyor.
+ * Sonuç yalnızca hata da değil: ölçümde sorguların bir kısmı BAŞKA sorgunun
+ * sonucunu alıp çözümlemede patladı ("Cannot read properties of null").
+ *
+ * Ölçümle daraltıldı (40 tur · turda 1 işlem + 7 eş zamanlı sorgu):
+ *
+ *   yalnızca eş zamanlı okuma ................ 0 hata
+ *   yalnızca işlem (transaction) ............. 0 hata
+ *   işlem + eş zamanlı okuma ................. %24 hata
+ *   işlem, sonra okuma (sıralı) .............. 0 hata
+ *
+ * Yani tetikleyici AÇIK BİR İŞLEM ile eş zamanlı sorguların çakışması.
+ *
+ * KABAHAT UYGULAMADA YA DA PRISMA'DA DEĞİL: aynı desen Prisma hiç devrede
+ * olmadan, çıplak `pg` ile de aynı hatayı veriyor. Kabahat yereldeki uçta —
+ * `prisma dev` sunucusu bağlantıları çoğullayan bir havuzlayıcıdır ve adresini
+ * `pgbouncer=true` ile işaretler. İşlem bir oturumu tutarken öbür bağlantıların
+ * sorguları aynı arka uca düşüyor, adsız prepared statement ("") eziliyor.
+ *
+ * `pgbouncer=true` PRISMA'YA ÖZGÜDÜR: Prisma'nın kendi motoru bunu görünce
+ * prepared statement kullanmayı bırakır. `@prisma/adapter-pg` ise onu OKUMAZ —
+ * `connection_limit`'te olduğu gibi (bkz. dosya başlığı). Talimat sessizce
+ * düşüyor ve altta node-postgres adsız ifadelerle çalışmaya devam ediyor.
+ *
+ * DENENİP ELENEN ÇÖZÜMLER:
+ *   · `idleTimeoutMillis` büyütmek — ilgisiz; 1sn ve 30sn aynı hata oranını
+ *     veriyor.
+ *   · Havuzu büyütmek — sınırı öteliyor, kaldırmıyor; max=20'de bile hata var.
+ *   · Adlandırılmış prepared statement (`statementNameGenerator`) — hata oranı
+ *     değişmedi (%24), yalnızca hatanın adı değişti.
+ *   · max=1 — 320 sorguda SIFIR hata. Tek bağlantıda çakışacak ikinci bir
+ *     sorgu kalmıyor.
+ *
+ * MALİYETİ eş zamanlılık: sayfa sorguları sıraya giriyor. Yerel geliştirmede
+ * tek kullanıcı olduğu için bu ölçülebilir bir yavaşlama değil; rastgele 500
+ * almanın yanında kabul edilir bir bedel.
+ *
+ * ÜRETİMİ ETKİLEMEZ ve bu kasıtlı: sunucudaki adres gerçek PostgreSQL'e
+ * (127.0.0.1:5432) doğrudan gider, `pgbouncer` parametresi yoktur. Kural
+ * kendiliğinden devre dışı kalır, üretim `VARSAYILAN_HAVUZ_SINIRI` ile çalışır.
+ * Gerçek bir PgBouncer'ın arkasına geçilirse kural İSTENEREK devreye girer —
+ * orada da aynı çakışma yaşanır.
+ */
+export const HAVUZLAYICI_SINIRI = 1;
+
+/**
  * Havuzdaki bir bağlantının BOŞTA kalabileceği süre (11 Ağustos 2026).
  *
  * NİYE VAR: yerel `prisma dev` sunucusu boşta duran bağlantıyı yaklaşık on beş
@@ -59,15 +118,24 @@ export const VARSAYILAN_HAVUZ_SINIRI = 4;
 export const BOSTA_KALMA_SURESI_MS = 1000;
 
 export function havuzSiniriniCoz(adres: string): number {
-  let deger: string | null;
+  let parametreler: URLSearchParams;
   try {
-    deger = new URL(adres).searchParams.get("connection_limit");
+    parametreler = new URL(adres).searchParams;
   } catch {
     // Adres çözümlenemiyorsa bağlantı zaten kurulamayacak; havuz boyutu
     // yüzünden ayrıca patlamanın anlamı yok.
     return VARSAYILAN_HAVUZ_SINIRI;
   }
 
+  /*
+   * HAVUZLAYICI KONTROLÜ `connection_limit`TEN ÖNCE gelir ve onu EZER.
+   * Yereldeki adres ikisini birden yazıyor (`connection_limit=4&pgbouncer=true`)
+   * ve o adreste 4 bağlantı, hatanın ta kendisidir (bkz. HAVUZLAYICI_SINIRI).
+   * Sıra ters olsaydı düzeltme kendi ortamında hiç çalışmazdı.
+   */
+  if (parametreler.get("pgbouncer") === "true") return HAVUZLAYICI_SINIRI;
+
+  const deger = parametreler.get("connection_limit");
   if (deger === null) return VARSAYILAN_HAVUZ_SINIRI;
 
   /*
