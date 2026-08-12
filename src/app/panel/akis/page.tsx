@@ -388,7 +388,7 @@ export default async function AkisSayfasi({
                   )}
 
                   {/*
-                    BAĞLAN — akıştan bağlantı isteği (12 Ağustos 2026).
+                    BAĞLANTI KUR — akıştan bağlantı isteği (12 Ağustos 2026).
                     Kendi gönderinde ve merkez personelinde hiç basılmaz.
 
                     Tanıtım mesajı ZORUNLU olduğu için düğme doğrudan istek
@@ -433,7 +433,7 @@ export default async function AkisSayfasi({
                         <details className="text-right">
                           <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-vurgu px-3 py-1 text-xs font-semibold text-vurgu-metin transition hover:bg-vurgu-zemin">
                             <Handshake size={13} aria-hidden />
-                            Bağlan
+                            Bağlantı kur
                           </summary>
                           <form
                             action={kisiyeBaglantiIstegiEylemi}
