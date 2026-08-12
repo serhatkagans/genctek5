@@ -97,11 +97,21 @@ atlanıyor (`altBasligiYaz`).
 - [x] **A4b · Statik doğrulama.** `npx tsc --noEmit` temiz, `npx eslint`
       temiz, `npx jest` 871/871 geçti.
 
-- [ ] **A4c · EKRANI GERÇEKTEN AÇ.** Henüz yapılmadı. Üç rol ayrı ayrı
-      görülmeli: (1) öğrenci — yalnız kendi bağlantıları, istek kartı yok,
-      (2) danışman — bekleyen istek kartı + gözetim satırları + karar arşivi,
-      (3) bağlantısı olmayan kullanıcı — boş durum metni. Ayrıca karar verip
-      `#istekler` çapasına dönüşü ve `/panel/baglantilar` yönlendirmesini gör.
+- [x] **A4c · Ekranı aç.** Yapıldı; veritabanında hiç bağlantı kaydı yoktu,
+      `.tmp-baglanti-deneme-verisi.mjs` ile örnek veri kuruldu (danışman #660
+      Ahmet Öztürk, öğrencisi #662 Yusuf Demir). Görülenler:
+      - öğrenci → tek isim + `10-B · Kadıköy Anadolu Lisesi` + `Mesaj`,
+      - danışman → bekleyen istek kartı, kendi bağlantısı (`kapatıldı`),
+        gözetim satırı (`↔` + `gözetim` rozeti + `Aç`), katlı karar arşivi,
+      - bağlantısız kullanıcı → boş durum metni,
+      - `/panel/baglantilar` → 307 `/panel/yazismalar#istekler`.
+
+      Çıkan kusur düzeltildi: gözetim satırı aynı okulu iki kez yazıyordu.
+
+- [ ] **A4d · Onayla/Reddet düğmelerine gerçekten bas.** Sunucu eylemi
+      sürülmedi; `#istekler` çapasına dönüş yalnızca koddan okundu. Ekran
+      görüntüsü de alınamadı (tarayıcı eklentisi bağlı değildi) — sayfa HTTP
+      ile çekilip metni okundu, yani **yerleşim gözle görülmedi.**
 
 ---
 
