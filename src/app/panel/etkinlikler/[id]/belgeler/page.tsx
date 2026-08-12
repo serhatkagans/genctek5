@@ -1,4 +1,4 @@
-import { Award, ExternalLink, Printer, UserPlus } from "lucide-react";
+import { Award, ExternalLink, FileText, Printer, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TumunuSecKutusu } from "@/components/belge/TumunuSecKutusu";
@@ -6,6 +6,12 @@ import {
   BilgiKutusu, Kart, KartBasligi, SayfaBasligi, SINIF_GIRDI, SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import {
+  belgeKapisi,
+  katilimciBelgeKapisi,
+  yoklamaOzeti,
+} from "@/lib/belge/kapi";
+import { faaliyetRaporuVarMi } from "@/lib/belge/kayit";
 import {
   BELGE_TURU_ETIKETLERI,
   BELGE_TURLERI,
@@ -29,11 +35,56 @@ export default async function BelgelerSayfasi({
   if (!faaliyet) notFound();
   if (!faaliyetRaporuYazabilirMi(kullanici, faaliyetKapsamiCikar(faaliyet))) notFound();
 
-  const katilimcilar = await prisma.basvuru.findMany({
+  /*
+   * RAPOR KAPISI (12 Ağustos 2026 · istek: "etkinlik raporu yazılmadan belge
+   * oluştur seçeneği olmamalı").
+   *
+   * Ekran 404 DEĞİL, gerekçeli bir kart döndürüyor: yol doğru, eksik olan
+   * rapor. 404 kullanıcıya bağlantının bozuk olduğunu düşündürür ve yapması
+   * gereken şeyi söylemez. Belge ÜRETEN yollar ise notFound() veriyor — orası
+   * bir ekran değil, çıktı.
+   */
+  const kapi = belgeKapisi({ raporVarMi: await faaliyetRaporuVarMi(faaliyet.id) });
+  if (!kapi.olurMu) {
+    return (
+      <div className="space-y-6">
+        <Link
+          href={`/panel/etkinlikler/${faaliyet.id}`}
+          className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
+        >
+          ← Etkinliğe dön
+        </Link>
+
+        <SayfaBasligi
+          baslik="Katılım ve teşekkür belgeleri"
+          aciklama={`${faaliyet.ad} · ${tarihYaz(faaliyet.tarih)}`}
+        />
+
+        <Kart>
+          <KartBasligi baslik="Önce etkinlik raporu" aciklama={kapi.neden ?? ""} Ikon={FileText} />
+          <p className="text-metin-yumusak">
+            Belge, kişinin GençTek Yolculuğu&apos;na katılım düşüren kalıcı bir
+            kayıt. Etkinliğin ne olduğu ve nasıl geçtiği yazılmadan belge
+            dağıtılırsa, sonradan kimsenin doğrulayamayacağı bir belge kalır.
+          </p>
+          <Link
+            href={`/panel/etkinlikler/${faaliyet.id}/rapor`}
+            className={`${SINIF_IKINCIL_BUTON} mt-4`}
+          >
+            <FileText size={16} aria-hidden />
+            Etkinlik raporunu yaz
+          </Link>
+        </Kart>
+      </div>
+    );
+  }
+
+  const secilmisler = await prisma.basvuru.findMany({
     where: { faaliyetId: faaliyet.id, durum: "SECILDI" },
     orderBy: { basvuruTarihi: "asc" },
     select: {
       katilimciId: true,
+      katildiMi: true,
       katilimci: {
         select: {
           ad: true, soyad: true, sinif: true, brans: true,
@@ -42,6 +93,17 @@ export default async function BelgelerSayfasi({
       },
     },
   });
+
+  /*
+   * LİSTE YOKLAMADAN GEÇENLERDİR. Gelmediği ya da hiç işaretlenmediği için
+   * dışarıda kalanlar sayıyla anlatılıyor: satır olarak basılsalardı "neden
+   * düğmesi yok" sorusu doğardı, hiç anılmasalardı öğretmen eksik listeyi
+   * kendi listesiyle karşılaştırmak zorunda kalırdı.
+   */
+  const katilimcilar = secilmisler.filter(
+    (basvuru) => katilimciBelgeKapisi(basvuru).olurMu,
+  );
+  const yoklama = yoklamaOzeti(secilmisler);
 
   /*
    * İMZA MAKAMI (J5 · 6 Ağustos 2026). Unvan kapsamdan gelir; okul içi
@@ -82,14 +144,33 @@ export default async function BelgelerSayfasi({
       <Kart>
         <KartBasligi
           baslik="Katılımcılar"
-          aciklama="Etkinliğe seçilmiş kişiler. Belge, resmî şablon üzerine basılır."
+          aciklama="Yoklamada geldi işaretlenen kişiler. Belge, resmî şablon üzerine basılır."
           Ikon={Award}
         />
 
+        {yoklama.isaretlenmeyen + yoklama.gelmeyen > 0 && (
+          <div className="mb-4">
+            <BilgiKutusu cesit="uyari">
+              Listede yalnızca yoklamada &quot;geldi&quot; işaretlenen{" "}
+              {yoklama.gelen} kişi var. {yoklama.gelmeyen} kişi gelmedi,{" "}
+              {yoklama.isaretlenmeyen} kişi işaretlenmedi; onlara belge
+              üretilemez.{" "}
+              <Link
+                href={`/panel/etkinlikler/${faaliyet.id}`}
+                className="font-medium underline underline-offset-2"
+              >
+                Yoklamayı güncelleyin
+              </Link>
+              .
+            </BilgiKutusu>
+          </div>
+        )}
+
         {katilimcilar.length === 0 ? (
           <p className="text-metin-yumusak">
-            Bu etkinliğe seçilmiş katılımcı yok. Aşağıdaki bölümden ad yazarak
-            yine de belge üretebilirsiniz.
+            Belge üretilebilecek katılımcı yok: liste, yoklamada
+            &quot;geldi&quot; işaretlenen kişilerden oluşur. Aşağıdaki bölümden
+            ad yazarak listede olmayan biri için yine de belge üretebilirsiniz.
           </p>
         ) : (
           <form

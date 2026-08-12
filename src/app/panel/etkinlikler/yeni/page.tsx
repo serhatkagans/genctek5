@@ -159,14 +159,13 @@ export default async function YeniFaaliyetSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        12 Ağustos 2026 · istek: dış kullanıcıda da "Yeni etkinlik" yazsın.
+        Başlık, Etkinlikler ekranındaki düğmeyle aynı adı taşır; tıklanan
+        düğmeyle açılan sayfanın adı ayrışmasın.
+      */}
       <SayfaBasligi
-        baslik={
-          ogrenci
-            ? "Yeni etkinlik önerisi"
-            : disKullanici
-              ? "Etkinlik bildir"
-              : "Yeni etkinlik"
-        }
+        baslik={ogrenci ? "Yeni etkinlik önerisi" : "Yeni etkinlik"}
         aciklama={
           ogrenci
             ? "Etkinliğin yeri okul ve il bilginizden gelir; ayrıca seçmenize gerek yoktur."

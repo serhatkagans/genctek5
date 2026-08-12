@@ -456,6 +456,7 @@ model Kullanici {
   basvurular                Basvuru[] @relation("BasvuruKatilimcisi")
   adinaYaptigiBasvurular    Basvuru[] @relation("BasvuruAdinaBasvuran")
   degerlendirdigiBasvurular Basvuru[] @relation("BasvuruDegerlendiren")
+  aldigiYoklamalar          Basvuru[] @relation("BasvuruYoklamaAlan")
 
   /// Adına belge üretilmiş etkinlikler. Profildeki "Katıldığı GençTek
   /// etkinlikleri" listesinin yeni kaynağı (bkz. lib/kazanim/getir.ts).
@@ -1395,11 +1396,26 @@ model Basvuru {
   kaynakIlOnayTarihi             DateTime?  @map("kaynak_il_onay_tarihi") @db.Timestamptz(6)
   kaynakIlRetGerekcesi           String?    @map("kaynak_il_ret_gerekcesi") @db.Text
 
+  /// ETKİNLİK SONRASI YOKLAMA (12 Ağustos 2026).
+  ///
+  /// NULL = yoklama alınmadı, true = geldi, false = gelmedi. Üç hâl de ayrı
+  /// bilgi: "gelmedi" ile "sorulmadı" aynı şey değildir ve boolean varsayılanı
+  /// (false) herkesi katılmamış saymak olurdu.
+  ///
+  /// `durum` ile karıştırılmamalı: SECILDI "katılabilir" demektir, bu alan
+  /// "katıldı" demektir. Seçilmiş olmak katılım sayılırken, gelmeyen öğrencinin
+  /// profiline de etkinlik düşüyordu (bkz. lib/kazanim/katilim-kurallar.ts).
+  katildiMi              Boolean?  @map("katildi_mi")
+  /// Yoklamayı işaretleyen yetkili — beyanın sahibi belli olsun.
+  yoklamaAlanKullaniciId Int?      @map("yoklama_alan_kullanici_id")
+  yoklamaTarihi          DateTime? @map("yoklama_tarihi") @db.Timestamptz(6)
+
   faaliyet       Faaliyet   @relation(fields: [faaliyetId], references: [id], onDelete: Cascade)
   katilimci      Kullanici  @relation("BasvuruKatilimcisi", fields: [katilimciId], references: [id])
   adinaBasvuran  Kullanici? @relation("BasvuruAdinaBasvuran", fields: [adinaBasvuranKullaniciId], references: [id])
   degerlendiren  Kullanici? @relation("BasvuruDegerlendiren", fields: [degerlendirenKullaniciId], references: [id])
   kaynakIlOnaylayan Kullanici? @relation("BasvuruKaynakIlOnaylayan", fields: [kaynakIlOnaylayanKullaniciId], references: [id])
+  yoklamaAlan       Kullanici? @relation("BasvuruYoklamaAlan", fields: [yoklamaAlanKullaniciId], references: [id])
 
   @@index([faaliyetId, durum])
   @@index([katilimciId])

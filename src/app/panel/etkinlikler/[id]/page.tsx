@@ -19,6 +19,7 @@ import {
   Star,
   Trash2,
   Upload,
+  UserCheck,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -43,6 +44,12 @@ import {
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import {
+  belgeKapisi,
+  yoklamaAlinabilirMi,
+  yoklamaOzeti,
+} from "@/lib/belge/kapi";
+import { faaliyetRaporuVarMi } from "@/lib/belge/kayit";
 import { prisma } from "@/lib/db";
 import { uygulamaYolu } from "@/lib/ortam";
 import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
@@ -92,6 +99,7 @@ import {
   faaliyetDuzenleEylemi,
   faaliyetIptalEylemi,
   faaliyetOnayEylemi,
+  yoklamaKaydetEylemi,
 } from "../eylemler";
 import { kaynakIlKarariEylemi } from "../il-disi-eylemler";
 import {
@@ -140,6 +148,8 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "paydas-eklendi": "Paydaş etkinliğe bağlandı.",
   "paydas-cikarildi":
     "Paydaş bağlantısı kaldırıldı. Paydaş kaydının kendisi silinmedi.",
+  "yoklama-kaydedildi":
+    "Yoklama kaydedildi. Yalnızca geldi işaretlenen kişilerin GençTek Yolculuğu'na bu etkinlik düşer ve belge yalnızca onlara üretilebilir.",
 };
 
 function Satir({
@@ -473,6 +483,49 @@ export default async function FaaliyetDetaySayfasi({
       })),
     );
   }
+
+  /*
+   * YÜRÜTÜCÜ KAPISI: rapor, yoklama ve belge aynı soruyla açılıyor — "bu
+   * etkinliğin hakkında beyanda bulunabilecek kişi mi". Üçü ayrı sorulsaydı
+   * biri değiştiğinde öbürleri geride kalırdı (11 Ağustos'ta rapor kartının
+   * başvuru kartının içinde kalması tam olarak bu yüzden sorun olmuştu).
+   */
+  const yurutucuMu = faaliyetRaporuYazabilirMi(kullanici, kapsamBilgisi);
+
+  const yoklamaKapisi = yoklamaAlinabilirMi({
+    bittiMi: (faaliyet.bitisTarihi ?? faaliyet.tarih) <= simdi,
+    iptalMi: faaliyet.durum === "IPTAL_EDILDI",
+  });
+
+  const yoklamaListesi = yurutucuMu
+    ? await prisma.basvuru.findMany({
+        where: { faaliyetId: faaliyet.id, durum: "SECILDI" },
+        orderBy: { basvuruTarihi: "asc" },
+        select: {
+          id: true,
+          katildiMi: true,
+          katilimci: {
+            select: {
+              ad: true,
+              soyad: true,
+              sinif: true,
+              brans: true,
+              kurum: { select: { ad: true } },
+            },
+          },
+        },
+      })
+    : [];
+
+  const yoklamaSayilari = yoklamaOzeti(yoklamaListesi);
+
+  /*
+   * Belge kapısı EKRANDA da sorulur ki kullanıcı kapalı bir yola tıklamasın;
+   * asıl engel belge üreten yollarda (bkz. lib/belge/kapi.ts · belgeKapisi).
+   */
+  const belgeKapisiKarari = yurutucuMu
+    ? belgeKapisi({ raporVarMi: await faaliyetRaporuVarMi(faaliyet.id) })
+    : { olurMu: false, neden: null };
 
   /*
    * Vekaleten başvuru için aday öğrenciler: kapsam filtresinden geçen ve bu
@@ -1387,11 +1440,11 @@ export default async function FaaliyetDetaySayfasi({
 
         Kart artık başvuru kartından bağımsız ve kendi yetkisini soruyor.
       */}
-      {faaliyetRaporuYazabilirMi(kullanici, kapsamBilgisi) && (
+      {yurutucuMu && (
         <Kart>
           <KartBasligi
             baslik="Rapor ve belgeler"
-            aciklama="Etkinlik bittikten sonra raporu doldurun; katılım ve teşekkür belgeleri de buradan üretilir."
+            aciklama="Sıra: yoklama → etkinlik raporu → belgeler. Belge, kişinin GençTek Yolculuğu'na katılım düşürdüğü için son adımdır."
             Ikon={FileText}
           />
           <div className="flex flex-wrap gap-2">
@@ -1402,14 +1455,144 @@ export default async function FaaliyetDetaySayfasi({
               <FileText size={16} aria-hidden />
               Etkinlik raporu
             </Link>
-            <Link
-              href={`/panel/etkinlikler/${faaliyet.id}/belgeler`}
-              className={SINIF_IKINCIL_BUTON}
-            >
-              <Award size={16} aria-hidden />
-              Katılım / teşekkür belgesi
-            </Link>
+            {/*
+              BELGE DÜĞMESİ RAPORA BAĞLI (12 Ağustos 2026 · istek: "etkinlik
+              raporu yazılmadan belge oluştur seçeneği olmamalı"). Kapı yalnızca
+              burada değil belge üreten yolların hepsinde soruluyor
+              (bkz. lib/belge/kapi.ts) — kapalı düğme bir güvenlik önlemi değil,
+              yalnızca kullanıcıyı boşuna tıklatmama nezaketi.
+            */}
+            {belgeKapisiKarari.olurMu ? (
+              <Link
+                href={`/panel/etkinlikler/${faaliyet.id}/belgeler`}
+                className={SINIF_IKINCIL_BUTON}
+              >
+                <Award size={16} aria-hidden />
+                Katılım / teşekkür belgesi
+              </Link>
+            ) : (
+              <span
+                className={`${SINIF_IKINCIL_BUTON} cursor-not-allowed opacity-50`}
+                aria-disabled
+                title={belgeKapisiKarari.neden ?? undefined}
+              >
+                <Award size={16} aria-hidden />
+                Katılım / teşekkür belgesi
+              </span>
+            )}
           </div>
+          {!belgeKapisiKarari.olurMu && (
+            <p className="mt-3 text-sm text-metin-yumusak">
+              {belgeKapisiKarari.neden}
+            </p>
+          )}
+        </Kart>
+      )}
+
+      {/*
+        YOKLAMA (12 Ağustos 2026 · istek: "öğrenci etkinliğe gelmedi ama GençTek
+        Yolculuğum'da katıldı görünüyor, bunun kontrolünü nasıl sağlarız").
+
+        Seçilmiş olmak "katılabilir" demekti, ekranlar ise onu "katıldı" diye
+        okuyordu. Yoklama bu ikisinin arasına etkinliği yürüten kişinin beyanını
+        koyuyor: katılım geçmişi ve belge üretimi artık buradan besleniyor.
+
+        KART YALNIZCA BİTMİŞ ETKİNLİKTE: yapılmamış bir etkinliğin yoklaması
+        alınamaz ve düğmeyi erken göstermek, öğretmeni etkinlikten önce karar
+        vermeye davet ederdi.
+      */}
+      {yurutucuMu && yoklamaKapisi.olurMu && (
+        <Kart>
+          <KartBasligi
+            baslik="Yoklama"
+            aciklama={
+              yoklamaListesi.length === 0
+                ? "Bu etkinliğe seçilmiş katılımcı yok."
+                : `${yoklamaSayilari.gelen} geldi · ${yoklamaSayilari.gelmeyen} gelmedi · ${yoklamaSayilari.isaretlenmeyen} işaretlenmedi`
+            }
+            Ikon={UserCheck}
+          />
+
+          {yoklamaListesi.length === 0 ? (
+            <p className="text-metin-yumusak">
+              Yoklama, seçilmiş katılımcılar üzerinden alınır. Listede olmayan
+              konuşmacı ve destek verenler için belge, yoklamadan bağımsız
+              üretilir.
+            </p>
+          ) : (
+            <form action={yoklamaKaydetEylemi} className="space-y-4">
+              <input type="hidden" name="faaliyetId" value={faaliyet.id} />
+
+              <ul className="divide-y divide-cizgi">
+                {yoklamaListesi.map((satir) => (
+                  <li
+                    key={satir.id}
+                    className="flex flex-wrap items-center justify-between gap-3 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-metin">
+                        {satir.katilimci.ad} {satir.katilimci.soyad}
+                      </p>
+                      <p className="text-sm text-metin-yumusak">
+                        {[
+                          satir.katilimci.sinif ?? satir.katilimci.brans,
+                          satir.katilimci.kurum?.ad,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
+                      </p>
+                    </div>
+                    {/*
+                      ÜÇ SEÇENEK, İKİ DEĞİL: "işaretlenmedi" geçerli bir cevap
+                      ve varsayılan o. İki seçenek olsaydı formu açan herkes
+                      farkında olmadan bir beyanda bulunmuş olurdu.
+                    */}
+                    <div className="flex shrink-0 flex-wrap gap-3 text-sm">
+                      {(
+                        [
+                          ["evet", "Geldi"],
+                          ["hayir", "Gelmedi"],
+                          ["", "İşaretlenmedi"],
+                        ] as const
+                      ).map(([deger, etiket]) => (
+                        <label
+                          key={etiket}
+                          className="flex items-center gap-1.5 text-metin"
+                        >
+                          <input
+                            type="radio"
+                            name={`yoklama-${satir.id}`}
+                            value={deger}
+                            defaultChecked={
+                              satir.katildiMi === true
+                                ? deger === "evet"
+                                : satir.katildiMi === false
+                                  ? deger === "hayir"
+                                  : deger === ""
+                            }
+                            className="h-4 w-4 border-cizgi accent-[var(--renk-birincil)]"
+                          />
+                          {etiket}
+                        </label>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                  <UserCheck size={16} aria-hidden />
+                  Yoklamayı kaydet
+                </button>
+                <p className="text-sm text-metin-yumusak">
+                  Yalnızca &quot;geldi&quot; işaretlenenlerin GençTek
+                  Yolculuğu&apos;na bu etkinlik düşer ve belge yalnızca onlara
+                  üretilebilir.
+                </p>
+              </div>
+            </form>
+          )}
         </Kart>
       )}
 

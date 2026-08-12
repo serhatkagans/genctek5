@@ -351,6 +351,14 @@ Bildirim gereken olaylar:
 
 **Başvurusu açık etkinlikler şeritten çıktı ama Panelim'den çıkmadı:** aynı sayfadaki "Başvurusu açık etkinlik" ölçüm kartı ve kontenjan durumunu gösteren "Başvuruya açık etkinlikler" listesi yerinde. Şerit üçüncü kopyaydı.
 
+**Bildirim arşivi (12 Ağustos 2026).** İstek: *"Duyuru geliyor, uyarı görünüyor; okundu tıklandıktan sonra artık yok. Bir yerlerde olsun — eski duyurulara nereden ulaşılabilir?"*
+
+Panelim'deki bölüm yalnızca **okunmamışları** listeliyordu ve öyle kalıyor: orası bir yapılacak listesi, okunan satır oradan düşmeli. Eksik olan, düşen satırın gittiği yerdi — "okundu" düğmesi fiilen "sil" gibi çalışıyordu. `/panel/bildirimler` aynı kayıtları okunmuşuyla birlikte gösterir; süzgeci üç hâllidir (Tümü / Okunmamış / Okunmuş) ve **varsayılanı "Tümü"**, çünkü ekranın var oluş sebebi okunmuşları görebilmek.
+
+Yeni bir veri kaynağı ya da "duyuru" kavramı **açılmadı**: aynı `bildirim` tablosu, aynı okundu eylemi, aynı hedef bağlantısı. Menüde sekmesi yoktur; girişi Panelim'deki bölüm başlığı ve mesaj şeridinin ucundaki "Tümü" bağlantısıdır.
+
+**Okunmuşu okunmadıya çevirme yolu yoktur.** Bildirim tekrarını `bildirimGonder` okunmamış kayda bakarak engelliyor; geri çevirmek, aynı uyarının bir daha hiç düşmemesine yol açan bir kayıt yaratırdı. Ekranda okunmuş bildirimlerin saklama süresi de yazar (varsayılan 12 ay, sistem ayarından gelir) — liste bir gün kısaldığında sebebi bilinsin.
+
 ---
 
 ## 10. KVKK ve loglama
@@ -706,6 +714,34 @@ Liste iki kaynaktan beslenir ve arada bir **geçiş tarihi** vardır (`BELGE_TEM
 Belge **türü ayırt edilmez**: katılım belgesi de teşekkür belgesi de "bu kişi bu etkinlikte vardı" demektir. Teşekkür belgesi çoğunlukla konuşmacıya ya da destek verene yazılır; o da bir katılımdır.
 
 Tekil belge üretimi artık **katılımcı kimliğiyle** çalışır, serbest metin adla değil: ad adresten gelseydi kayıt "Ayşe Yılmaz" adına düşer, o adın hangi öğrenci olduğu belirsiz kalırdı. "Listede olmayan biri için" formu serbest metin almaya devam eder ve **kayıt tutmaz**.
+
+### Yoklama: katılımın doğrudan kanıtı (12 Ağustos 2026)
+
+İstek: *"Öğrenci bir etkinlik için başvuru yaptı, etkinliği oluşturan kişi onayladı, ancak etkinlik anında öğrenci etkinliğe gelmedi. GençTek Yolculuğum kısmında etkinliğe katıldı görünüyor otomatik olarak, ama gerçekte katılmadı; bunun kontrolünü nasıl sağlarız."* — ve: *"etkinlik raporu yazılmadan belge oluştur seçeneği olmamalı."*
+
+Belge, katılımın **dolaylı** kanıtıydı ve iki yönden eksikti: belge basılana kadar hiçbir şey söylemiyor, basıldığında da "listedeki herkese toplu belge" alışkanlığı gelmeyeni kapsıyordu. Artık doğrudan bir soru var.
+
+**Sıra: yoklama → rapor → belge → GençTek Yolculuğu.**
+
+| Adım | Kim | Nerede | Ön koşulu |
+|---|---|---|---|
+| Yoklama | Etkinliği yürüten kişi (`faaliyetRaporuYazabilirMi`) | Etkinlik sayfası · Yoklama kartı | Etkinlik bitmiş ve iptal değil |
+| Rapor | Aynı kişi | Etkinlik raporu ekranı | Etkinlik bitmiş |
+| Belge | Aynı kişi | Belgeler ekranı | **Rapor yazılmış** + kişi yoklamada **"geldi"** |
+
+**Yoklamanın üç hâli var:** `true` geldi · `false` gelmedi · `NULL` yoklama alınmadı. Üçüncüsü ayrı tutulur; "alınmadı" ile "gelmedi" aynı sayılsaydı yoklama almayan her etkinlik bütün katılımcılarının kazanılmış katılımını silerdi. Eski başvurular `NULL` kalır ve onlarda eski kural yürümeye devam eder.
+
+**Yoklama, dolaylı kanıtların ikisini de geçer:**
+
+- "geldi" → katılımdır, belge beklenmez.
+- "gelmedi" → katılım değildir, **belgesi olsa bile**. Yanlışlıkla toplu basılmış bir belge, gelmediği elle işaretlenmiş öğrenciyi katılmış gösteremez.
+- `NULL` → belge ve "geçiş öncesi seçilmiş olmak" kuralları yürür (yukarıdaki bölüm).
+
+**Belgenin iki ön koşulu sunucuda da sorulur** (`lib/belge/kapi.ts`), yalnızca ekranda değil: belge üretimi bir GET isteği ve adresi elle yazılabiliyor. Ekrandaki kapalı düğme nezakettir, engel değil.
+
+**Neden rapor belgeden önce:** belge dağıtılmış ama etkinliğin ne olduğu hiçbir yerde yazılı olmayan bir kayıt, sonradan kimsenin doğrulayamayacağı bir belgedir. Rapor bitmeden yazılamadığı için "belge yalnızca bitmiş etkinlikte üretilir" kuralı da kendiliğinden sağlanır.
+
+**Yoklamaya yalnızca SEÇİLMİŞ başvurular girer.** Yedekteki ya da reddedilmiş kişi katılımcı değildir; onun için "gelmedi" işareti bir şey söylemez. "Listede olmayan biri için" belgesi (konuşmacı, destek veren kurum) yoklamaya tabi değildir — o kişinin başvurusu da yoklaması da yoktur ve belgesi kimsenin profiline katılım düşürmez.
 
 ### Kazanım kayıtları
 

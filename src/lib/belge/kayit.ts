@@ -14,6 +14,14 @@ import type { FaaliyetBelgeTuru } from "@/generated/prisma/enums";
  * erişim kayıtları KVKK saklama süresiyle siliniyor.
  */
 
+/** Belge ekranlarının gördüğü katılımcı satırı. */
+export interface BelgeKatilimcisi {
+  katilimciId: number;
+  adSoyad: string;
+  /** Yoklama sonucu; `null` yoklama alınmadı (bkz. belge/kapi.ts). */
+  katildiMi: boolean | null;
+}
+
 /**
  * Faaliyetin SEÇİLMİŞ katılımcılarını kimlikleriyle getirir.
  *
@@ -21,15 +29,21 @@ import type { FaaliyetBelgeTuru } from "@/generated/prisma/enums";
  * istenen kimliğin gerçekten bu faaliyetin katılımcısı olduğunu DOĞRULAMAK.
  * İkisi tek sorgudan beslenir; ayrı sorgulasalardı doğrulamayı atlayan bir
  * çağıran ortaya çıkabilirdi.
+ *
+ * YOKLAMA BURADA SÜZÜLMEZ, taşınır: kimin belge alabileceğine saf kural karar
+ * veriyor (bkz. katilimciBelgeKapisi) ve ekranların gelmeyeni de göstermesi
+ * gerekiyor — "listede yok" ile "yoklamada gelmedi" farklı şeyler ve öğretmen
+ * ikincisini görebilmeli.
  */
-export async function secilmisKatilimcilariGetir(faaliyetId: number): Promise<
-  { katilimciId: number; adSoyad: string }[]
-> {
+export async function secilmisKatilimcilariGetir(
+  faaliyetId: number,
+): Promise<BelgeKatilimcisi[]> {
   const basvurular = await prisma.basvuru.findMany({
     where: { faaliyetId, durum: "SECILDI" },
     orderBy: { basvuruTarihi: "asc" },
     select: {
       katilimciId: true,
+      katildiMi: true,
       katilimci: { select: { ad: true, soyad: true } },
     },
   });
@@ -37,7 +51,17 @@ export async function secilmisKatilimcilariGetir(faaliyetId: number): Promise<
   return basvurular.map((basvuru) => ({
     katilimciId: basvuru.katilimciId,
     adSoyad: `${basvuru.katilimci.ad} ${basvuru.katilimci.soyad}`,
+    katildiMi: basvuru.katildiMi,
   }));
+}
+
+/** Etkinliğin raporu yazılmış mı — belge kapısının tek sorusu. */
+export async function faaliyetRaporuVarMi(faaliyetId: number): Promise<boolean> {
+  const rapor = await prisma.faaliyetRaporu.findUnique({
+    where: { faaliyetId },
+    select: { faaliyetId: true },
+  });
+  return rapor !== null;
 }
 
 /**

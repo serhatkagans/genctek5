@@ -1204,7 +1204,7 @@ export function KayitYonetimi({
  */
 const ARSIV_NOTLARI: Partial<Record<KazanimTipi, string>> = {
   GENCTEK_ETKINLIGI:
-    "Bu kayıt türü kapatıldı ve profilinizde görünmüyor. GençTek etkinliklerine katılımınız artık etkinlik sonunda adınıza belge üretildiğinde kendiliğinden düşüyor. Eski kayıtlarınız burada duruyor; isterseniz silebilirsiniz.",
+    "Bu kayıt türü kapatıldı ve profilinizde görünmüyor. GençTek etkinliklerine katılımınız artık etkinlik sonunda alınan yoklamadan (ve adınıza üretilen belgeden) kendiliğinden düşüyor. Eski kayıtlarınız burada duruyor; isterseniz silebilirsiniz.",
 };
 
 /**

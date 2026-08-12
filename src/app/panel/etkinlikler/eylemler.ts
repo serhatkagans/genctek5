@@ -49,6 +49,10 @@ import {
   baslangicOnayDurumu,
   degerlendirmeyeHazirMi,
 } from "@/lib/basvuru/il-disi";
+import {
+  yoklamaAlinabilirMi,
+  yoklamaDegeriCoz,
+} from "@/lib/belge/kapi";
 import { katilimBicimiGecerliMi } from "@/lib/kazanim/kurallar";
 import { gunBasi, gunSonu, yerelTarihSaat } from "@/lib/tarih";
 import {
@@ -60,6 +64,7 @@ import {
   ekYukleyebilirMi,
   faaliyetIptalEdebilirMi,
   faaliyetOnaylayabilirMi,
+  faaliyetRaporuYazabilirMi,
   koordinatorIlKodu,
   mezunMu,
   ogrenciMi,
@@ -1355,4 +1360,95 @@ export async function basvuruDegerlendirEylemi(veri: FormData): Promise<void> {
 
   revalidatePath(yol);
   redirect(`${yol}?durum=degerlendirildi`);
+}
+
+// ---------------------------------------------------------------------------
+// Yoklama
+// ---------------------------------------------------------------------------
+
+/**
+ * Etkinlik sonrası yoklamanın işaretlenmesi (12 Ağustos 2026).
+ *
+ * İSTEK: "öğrenci etkinliğe gelmedi ama GençTek Yolculuğum'da katıldı
+ * görünüyor, bunun kontrolünü nasıl sağlarız".
+ *
+ * FORMUN TAMAMI TEK SEFERDE yazılır, kişi başına ayrı düğme yoktur: yoklama
+ * listenin tamamı üzerinde verilen tek bir karardır ve satır satır kaydedilseydi
+ * yarım kalmış bir yoklama ile hiç alınmamış yoklama birbirinden ayırt
+ * edilemezdi. Formda karşılığı olmayan başvuru DEĞİŞMEZ — ekranda görünmeyen
+ * bir satırın işareti silinmemeli.
+ *
+ * YETKİ RAPORLA AYNI KAPI (`faaliyetRaporuYazabilirMi`): yoklama da rapor da
+ * "etkinliği yürüten kişinin etkinlik hakkındaki beyanı"dır ve ikisini farklı
+ * kişilere açmanın bir gerekçesi yok. Etkinliği açmamış il koordinatörü de
+ * işaretleyebilir; yürütücü görevden ayrıldığında yoklama alınamaz kalmamalı.
+ */
+export async function yoklamaKaydetEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const faaliyetId = sayi(veri, "faaliyetId");
+  if (faaliyetId === null) throw new BulunamadiHatasi();
+
+  const yol = `/panel/etkinlikler/${faaliyetId}`;
+
+  const faaliyet = await gorunurFaaliyetGetir(kullanici, faaliyetId);
+  if (!faaliyet) throw new BulunamadiHatasi();
+
+  if (!faaliyetRaporuYazabilirMi(kullanici, faaliyetKapsamiCikar(faaliyet))) {
+    throw new YetkiHatasi("Bu etkinliğin yoklamasını alma yetkiniz yok.");
+  }
+
+  const kapi = yoklamaAlinabilirMi({
+    bittiMi: (faaliyet.bitisTarihi ?? faaliyet.tarih) <= new Date(),
+    iptalMi: faaliyet.durum === "IPTAL_EDILDI",
+  });
+  if (!kapi.olurMu) hataylaDon(yol, kapi.neden ?? "Yoklama alınamaz.");
+
+  /*
+   * Yalnızca SEÇİLMİŞ başvurular yoklamaya girer: yedekteki ya da reddedilmiş
+   * kişi zaten katılımcı değil ve "gelmedi" işareti onun için bir şey
+   * söylemezdi.
+   */
+  const basvurular = await prisma.basvuru.findMany({
+    where: { faaliyetId, durum: "SECILDI" },
+    select: { id: true, katildiMi: true },
+  });
+
+  const simdi = new Date();
+  const sonuclar = basvurular.map((basvuru) => ({
+    id: basvuru.id,
+    onceki: basvuru.katildiMi,
+    yeni: yoklamaDegeriCoz(metin(veri, `yoklama-${basvuru.id}`) || null),
+  }));
+  const degisenler = sonuclar.filter((satir) => satir.yeni !== satir.onceki);
+
+  if (degisenler.length > 0) {
+    await prisma.$transaction(
+      degisenler.map((satir) =>
+        prisma.basvuru.update({
+          where: { id: satir.id },
+          data: {
+            katildiMi: satir.yeni,
+            // İşaret kaldırıldığında beyan sahibi de silinir: kimsenin
+            // beyanı olmayan bir yoklamada imza durmamalı.
+            yoklamaAlanKullaniciId: satir.yeni === null ? null : kullanici.id,
+            yoklamaTarihi: satir.yeni === null ? null : simdi,
+          },
+        }),
+      ),
+    );
+  }
+
+  const gelen = sonuclar.filter((satir) => satir.yeni === true).length;
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "FAALIYET",
+    hedefId: faaliyetId,
+    detay: `Yoklama alındı: ${gelen}/${basvurular.length} katılımcı geldi`,
+  });
+
+  revalidatePath(yol);
+  redirect(`${yol}?durum=yoklama-kaydedildi`);
 }

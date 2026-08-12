@@ -8,7 +8,11 @@ import {
   belgeMetniUret,
   belgeTuruMu,
 } from "@/lib/belge/kurallar";
-import { belgeUretiminiKaydet } from "@/lib/belge/kayit";
+import { belgeKapisi, katilimciBelgeKapisi } from "@/lib/belge/kapi";
+import {
+  belgeUretiminiKaydet,
+  faaliyetRaporuVarMi,
+} from "@/lib/belge/kayit";
 import { katilimciIdleriniCoz, topluAlicilariSec } from "@/lib/belge/toplu";
 import { prisma } from "@/lib/db";
 import {
@@ -61,19 +65,39 @@ export default async function TopluBelgeSayfasi({
 
   if (!tur || !belgeTuruMu(tur)) notFound();
 
+  /*
+   * RAPOR KAPISI (12 Ağustos 2026 · istek: "etkinlik raporu yazılmadan belge
+   * oluştur seçeneği olmamalı"). Toplu yol da tekil yol gibi bir GET isteği;
+   * kapı yalnızca ekranda sorulsaydı adresi elle yazan kişi raporsuz belge
+   * basmaya devam ederdi.
+   */
+  if (!belgeKapisi({ raporVarMi: await faaliyetRaporuVarMi(faaliyet.id) }).olurMu) {
+    notFound();
+  }
+
+  /*
+   * YOKLAMADA "GELDİ" İŞARETLİ OLMAYAN KİŞİ LİSTEYE HİÇ GİRMEZ. Toplu üretimin
+   * varsayılanı "kutu işaretlenmezse listedeki herkes" olduğu için, süzme
+   * seçimden ÖNCE yapılır: sonrasında yapılsaydı "hiçbiri işaretlenmedi" hâli
+   * gelmeyenleri de kapsar ve tam da şikâyet edilen sonuç (gelmeyen öğrencinin
+   * profiline katılım düşmesi) toplu düğmeden geri gelirdi.
+   */
   const basvurular = await prisma.basvuru.findMany({
     where: { faaliyetId: faaliyet.id, durum: "SECILDI" },
     select: {
       katilimciId: true,
+      katildiMi: true,
       katilimci: { select: { ad: true, soyad: true } },
     },
   });
 
   const secim = topluAlicilariSec(
-    basvurular.map((basvuru) => ({
-      katilimciId: basvuru.katilimciId,
-      adSoyad: `${basvuru.katilimci.ad} ${basvuru.katilimci.soyad}`,
-    })),
+    basvurular
+      .filter((basvuru) => katilimciBelgeKapisi(basvuru).olurMu)
+      .map((basvuru) => ({
+        katilimciId: basvuru.katilimciId,
+        adSoyad: `${basvuru.katilimci.ad} ${basvuru.katilimci.soyad}`,
+      })),
     katilimciIdleriniCoz(katilimci),
   );
 
@@ -89,9 +113,9 @@ export default async function TopluBelgeSayfasi({
   if (secim.durum !== "hazir") {
     const mesajlar = {
       katilimciYok: {
-        baslik: "Bu etkinliğe seçilmiş katılımcı yok",
+        baslik: "Belge üretilebilecek katılımcı yok",
         aciklama:
-          "Toplu belge üretebilmek için etkinliğe katılımcı seçilmiş olması gerekir.",
+          "Toplu belge, yoklamada “geldi” işaretlenmiş katılımcılara üretilir. Etkinlik sayfasındaki Yoklama bölümünden işaretleme yapın.",
       },
       eslesmeYok: {
         baslik: "Seçilen kişiler bu etkinliğin katılımcısı değil",

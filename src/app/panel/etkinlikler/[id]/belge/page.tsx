@@ -10,8 +10,10 @@ import {
   imzaBilgisiniCoz,
   imzaUnvaniOner,
 } from "@/lib/belge/kurallar";
+import { belgeKapisi, katilimciBelgeKapisi } from "@/lib/belge/kapi";
 import {
   belgeUretiminiKaydet,
+  faaliyetRaporuVarMi,
   secilmisKatilimcilariGetir,
 } from "@/lib/belge/kayit";
 import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
@@ -69,6 +71,24 @@ export default async function BelgeSayfasi({
 
   // Kimlik verildi ama katılımcı değil: adres elle kurcalanmış demektir.
   if (Number.isInteger(istenenKimlik) && !katilimci) notFound();
+
+  /*
+   * İKİ KAPI (12 Ağustos 2026), ekranda değil BURADA: belge üretimi bir GET
+   * isteği ve adresi elle yazılabiliyor. Ekrandaki kapalı düğme yalnızca
+   * nezaket; engelin kendisi bu satırlar.
+   *
+   *   · Rapor yazılmadan belge yok (istek: "etkinlik raporu yazılmadan belge
+   *     oluştur seçeneği olmamalı").
+   *   · Yoklamada "geldi" işaretlenmemiş katılımcıya belge yok — belge,
+   *     kişinin profiline katılım düşürüyor.
+   *
+   * Serbest metinle gelen alıcı (konuşmacı, destek veren) ikinci kapıya tabi
+   * değil: onun başvurusu da yoklaması da yok.
+   */
+  if (!belgeKapisi({ raporVarMi: await faaliyetRaporuVarMi(faaliyet.id) }).olurMu) {
+    notFound();
+  }
+  if (katilimci && !katilimciBelgeKapisi(katilimci).olurMu) notFound();
 
   const alici = aliciAdiniCoz(katilimci?.adSoyad ?? ad ?? "");
   if (!alici.olurMu) notFound();

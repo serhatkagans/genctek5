@@ -79,7 +79,15 @@ export async function katilimGecmisiGetir(
         durum: "SECILDI",
         faaliyet: faaliyetKosulu,
       },
-      select: { faaliyet: { select: faaliyetAlanlari } },
+      /*
+       * Yoklama başvuru satırında duruyor (12 Ağustos 2026): "geldi" katılımı
+       * doğrular, "gelmedi" belgesi olsa bile siler. Kararı katilimSayilirMi
+       * veriyor; buradaki iş yalnızca alanı taşımak.
+       */
+      select: {
+        katildiMi: true,
+        faaliyet: { select: faaliyetAlanlari },
+      },
     }),
     /*
      * Belge türü AYIRT EDİLMEZ: katılım belgesi de teşekkür belgesi de
@@ -104,13 +112,20 @@ export async function katilimGecmisiGetir(
       etkinlikKategorisi: EtkinlikKategorisi;
     },
     kaynak: "belge" | "secim",
+    katildiMi: boolean | null = null,
   ): void {
     const mevcut = adaylar.get(faaliyet.id);
     if (mevcut) {
       // Aynı faaliyet iki kaynaktan geldiyse işaretler BİRLEŞİR; ikinci kayıt
       // birincinin işaretini silmemeli.
       if (kaynak === "belge") mevcut.belgeVarMi = true;
-      else mevcut.secildiMi = true;
+      else {
+        mevcut.secildiMi = true;
+        // Yoklama YALNIZCA başvuru satırından gelir; belge kaydında böyle bir
+        // alan yok ve varsayılan null, belgeden gelen satırın işaretini
+        // silmemeli.
+        mevcut.katildiMi = katildiMi;
+      }
       return;
     }
     adaylar.set(faaliyet.id, {
@@ -121,20 +136,22 @@ export async function katilimGecmisiGetir(
       etkinlikKategorisi: faaliyet.etkinlikKategorisi,
       belgeVarMi: kaynak === "belge",
       secildiMi: kaynak === "secim",
+      katildiMi,
     });
   }
 
   for (const belge of belgeler) ekle(belge.faaliyet, "belge");
-  for (const basvuru of basvurular) ekle(basvuru.faaliyet, "secim");
+  for (const basvuru of basvurular)
+    ekle(basvuru.faaliyet, "secim", basvuru.katildiMi);
 
   /*
-   * `belgeVarMi` ve `secildiMi` özet ile rozet hesaplarına GİRMEZ: onların
-   * sorduğu şey "kaç etkinliğe katıldı", katılımın nereden doğduğu değil.
-   * Alanlar burada düşürülüyor ki aşağı katmanlar bu ayrımı taşımak zorunda
-   * kalmasın.
+   * `belgeVarMi`, `secildiMi` ve `katildiMi` özet ile rozet hesaplarına GİRMEZ:
+   * onların sorduğu şey "kaç etkinliğe katıldı", katılımın nereden doğduğu
+   * değil. Alanlar burada düşürülüyor ki aşağı katmanlar bu ayrımı taşımak
+   * zorunda kalmasın.
    */
   const katilimlar = katilimlariSuz([...adaylar.values()]).map(
-    ({ belgeVarMi: _b, secildiMi: _s, ...katilim }) => katilim,
+    ({ belgeVarMi: _b, secildiMi: _s, katildiMi: _k, ...katilim }) => katilim,
   );
 
   return { ozet: katilimOzeti(katilimlar), katilimlar };

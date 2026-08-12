@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BilgiKutusu, Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { belgeKapisi } from "@/lib/belge/kapi";
 import { tarihYaz } from "@/lib/tarih";
 import {
   danismanMi,
@@ -25,9 +26,14 @@ export const dynamic = "force-dynamic";
  * faaliyetler, koordinatörsen ilindekiler, merkezsen hepsi. Ayrı bir filtre
  * yazmak, aynı sorunun iki cevabını doğururdu.
  *
- * BİTMİŞ olma koşulu YOK: rapor bitişten sonra yazılır ama belge etkinliğin
- * hemen ardından, hatta aynı gün verilebilir. Yine de bitmişler üstte
- * listeleniyor çünkü belge ihtiyacı orada doğuyor.
+ * RAPOR ARTIK ÖN KOŞUL (12 Ağustos 2026 · istek: "etkinlik raporu yazılmadan
+ * belge oluştur seçeneği olmamalı"). Ekran raporsuz etkinliği GİZLEMİYOR, ayrı
+ * bir başlıkta ve rapor bağlantısıyla gösteriyor: gizleseydi öğretmen aradığı
+ * etkinliği listede bulamaz ve sebebini de öğrenemezdi.
+ *
+ * Eski not — "bitmiş olma koşulu yok, belge aynı gün de verilebilir" — artık
+ * kendiliğinden sağlanıyor: rapor bitmeden yazılamadığı için belge de
+ * bitmeden üretilemiyor.
  */
 export default async function BelgelerGirisSayfasi() {
   const kullanici = await oturumKullanicisiZorunlu();
@@ -62,14 +68,24 @@ export default async function BelgelerGirisSayfasi() {
       bitisTarihi: true,
       kurum: { select: { ad: true } },
       il: { select: { ad: true } },
+      // Rapor kaydının VARLIĞI soruluyor, metni değil: kapının tek sorusu bu
+      // (bkz. lib/belge/kapi.ts · belgeKapisi).
+      rapor: { select: { faaliyetId: true } },
       _count: { select: { basvurular: true } },
     },
   });
 
   const bitmisMi = (f: (typeof faaliyetler)[number]) =>
     (f.bitisTarihi ?? f.tarih) <= simdi;
-  const bitenler = faaliyetler.filter(bitmisMi);
-  const yaklasanlar = faaliyetler.filter((f) => !bitmisMi(f));
+  const raporluMu = (f: (typeof faaliyetler)[number]) =>
+    belgeKapisi({ raporVarMi: f.rapor !== null }).olurMu;
+
+  const hazirlar = faaliyetler.filter(raporluMu);
+  // Raporsuzlar arasında yalnızca BİTENLER gösteriliyor: bitmemiş etkinliğin
+  // raporu zaten yazılamaz, listede durması "eksik iş" gibi okunurdu.
+  const raporBekleyenler = faaliyetler.filter(
+    (f) => !raporluMu(f) && bitmisMi(f),
+  );
 
   const satir = (f: (typeof faaliyetler)[number]) => (
     <li
@@ -78,7 +94,11 @@ export default async function BelgelerGirisSayfasi() {
     >
       <div className="min-w-0">
         <Link
-          href={`/panel/etkinlikler/${f.id}/belgeler`}
+          href={
+            raporluMu(f)
+              ? `/panel/etkinlikler/${f.id}/belgeler`
+              : `/panel/etkinlikler/${f.id}/rapor`
+          }
           className="font-medium text-vurgu-metin underline underline-offset-2"
         >
           {f.ad}
@@ -87,6 +107,7 @@ export default async function BelgelerGirisSayfasi() {
           {f.kurum?.ad ?? f.il?.ad ?? "Ülke geneli"}
           {" · "}
           {f._count.basvurular} başvuru
+          {raporluMu(f) ? "" : " · raporu yazılmadı"}
         </p>
       </div>
       <span className="text-sm text-metin-yumusak">
@@ -103,6 +124,9 @@ export default async function BelgelerGirisSayfasi() {
       />
 
       <BilgiKutusu cesit="uyari">
+        Belge, kişinin GençTek Yolculuğu&apos;na katılım düşürür. Bu yüzden iki
+        ön koşulu var: etkinliğin <strong>raporu yazılmış</strong> olmalı ve
+        kişi <strong>yoklamada &quot;geldi&quot;</strong> işaretlenmiş olmalı.
         Belgeler resmî şablon üzerine basılır ve tarayıcının{" "}
         <strong>Yazdır → PDF olarak kaydet</strong> akışıyla indirilir. Kimin
         kime belge ürettiği erişim kayıtlarına yazılır.
@@ -117,26 +141,29 @@ export default async function BelgelerGirisSayfasi() {
         <>
           <Kart>
             <KartBasligi
-              baslik="Biten etkinlikler"
-              aciklama="Belge ihtiyacı çoğunlukla burada doğar."
+              baslik="Belge üretilebilir etkinlikler"
+              aciklama="Raporu yazılmış etkinlikler."
               Ikon={Award}
             />
-            {bitenler.length === 0 ? (
-              <p className="text-metin-yumusak">Bitmiş etkinlik yok.</p>
+            {hazirlar.length === 0 ? (
+              <p className="text-metin-yumusak">
+                Raporu yazılmış etkinlik yok. Belge üretebilmek için önce
+                etkinliğin raporunu yazın.
+              </p>
             ) : (
-              <ul className="divide-y divide-cizgi">{bitenler.map(satir)}</ul>
+              <ul className="divide-y divide-cizgi">{hazirlar.map(satir)}</ul>
             )}
           </Kart>
 
-          {yaklasanlar.length > 0 && (
+          {raporBekleyenler.length > 0 && (
             <Kart>
               <KartBasligi
-                baslik="Süren ve yaklaşan etkinlikler"
-                aciklama="Belge etkinliğin hemen ardından da verilebilir."
+                baslik="Raporu bekleyen etkinlikler"
+                aciklama="Bitmiş ama raporu yazılmamış; belge üretilemez. Ad, doğrudan rapor ekranına gider."
                 Ikon={CalendarCheck}
               />
               <ul className="divide-y divide-cizgi">
-                {yaklasanlar.map(satir)}
+                {raporBekleyenler.map(satir)}
               </ul>
             </Kart>
           )}

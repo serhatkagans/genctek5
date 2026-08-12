@@ -273,7 +273,8 @@ export function KatkiKarti({
               adet={katilim.katilimlar.length}
             />
             <p className="mt-1 text-sm text-metin-yumusak">
-              Etkinlik sonunda adına belge üretildiğinde kendiliğinden düşer.
+              Etkinlik sonunda yoklamada &quot;geldi&quot; işaretlendiğinde ya da
+              adına belge üretildiğinde kendiliğinden düşer.
             </p>
             <div className="mt-2">
               <KatildigiEtkinlikler kazanim={katilim} />

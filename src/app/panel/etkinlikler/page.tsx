@@ -59,7 +59,6 @@ import { tarihYaz } from "@/lib/tarih";
 import {
   basvuruYapabilirMi,
   danismanMi,
-  disKullaniciMi,
   faaliyetDisaAktarabilirMi,
   ilKoordinatoruMu,
   ogrenciMi,
@@ -781,16 +780,16 @@ export default async function FaaliyetlerSayfasi({
         */}
         <div className="flex flex-wrap items-center gap-3">
           {/*
-            DÜĞMENİN ADI ROLE GÖRE (7 Ağustos 2026 · istek: dış kullanıcı
-            sekmesinde "Etkinlik Bildir · Görüntüle"). Mezun/paydaş/mentör bir
-            koordinatörlük adına etkinlik AÇMIYOR, yapacağı işi BİLDİRİYOR ve
-            bildirimi onaya düşüyor; "Yeni etkinlik" demek yetkisini olduğundan
-            geniş gösterirdi.
+            DÜĞMENİN ADI HERKESTE AYNI (12 Ağustos 2026 · istek: "mentör/paydaş
+            girişinde de MEB kullanıcılarındaki gibi 'Yeni etkinlik' yazsın").
+            7 Ağustos'ta dış kullanıcıya "Etkinlik bildir" yazılmıştı; bildirimin
+            onaya düştüğünü zaten kapsam uyarıları anlatıyor, düğmenin role göre
+            ad değiştirmesi aynı işi iki adla gösteriyordu.
           */}
           {acabilir && (
             <Link href="/panel/etkinlikler/yeni" className={SINIF_KIRMIZI_BUTON}>
               <Plus size={16} aria-hidden />
-              {disKullaniciMi(kullanici) ? "Etkinlik bildir" : "Yeni etkinlik"}
+              Yeni etkinlik
             </Link>
           )}
           {/*

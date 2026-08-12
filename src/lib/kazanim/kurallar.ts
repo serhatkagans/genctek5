@@ -561,7 +561,7 @@ export function kazanimKabulEdilirMi(girdi: KazanimGirdisi): KazanimKarari {
     return {
       olurMu: false,
       neden:
-        "Bu kayıt türü kapatıldı. GençTek etkinliklerine katılımınız, etkinlik sonunda adınıza belge üretildiğinde profilinize kendiliğinden düşer.",
+        "Bu kayıt türü kapatıldı. GençTek etkinliklerine katılımınız, etkinlik sonunda alınan yoklamadan profilinize kendiliğinden düşer.",
     };
   }
   const tanim = kazanimTipiTanimi(girdi.tip);

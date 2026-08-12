@@ -29,6 +29,7 @@ function aday(ozellikler: Partial<KatilimAdayi> = {}): KatilimAdayi {
     etkinlikKategorisi: "TEMEL_ETKINLIK",
     belgeVarMi: false,
     secildiMi: false,
+    katildiMi: null,
     ...ozellikler,
   };
 }
@@ -67,6 +68,51 @@ describe("katılım sayılır mı", () => {
 
   it("ne belgesi ne seçimi olanı saymaz", () => {
     expect(katilimSayilirMi(aday({ tarih: ONCE }))).toBe(false);
+  });
+
+  /*
+   * 12 AĞUSTOS 2026 · istek: "öğrenci etkinliğe gelmedi ama GençTek
+   * Yolculuğum'da katıldı görünüyor". Yoklama, dolaylı kanıtların ikisini de
+   * geçer — yönü ne olursa olsun.
+   */
+  describe("yoklama", () => {
+    it("geldi işaretliyse belge beklenmeden sayar", () => {
+      expect(
+        katilimSayilirMi(
+          aday({ katildiMi: true, belgeVarMi: false, tarih: SONRA }),
+        ),
+      ).toBe(true);
+    });
+
+    it("gelmedi işaretliyse belgesi olsa bile saymaz", () => {
+      /*
+       * Toplu belge, listedeki herkese basılabiliyor. Yoklamada gelmediği
+       * işaretlenmiş öğrenciyi yanlışlıkla basılmış bir belge katılmış
+       * gösteremez — bu, kuralın en önemli yönü.
+       */
+      expect(katilimSayilirMi(aday({ katildiMi: false, belgeVarMi: true }))).toBe(
+        false,
+      );
+    });
+
+    it("gelmedi işaretliyse geçiş öncesi seçim de saymaz", () => {
+      expect(
+        katilimSayilirMi(
+          aday({ katildiMi: false, secildiMi: true, tarih: ONCE }),
+        ),
+      ).toBe(false);
+    });
+
+    it("yoklama alınmamışsa eski kanıtlar yürür", () => {
+      // NULL, "gelmedi" değildir: yoklama almayan etkinlik kimsenin
+      // kazanılmış katılımını silmemeli.
+      expect(
+        katilimSayilirMi(aday({ katildiMi: null, secildiMi: true, tarih: ONCE })),
+      ).toBe(true);
+      expect(
+        katilimSayilirMi(aday({ katildiMi: null, belgeVarMi: true })),
+      ).toBe(true);
+    });
   });
 });
 

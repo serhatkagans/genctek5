@@ -3,6 +3,7 @@ import {
   illeriSuz,
   ilSiralamasiCoz,
   ozetToplami,
+  yonetimYolIzi,
 } from "@/lib/rapor/yonetim-kurallari";
 import {
   mentorlukBasvurabilirMi,
@@ -360,6 +361,48 @@ describe("kart uyarıları", () => {
       "2 okulda koordinatör yok",
       "7 öğrencinin danışmanı yok",
       "1 etkinliğin raporu eksik",
+    ]);
+  });
+});
+
+describe("envanter ekranlarının yol izi", () => {
+  /*
+   * 12 AĞUSTOS 2026 · istek: "ilçe seçince üstte yol izi çıkıyor ama oradan
+   * öğrencilere/öğretmenlere gidince kayboluyor, geri dönmek için tarayıcının
+   * geri düğmesi gerekiyor". Şeridin ilk basamağı bu yüzden her hâlükârda
+   * panodur: bu ekranların menüde sekmesi yok.
+   */
+  it("süzgeç boşken bile panoya dönüş basamağı vardır", () => {
+    expect(yonetimYolIzi("Öğrenciler")).toEqual([
+      { etiket: "Yönetim Paneli", yol: "/panel/yonetim" },
+      { etiket: "Öğrenciler" },
+    ]);
+  });
+
+  it("okul süzgecinde il ve ilçe basamakları kırılımın ekranlarına bağlanır", () => {
+    expect(
+      yonetimYolIzi("Öğretmenler", {
+        il: { ilKodu: "01", ad: "Adana" },
+        ilce: { ilceKodu: "0101", ad: "Yıldırım" },
+        okul: { ad: "Şehit Er Lisesi" },
+      }),
+    ).toEqual([
+      { etiket: "Yönetim Paneli", yol: "/panel/yonetim" },
+      { etiket: "Adana", yol: "/panel/yonetim/il/01" },
+      { etiket: "Yıldırım", yol: "/panel/yonetim/ilce/0101" },
+      // Okulun panoda kendi ekranı yok; adı yazılır ama bir yere gitmez.
+      { etiket: "Şehit Er Lisesi" },
+      { etiket: "Öğretmenler" },
+    ]);
+  });
+
+  it("yalnızca il süzülmüşse ilçe basamağı yazılmaz", () => {
+    expect(
+      yonetimYolIzi("Öğrenciler", { il: { ilKodu: "06", ad: "Ankara" } }),
+    ).toEqual([
+      { etiket: "Yönetim Paneli", yol: "/panel/yonetim" },
+      { etiket: "Ankara", yol: "/panel/yonetim/il/06" },
+      { etiket: "Öğrenciler" },
     ]);
   });
 });

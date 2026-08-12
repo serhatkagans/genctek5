@@ -204,3 +204,66 @@ export function birimUyarilari(satir: {
 
   return uyarilar;
 }
+
+/** Yol izindeki tek basamak; `yol` yoksa bulunulan sayfadır (bkz. YolIzi). */
+export interface YonetimAdimi {
+  etiket: string;
+  yol?: string;
+}
+
+/** Yol izinin işaret ettiği yer — hangi basamağa kadar inildiği. */
+export interface YonetimYeri {
+  il?: { ilKodu: string; ad: string } | null;
+  ilce?: { ilceKodu: string; ad: string } | null;
+  /** Okulun panoda kendi ekranı yoktur; yalnızca ad olarak yazılır. */
+  okul?: { ad: string } | null;
+}
+
+/**
+ * Envanter ekranlarının (Öğrenciler / Öğretmenler) yol izi.
+ *
+ * 12 AĞUSTOS 2026 · istek: "panoda il, sonra ilçe seçince yol izi çıkıyor ama
+ * oradan öğrencilere ya da öğretmenlere geçince kayboluyor; geri dönmek için
+ * tarayıcının geri düğmesine basmak gerekiyor".
+ *
+ * Envanterler pano kartlarından ve ilçe ekranındaki okul kartlarından açılıyor;
+ * il koordinatörü ile merkezin menüsünde bu ekranların sekmesi YOK, tek kapı
+ * pano (bkz. app/panel/layout.tsx). Dolayısıyla ekranın üstündeki bu şerit
+ * süsleme değil, geri dönüş yolunun kendisi.
+ *
+ * BASAMAKLAR SÜZGEÇTEN TÜRETİLİR, "nereden gelindi" bilgisinden değil: adres
+ * çubuğundaki il/ilçe/okul zaten kırılımın hangi basamağında olunduğunu
+ * söylüyor. Ayrı bir "kaynak" parametresi taşınsaydı süzgeç elle değiştirildiği
+ * anda şerit ekrandaki listeyle çelişirdi.
+ *
+ * Kapsam kontrolü BURADA YAPILMAZ: hangi ilin basamaklarının yazılabileceğine
+ * çağıran ekran karar verir (bkz. yonetimPanosuIlErisimi) — bu dosya prisma'ya
+ * da yetkiye de dokunmaz.
+ */
+export function yonetimYolIzi(
+  sonAdim: string,
+  yer: YonetimYeri = {},
+): YonetimAdimi[] {
+  const adimlar: YonetimAdimi[] = [
+    { etiket: "Yönetim Paneli", yol: "/panel/yonetim" },
+  ];
+
+  if (yer.il) {
+    adimlar.push({
+      etiket: yer.il.ad,
+      yol: `/panel/yonetim/il/${yer.il.ilKodu}`,
+    });
+  }
+  if (yer.ilce) {
+    adimlar.push({
+      etiket: yer.ilce.ad,
+      yol: `/panel/yonetim/ilce/${yer.ilce.ilceKodu}`,
+    });
+  }
+  if (yer.okul) {
+    adimlar.push({ etiket: yer.okul.ad });
+  }
+
+  adimlar.push({ etiket: sonAdim });
+  return adimlar;
+}

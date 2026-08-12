@@ -16,6 +16,23 @@ import type { EtkinlikKategorisi, Kapsam } from "@/generated/prisma/enums";
  * katıldığı etkinlik düşecek". Belge üretimi, etkinliği yürüten öğretmenin
  * "bu kişi gerçekten katıldı" beyanıdır — seçilmiş olmaktan daha güçlü bir
  * kanıt.
+ *
+ * ---------------------------------------------------------------------------
+ * YOKLAMA (12 Ağustos 2026 · istek: "öğrenci etkinliğe gelmedi ama GençTek
+ * Yolculuğum'da katıldı görünüyor, bunun kontrolünü nasıl sağlarız")
+ * ---------------------------------------------------------------------------
+ * Belge, katılımın DOLAYLI kanıtıydı ve iki yönden de eksik kalıyordu: belge
+ * basılana kadar hiçbir şey söylemiyor, basıldığında da "listedeki herkese
+ * toplu belge" alışkanlığı gelmeyeni de kapsıyordu. Artık doğrudan bir soru
+ * var: etkinlik bitince yürütücü listedeki her kişi için "geldi / gelmedi"
+ * işaretliyor.
+ *
+ * YOKLAMA HER ŞEYİN ÜSTÜNDEDİR, iki yönde de:
+ *   · "geldi" → katılımdır (belge basılmamış olsa bile).
+ *   · "gelmedi" → katılım DEĞİLDİR; belge basılmış olsa bile sayılmaz.
+ * İkincisi bilinçli: yanlışlıkla toplu basılmış bir belge, gelmediği elle
+ * işaretlenmiş bir öğrenciyi katılmış gösteremez. Belgenin kendisi de artık
+ * yalnızca "geldi" işaretlilere üretilebiliyor (bkz. lib/belge/kapi.ts).
  */
 
 /**
@@ -51,19 +68,32 @@ export interface KatilimAdayi {
   belgeVarMi: boolean;
   /** Başvurusu SEÇİLDİ durumunda mı? */
   secildiMi: boolean;
+  /**
+   * Yoklama sonucu: `true` geldi, `false` gelmedi, `null` yoklama alınmadı.
+   *
+   * Üçüncü hâl ayrı tutulur; "alınmadı" ile "gelmedi" aynı şey olsaydı yoklama
+   * almayan her etkinlik bütün katılımcılarını silerdi.
+   */
+  katildiMi: boolean | null;
 }
 
 /**
  * Tek bir etkinliğin katılım sayılıp sayılmayacağı.
  *
- * Belge her zaman yeter ve geçiş tarihine BAKMAZ: eski bir etkinlik için
- * bugün belge üretilirse o da katılımdır. Sınır yalnızca "belgesi olmayan
- * ama seçilmiş" durumu için işler.
+ * SIRA ÖNEMLİ:
+ *   1. Yoklamada "gelmedi" işaretlenmişse hiçbir kanıt bunu geçemez.
+ *   2. Yoklamada "geldi" işaretlenmişse yeter — belge beklenmez.
+ *   3. Yoklama alınmamışsa eski kanıtlar yürür: belge her zaman yeter ve geçiş
+ *      tarihine BAKMAZ (eski bir etkinlik için bugün belge üretilirse o da
+ *      katılımdır); "belgesi yok ama seçilmiş" hâli yalnızca geçiş tarihinden
+ *      önceki etkinliklerde sayılır.
  */
 export function katilimSayilirMi(
-  aday: Pick<KatilimAdayi, "tarih" | "belgeVarMi" | "secildiMi">,
+  aday: Pick<KatilimAdayi, "tarih" | "belgeVarMi" | "secildiMi" | "katildiMi">,
   baslangic: Date = BELGE_TEMELLI_KATILIM_BASLANGICI,
 ): boolean {
+  if (aday.katildiMi === false) return false;
+  if (aday.katildiMi === true) return true;
   if (aday.belgeVarMi) return true;
   return aday.secildiMi && aday.tarih < baslangic;
 }

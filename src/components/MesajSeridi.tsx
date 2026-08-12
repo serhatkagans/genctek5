@@ -90,6 +90,18 @@ export function MesajSeridi({
             {seritIcerigi(true)}
           </div>
         </div>
+        {/*
+          ARŞİV BAĞLANTISI (12 Ağustos 2026 · istek: "okundu tıklandıktan sonra
+          artık yok, eski duyurulara nereden ulaşılabilir"). Şerit akıp geçen
+          bir uyarı; okuduktan sonra nereye bakılacağını da söylemesi gerekiyor.
+          Akışın DIŞINDA duruyor: akan bir bağlantıya tıklamak zordur.
+        */}
+        <Link
+          href="/panel/bildirimler"
+          className="shrink-0 text-sm font-medium text-uyari-metin underline underline-offset-2"
+        >
+          Tümü
+        </Link>
       </div>
     </section>
   );

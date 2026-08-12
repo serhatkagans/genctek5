@@ -1,4 +1,5 @@
 import { prisma } from "../db";
+import type { KatkiSayilari } from "./katki-ozeti";
 import type {
   OgretmenKatkiFaaliyeti,
   OgretmenKatkiGorevi,
@@ -68,4 +69,32 @@ export async function ogretmenKatkiVerisiGetir(
   ]);
 
   return { gorevler, aktifDanismanlik, faaliyetler };
+}
+
+/**
+ * Panelim'deki katkı kartının SAYILARI (12 Ağustos 2026).
+ *
+ * `ogretmenKatkiVerisiGetir` ile aynı ölçütler ama satırları değil sayıları
+ * çeker: panel kartında listelere hiç dokunulmuyor, üç kayıt kümesinin tamamını
+ * belleğe almak boşuna iş olurdu. Ölçütlerin ikinci kez yazılması bilinçli bir
+ * bedel — ayrışmasınlar diye ikisi yan yana duruyor ve aynı yorumları paylaşıyor:
+ * reddedilen faaliyet sayılmaz, biten görev sayılır, danışmanlık yalnızca aktif.
+ */
+export async function ogretmenKatkiSayilariGetir(
+  ogretmenId: number,
+): Promise<KatkiSayilari> {
+  const [gorev, aktifDanismanlik, faaliyet] = await Promise.all([
+    prisma.kullaniciRol.count({ where: { kullaniciId: ogretmenId } }),
+    prisma.danismanAtama.count({
+      where: { danismanKullaniciId: ogretmenId, bitisTarihi: null },
+    }),
+    prisma.faaliyet.count({
+      where: {
+        duzenleyenKullaniciId: ogretmenId,
+        onayDurumu: { not: "REDDEDILDI" },
+      },
+    }),
+  ]);
+
+  return { gorev, aktifDanismanlik, faaliyet };
 }

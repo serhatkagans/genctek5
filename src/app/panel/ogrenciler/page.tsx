@@ -19,16 +19,15 @@ import {
   SINIF_BIRINCIL_BUTON,
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
+import { YolIzi } from "@/components/YonetimKartlari";
+import { envanterYolIzi } from "../envanter-yolu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
   gorevRoluAtaEylemi,
   gorevRoluKaldirEylemi,
 } from "@/app/panel/gorev-rolleri/eylemler";
 import { danismanligiBirakEylemi } from "./[id]/eylemler";
-import {
-  danismanlikIsaretiEylemi,
-  ogrenciyiDanismanligaAlEylemi,
-} from "./eylemler";
+import { ogrenciyiDanismanligaAlEylemi } from "./eylemler";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import { prisma } from "@/lib/db";
 import {
@@ -431,6 +430,17 @@ export default async function OgrencilerSayfasi({
 
   const yerFiltresiVar = iller.length > 0 || okullar.length > 0;
 
+  /*
+   * YOL İZİ — bu ekranın panoya dönüş yolu (12 Ağustos 2026 · istek: "ilçeden
+   * öğrencilere geçince navigasyon kayboluyor, tarayıcının geri düğmesine
+   * basmak gerekiyor"). Ayrıntı için bkz. yonetim-kurallari.ts · yonetimYolIzi.
+   */
+  const yolIziAdimlari = await envanterYolIzi(
+    kullanici,
+    "Öğrenciler",
+    filtreler,
+  );
+
   const disaAktarmaSorgusu = sorguMetni(parametreler, ["sayfa"]);
   const disaAktarmaBaglantisi = disaAktarmaSorgusu
     ? `/panel/ogrenciler/disa-aktar?${disaAktarmaSorgusu}`
@@ -438,6 +448,8 @@ export default async function OgrencilerSayfasi({
 
   return (
     <div className="space-y-6">
+      {yolIziAdimlari && <YolIzi adimlar={yolIziAdimlari} />}
+
       <SayfaBasligi
         baslik="Öğrenciler"
         aciklama={
@@ -509,26 +521,23 @@ export default async function OgrencilerSayfasi({
             yürüyor. Kalkan şey, öğretmenin tek tıkla kendi görevini
             bırakmasıydı.
           */}
-          {danismanMi(kullanici) ? (
-            <>
-              <p className="inline-flex items-center gap-2 rounded-full bg-olumlu-zemin px-3 py-1 text-sm font-medium text-olumlu-metin">
-                <BadgeCheck size={15} aria-hidden />
-                Danışman öğretmen olarak görev alıyorsunuz.
-              </p>
-              <p className="mt-3 text-sm text-metin-yumusak">
-                Öğrencilerinizi aşağıdaki &quot;Danışmanlığımdaki
-                öğrenciler&quot; bölümünden tek tek bırakabilirsiniz.
-              </p>
-            </>
-          ) : (
-            <form action={danismanlikIsaretiEylemi}>
-              <input type="hidden" name="gorevAlmakIstiyor" value="evet" />
-              <input type="hidden" name="donusYolu" value={donusYolu} />
-              <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-                GençTek danışman öğretmeni olarak görev almak istiyorum
-              </button>
-            </form>
-          )}
+          {/*
+            GÖREV ALMA FORMU BURADAN KALKTI, PANELİM'E DÖNDÜ (12 Ağustos 2026).
+            11 Ağustos'ta bu ekranın kapısı daraldı (bkz.
+            ogrenciEnvanteriGorebilirMi): görev almamış öğretmen artık burayı
+            açamıyor, yani formun basılabileceği tek durum kalmamıştı —
+            buraya gelen herkes zaten danışman. Kart, o kişiye görevinin
+            durduğunu söylemek için duruyor; işaretin kendisi Panelim'deki
+            sarı şeritte.
+          */}
+          <p className="inline-flex items-center gap-2 rounded-full bg-olumlu-zemin px-3 py-1 text-sm font-medium text-olumlu-metin">
+            <BadgeCheck size={15} aria-hidden />
+            Danışman öğretmen olarak görev alıyorsunuz.
+          </p>
+          <p className="mt-3 text-sm text-metin-yumusak">
+            Öğrencilerinizi aşağıdaki &quot;Danışmanlığımdaki öğrenciler&quot;
+            bölümünden tek tek bırakabilirsiniz.
+          </p>
         </Kart>
       )}
 

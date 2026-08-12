@@ -11,6 +11,11 @@ import { BulunamadiHatasi } from "@/lib/yetki/tipler";
  * Bildirim tekrarını `bildirimGonder` okunmamış kayda bakarak engelliyor; okuma
  * imkânı olmazsa aynı uyarı bir daha hiç düşmez ve panel de kalıcı olarak dolu
  * kalır. Bu yüzden okuma, bildirim akışının isteğe bağlı değil zorunlu parçası.
+ *
+ * İKİ EKRAN TAZELENİR (12 Ağustos 2026): Panelim'in okunmamış bölümü ve
+ * bildirim arşivi (`/panel/bildirimler`) aynı kaydı gösteriyor. Yalnızca biri
+ * tazelenseydi, birinden okundu işaretlenen bildirim öbüründe okunmamış
+ * görünmeye devam ederdi.
  */
 
 export async function bildirimOkunduEylemi(veri: FormData): Promise<void> {
@@ -27,6 +32,7 @@ export async function bildirimOkunduEylemi(veri: FormData): Promise<void> {
   if (sonuc.count === 0) throw new BulunamadiHatasi();
 
   revalidatePath("/panel");
+  revalidatePath("/panel/bildirimler");
 }
 
 export async function tumBildirimleriOkuEylemi(): Promise<void> {
@@ -38,4 +44,5 @@ export async function tumBildirimleriOkuEylemi(): Promise<void> {
   });
 
   revalidatePath("/panel");
+  revalidatePath("/panel/bildirimler");
 }

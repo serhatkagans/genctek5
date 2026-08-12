@@ -76,6 +76,8 @@ import {
 } from "./profil/hedef-eylemleri";
 import { profilFotoSinirlariniGetir } from "@/lib/kullanici/profil-foto";
 import { mentorluguGetir } from "@/lib/mentor/veri";
+import { ogretmenKatkiSayilariGetir } from "@/lib/ogretmen/katki";
+import { katkiKartiMetni } from "@/lib/ogretmen/katki-ozeti";
 import {
   mentorlukBasvurEylemi,
   mentorluguBirakEylemi,
@@ -125,6 +127,7 @@ import {
   ogrenciKapsamFiltresi,
 } from "@/lib/yetki/kapsam";
 import { bildirimOkunduEylemi, tumBildirimleriOkuEylemi } from "./eylemler";
+import { danismanlikIsaretiEylemi } from "./ogrenciler/eylemler";
 
 export const dynamic = "force-dynamic";
 
@@ -665,14 +668,31 @@ export default async function PanelSayfasi({
   });
 
   /*
-   * Öğretmenin (ve katılımcı olabilen koordinatörün) tamamlanmış katılımları.
-   * Öğrencide aynı liste Katkılarım ekranında; öğretmene Panelim'de de
-   * gösteriliyor çünkü "daha önce katıldığım etkinlikler" ana sayfada
-   * aranır — menüdeki Katkılarım'a kadar gitmek gereksiz adım olurdu.
+   * Katılımcı olabilen herkesin tamamlanmış katılımları — ÖĞRENCİ DAHİL
+   * (12 Ağustos 2026 · istek: "öğrencinin panel sayfasındaki kartlara katıldığı
+   * etkinlik sayısını da yazalım").
+   *
+   * Öğrenci daha önce dışarıdaydı: listenin tamamı zaten profilindeki katkı
+   * kartında duruyor. Ama sayı ile liste aynı şey değil — öğrencinin panelinde
+   * danışmanı, çalışma grubu ve başvuru sayısı varken katıldığı etkinlik
+   * sayısının olmaması, üç kartın anlattığı hikâyeyi yarım bırakıyordu:
+   * "başvurdum" var, "katıldım" yoktu.
+   *
+   * Sorgu tek yerden geliyor (katilimGecmisiGetir), yani sayı profildeki
+   * listeyle aynı kuraldan doğuyor; ayrı sayılsaydı ikisi ayrışabilirdi.
    */
-  const katilimGecmisi =
-    !ogrenciMi(kullanici) && basvuruYapabilirMi(kullanici)
-      ? await katilimGecmisiGetir(kullanici.id, simdi)
+  const katilimGecmisi = basvuruYapabilirMi(kullanici)
+    ? await katilimGecmisiGetir(kullanici.id, simdi)
+    : null;
+
+  /*
+   * Katkı kartının özeti — yalnızca kartı BASILAN rollerde sorulur (danışman
+   * öğretmen ve il koordinatörü). Herkese sorulsaydı öğrencinin ve merkezin
+   * panelinde hiç kullanılmayan üç sayım daha açılırdı.
+   */
+  const katkiOzeti =
+    danismanMi(kullanici) || ilKoordinatoruMu(kullanici)
+      ? katkiKartiMetni(await ogretmenKatkiSayilariGetir(kullanici.id))
       : null;
 
   const rolsuzMu = kullanici.roller.length === 0;
@@ -724,6 +744,24 @@ export default async function PanelSayfasi({
         </div>
       )}
 
+      {/*
+        GÖREV ALMAMIŞ ÖĞRETMENİN TEK KAPISI (12 Ağustos 2026 · istek: "görevi
+        işaretle deyince bir şey değişmiyor, öğretmen hâlâ görev almadı
+        görünüyor").
+
+        Düğme, sayfanın kendisine inen bir çıpaya (`#danismanligim`) bakıyordu;
+        o bölüm 7 Ağustos'ta Öğrencilerim ekranına taşındı, çıpa geride kaldı ve
+        tıklamanın hiçbir karşılığı olmadı. Taşındığı ekran da 11 Ağustos'ta
+        kapandı (bkz. ogrenciEnvanteriGorebilirMi): görev almamış öğretmen artık
+        Öğrencilerim'i açamıyor ve menüsünde sekmesi de yok — yani işareti
+        koyabileceği hiçbir yer kalmamıştı.
+
+        Bu yüzden FORMUN KENDİSİ buraya alındı, bağlantı değil: görevi olmayan
+        öğretmenin gördüğü tek ekran Panelim ve işaret onun için bir adım değil,
+        sistemi kullanmaya başlama koşulu. Eylem Öğrencilerim ekranındakiyle
+        aynı (`danismanlikIsaretiEylemi`), yani kural tek yerde; görev alındıktan
+        sonra o ekran zaten açılıyor ve kullanıcı oraya yönleniyor.
+      */}
       {rolsuzMu && (
         <div className="rounded-kart border border-uyari-cizgi bg-uyari-zemin p-6">
           <h2 className="font-semibold text-uyari-metin">
@@ -732,20 +770,27 @@ export default async function PanelSayfasi({
           <p className="mt-2 text-uyari-metin">
             Sisteme giriş yaptınız ancak henüz danışman öğretmen görevi
             almadınız. Okulunuzdaki öğrencilerin danışman seçim listesinde
-            görünmek için aşağıdaki &quot;Danışman öğretmenliğim&quot;
-            bölümünden bu görevi işaretlemeniz gerekiyor.
+            görünmek için bu görevi işaretlemeniz gerekiyor. Onay süreci yoktur.
           </p>
           {/*
-            Bağlantı artık PROFİLE değil aynı sayfadaki bölüme iniyor
-            (7 Ağustos 2026): işaret profilden Panelim'e taşındı ve profile
-            göndermek kullanıcıyı işi yapamayacağı bir ekrana atardı.
+            KURUM KODU OLMAYANA DÜĞME BASILMAZ: kural katmanı okulsuz kullanıcıyı
+            reddediyor (bkz. danismanlikDurumunuDegistir) ve basılan düğmenin
+            hata vermesi, hiç basılmamasından daha kötü. Bu kişinin işi kayıt
+            düzeltmesidir, tıklama değil.
           */}
-          <Link
-            href="/panel?bolum=danismanligim#danismanligim"
-            className={`${SINIF_BIRINCIL_BUTON} mt-4`}
-          >
-            Görevi işaretle
-          </Link>
+          {kullanici.kurumKodu === null ? (
+            <p className="mt-4 text-sm text-uyari-metin">
+              Kaydınızda okul bilgisi görünmüyor; görevi işaretleyebilmek için
+              okul kaydınızın tamamlanması gerekiyor.
+            </p>
+          ) : (
+            <form action={danismanlikIsaretiEylemi} className="mt-4">
+              <input type="hidden" name="gorevAlmakIstiyor" value="evet" />
+              <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                Görevi işaretle
+              </button>
+            </form>
+          )}
         </div>
       )}
 
@@ -774,24 +819,58 @@ export default async function PanelSayfasi({
               aciklama="Geri çekilenler hariç"
               yol="/panel/etkinlikler"
             />
+            {/*
+              BAŞVURU İLE KATILIM AYRI İKİ SAYI ve yan yana duruyorlar: biri
+              "istedim", öbürü "gerçekten oldum". Yoklama geldiğinden beri
+              (12 Ağustos 2026) ikisinin farkı gerçek bir bilgi — başvurusu
+              seçilmiş ama gelmemiş öğrencide sayılar ayrışır.
+
+              Kart profile gider: katılan etkinliklerin LİSTESİ orada, katkı
+              kartının içinde. Buraya ikinci bir liste konulmadı.
+            */}
+            {katilimGecmisi && (
+              <OlcumKarti
+                baslik="Katıldığım etkinlikler"
+                Ikon={CalendarCheck}
+                deger={String(katilimGecmisi.ozet.toplamKatilim)}
+                aciklama="Yoklamada geldi işaretlenenler · listesi profilinde"
+                yol="/panel/profil"
+              />
+            )}
           </>
         )}
 
         {danismanMi(kullanici) && (
           <>
+            {/*
+              SAYI GÖSTEREN KART TIKLANABİLİR OLMALI (12 Ağustos 2026 · istek:
+              "İlimdeki öğrenciler kartına tıklanmıyor, diğer kartlar tıklanabilir
+              vaziyette"). Kartın gösterdiği sayı bir listenin uzunluğu; o listeye
+              gitmenin yolu kartın kendisidir. Üç rolde de hedef aynı ekran,
+              kapsamı kullanıcıdan geliyor (bkz. ogrenciKapsamFiltresi).
+            */}
             <OlcumKarti
               baslik="Danışmanlığımdaki öğrenciler"
               Ikon={Users}
               deger={String(kapsamdakiOgrenciSayisi)}
               aciklama="Kendi okulunuzdaki öğrenciler"
+              yol="/panel/ogrenciler"
             />
-            <OlcumKarti
-              baslik="Katkı kartım"
-              Ikon={Sparkles}
-              deger="Görüntüle"
-              aciklama="Görevleriniz, danışmanlığınız ve düzenlediğiniz etkinlikler"
-              yol="/panel/kazanimlarim"
-            />
+            {/*
+              KART ARTIK SAYI GÖSTERİYOR (12 Ağustos 2026 · istek: "katkı kartım
+              kartında tıklayın diyor ama katkıların özeti yok kartta"). Metin
+              tek yerde kuruluyor (lib/ogretmen/katki-ozeti.ts) — iki rolde iki
+              ayrı cümle yazılsaydı biri güncellenip öbürü geride kalırdı.
+            */}
+            {katkiOzeti && (
+              <OlcumKarti
+                baslik="Katkı kartım"
+                Ikon={Sparkles}
+                deger={katkiOzeti.deger}
+                aciklama={katkiOzeti.aciklama}
+                yol="/panel/kazanimlarim"
+              />
+            )}
           </>
         )}
 
@@ -837,6 +916,7 @@ export default async function PanelSayfasi({
               Ikon={MapPin}
               deger={String(kapsamdakiOgrenciSayisi)}
               aciklama={`İl kodu: ${koordinatorIlKodu(kullanici) ?? "—"}`}
+              yol="/panel/ogrenciler"
             />
             {koordinatorOnayKuyrugu && (
               <>
@@ -856,13 +936,15 @@ export default async function PanelSayfasi({
                 />
               </>
             )}
-            <OlcumKarti
-              baslik="Katkı kartım"
-              Ikon={Sparkles}
-              deger="Görüntüle"
-              aciklama="Görevleriniz ve düzenlediğiniz etkinlikler"
-              yol="/panel/kazanimlarim"
-            />
+            {katkiOzeti && (
+              <OlcumKarti
+                baslik="Katkı kartım"
+                Ikon={Sparkles}
+                deger={katkiOzeti.deger}
+                aciklama={katkiOzeti.aciklama}
+                yol="/panel/kazanimlarim"
+              />
+            )}
           </>
         )}
 
@@ -873,6 +955,7 @@ export default async function PanelSayfasi({
               Ikon={Users}
               deger={String(kapsamdakiOgrenciSayisi)}
               aciklama="Tüm iller"
+              yol="/panel/ogrenciler"
             />
             {/*
               ONAY KUYRUĞU (11 Ağustos 2026 · istek: "öğrenci etkinlik açtığında
@@ -1619,22 +1702,48 @@ export default async function PanelSayfasi({
             <BellRing size={18} className="text-vurgu-metin" aria-hidden />
             Bildirimler
           </h2>
-          {bildirimler.length > 0 && (
-            <form action={tumBildirimleriOkuEylemi}>
-              <button
-                type="submit"
-                className="text-sm font-medium text-vurgu-metin"
-              >
-                Tümünü okundu işaretle
-              </button>
-            </form>
-          )}
+          {/*
+            ARŞİVE GİRİŞ (12 Ağustos 2026 · istek: "okundu tıklandıktan sonra
+            artık yok, bir yerlerde olsun — eski duyurulara nereden
+            ulaşılabilir").
+
+            Bu bölüm yalnızca OKUNMAMIŞLARI listeliyor ve öyle kalıyor: burası
+            bir yapılacak listesi, okunan satır buradan düşmeli. Eksik olan,
+            düşen satırın gittiği yerdi. Bağlantı bildirim OLMASA DA basılıyor —
+            eski duyuruyu arayan kişinin okunmamış bildirimi olmayabilir.
+          */}
+          <div className="flex flex-wrap items-center gap-4">
+            {bildirimler.length > 0 && (
+              <form action={tumBildirimleriOkuEylemi}>
+                <button
+                  type="submit"
+                  className="text-sm font-medium text-vurgu-metin"
+                >
+                  Tümünü okundu işaretle
+                </button>
+              </form>
+            )}
+            <Link
+              href="/panel/bildirimler"
+              className="inline-flex items-center gap-1 text-sm font-medium text-vurgu-metin"
+            >
+              Tüm bildirimler
+              <ArrowRight size={14} aria-hidden />
+            </Link>
+          </div>
         </div>
         {bildirimler.length === 0 ? (
           <Kart className="text-metin-yumusak">
             <span className="inline-flex items-center gap-2">
               <CheckSquare size={16} aria-hidden />
-              Okunmamış bildiriminiz yok.
+              Okunmamış bildiriminiz yok. Okuduklarınız{" "}
+              <Link
+                href="/panel/bildirimler"
+                className="font-medium text-vurgu-metin underline underline-offset-2"
+              >
+                tüm bildirimler
+              </Link>{" "}
+              sayfasında duruyor.
             </span>
           </Kart>
         ) : (

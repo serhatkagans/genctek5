@@ -152,6 +152,16 @@ async function calistir() {
         basvuruTarihi: basvuruBaslangic,
         degerlendirenKullaniciId: duzenleyen.id,
         degerlendirmeTarihi: basvuruBitis,
+        /*
+         * YOKLAMA DA İŞARETLENİYOR (12 Ağustos 2026): seçilmiş olmak artık tek
+         * başına katılım saymıyor (bkz. lib/kazanim/katilim-kurallar.ts).
+         * İşaretlenmeseydi bu betiğin ürettiği kayıtlar Yolculuk ekranında hiç
+         * görünmez ve betik tam olarak göstermek için var olduğu şeyi
+         * gösteremezdi.
+         */
+        katildiMi: true,
+        yoklamaAlanKullaniciId: duzenleyen.id,
+        yoklamaTarihi: tarih,
       },
     });
   }

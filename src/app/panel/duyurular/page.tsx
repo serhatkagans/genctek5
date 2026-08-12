@@ -4,8 +4,6 @@ import {
   Kart,
   KartBasligi,
   SayfaBasligi,
-  SINIF_BIRINCIL_BUTON,
-  SINIF_GIRDI,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
@@ -16,6 +14,7 @@ import { prisma } from "@/lib/db";
 import { ortam } from "@/lib/ortam";
 import { tarihSaatYaz } from "@/lib/tarih";
 import { sistemAyarlariniYonetebilirMi } from "@/lib/yetki/izinler";
+import { DuyuruFormu } from "@/components/DuyuruFormu";
 import { duyuruGonderEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
@@ -94,6 +93,12 @@ export default async function DuyurularSayfasi({
           Duyuru {sayi ?? "—"} kişiye gönderildi.
         </BilgiKutusu>
       )}
+      {/*
+        Hata mesajı artık formun İÇİNDE basılıyor (bkz. DuyuruFormu): adres
+        çubuğuna yazılmadığı için sayfa düzeyinde gösterilecek bir şey yok.
+        Adresteki `hata` parametresi eski bağlantılar için okunmaya devam
+        ediyor — birileri o adresi yer imine almış olabilir.
+      */}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
       <BilgiKutusu cesit="uyari">
@@ -115,69 +120,25 @@ export default async function DuyurularSayfasi({
           Ikon={Megaphone}
         />
 
-        <form action={duyuruGonderEylemi} className="space-y-4">
-          <label className="block">
-            <span className="text-sm font-medium text-metin">Alıcılar</span>
-            <select name="hedef" required className={SINIF_GIRDI}>
-              {DUYURU_HEDEFLERI.map((hedef) => {
-                const adet =
-                  hedef === "OGRENCI"
-                    ? sayilar.ogrenci
-                    : hedef === "OGRETMEN"
-                      ? sayilar.ogretmen
-                      : sayilar.ogrenci + sayilar.ogretmen;
-                return (
-                  <option key={hedef} value={hedef}>
-                    {DUYURU_HEDEF_ETIKETLERI[hedef]} ({adet} kişi)
-                  </option>
-                );
-              })}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium text-metin">Başlık</span>
-            <input
-              type="text"
-              name="baslik"
-              required
-              maxLength={200}
-              className={SINIF_GIRDI}
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium text-metin">Metin</span>
-            <textarea
-              name="icerik"
-              required
-              rows={8}
-              maxLength={4000}
-              className={SINIF_GIRDI}
-            />
-            <span className="mt-1 block text-sm text-metin-yumusak">
-              Düz metin olarak gönderilir. Bağlantı yazabilirsiniz; panelde
-              tıklanabilir görünür.
-            </span>
-          </label>
-
-          <label className="flex items-start gap-2 text-sm text-metin">
-            <input
-              type="checkbox"
-              name="onay"
-              value="evet"
-              className="mt-0.5 h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
-            />
-            <span>
-              Metni okudum ve bu duyurunun geri alınamayacağını biliyorum.
-            </span>
-          </label>
-
-          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-            <Megaphone size={16} aria-hidden />
-            Duyuruyu gönder
-          </button>
-        </form>
+        {/*
+          FORM İSTEMCİ BİLEŞENİ (12 Ağustos 2026): reddedilen gönderimde
+          yazılan başlık ve metin kaybolmasın diye. Alıcı sayıları burada
+          hesaplanıp etiket olarak geçiyor — sayım sunucu işi, formun kendisi
+          yalnızca gösteriyor.
+        */}
+        <DuyuruFormu
+          eylem={duyuruGonderEylemi}
+          hedefSecenekleri={DUYURU_HEDEFLERI.map((hedef) => ({
+            deger: hedef,
+            etiket: `${DUYURU_HEDEF_ETIKETLERI[hedef]} (${
+              hedef === "OGRENCI"
+                ? sayilar.ogrenci
+                : hedef === "OGRETMEN"
+                  ? sayilar.ogretmen
+                  : sayilar.ogrenci + sayilar.ogretmen
+            } kişi)`,
+          }))}
+        />
       </Kart>
 
       {sonDuyurular.length > 0 && (

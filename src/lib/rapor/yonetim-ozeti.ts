@@ -2,6 +2,7 @@ import { prisma } from "../db";
 import { egitimOgretimYili, egitimOgretimYiliAraligi } from "../ogretmen/gorev-yillari";
 import { OGRETMEN } from "../yetki/kapsam";
 import { bitmisFaaliyetKosulu } from "./istatistik";
+import type { YonetimYeri } from "./yonetim-kurallari";
 
 /**
  * Yönetim panosunun sayımları — il → ilçe → okul kırılımı.
@@ -429,3 +430,61 @@ export async function okulOzetleriniGetir(
  * dosyasında duruyor ve testten doğrudan çağrılıyor
  * (bkz. yonetim-kurallari.ts · ozetToplami).
  */
+
+/**
+ * Envanter süzgecinin işaret ettiği yeri adlarıyla getirir — yol izi için.
+ *
+ * TEK SORGU, EN DAR BASAMAKTAN: okul verilmişse ili ve ilçesi okul kaydından
+ * gelir, ilçe verilmişse ili ilçe kaydından. Basamaklar ayrı ayrı sorulsaydı
+ * hem üç sorgu açılırdı hem de adres çubuğunda tutarsız bir çift (bir ilin
+ * kodu, başka bir ilin ilçesi) yazıldığında şerit olmayan bir yeri gösterirdi.
+ *
+ * Süzgeçte yer yoksa (`{}`) sorgu da açılmaz: envanterin süzgeçsiz hâli
+ * panonun altındaki ekranın kendisidir, basamağı yoktur.
+ */
+export async function yonetimYeriniGetir(filtreler: {
+  ilKodu?: string | null;
+  ilceKodu?: string | null;
+  kurumKodu?: number | null;
+}): Promise<YonetimYeri> {
+  if (filtreler.kurumKodu !== null && filtreler.kurumKodu !== undefined) {
+    const okul = await prisma.kurum.findUnique({
+      where: { kurumKodu: filtreler.kurumKodu },
+      select: {
+        ad: true,
+        ilKodu: true,
+        ilceKodu: true,
+        il: { select: { ad: true } },
+        ilce: { select: { ad: true } },
+      },
+    });
+    if (!okul) return {};
+    return {
+      il: { ilKodu: okul.ilKodu, ad: okul.il.ad },
+      ilce: { ilceKodu: okul.ilceKodu, ad: okul.ilce.ad },
+      okul: { ad: okul.ad },
+    };
+  }
+
+  if (filtreler.ilceKodu) {
+    const ilce = await prisma.ilce.findUnique({
+      where: { ilceKodu: filtreler.ilceKodu },
+      select: { ad: true, ilKodu: true, il: { select: { ad: true } } },
+    });
+    if (!ilce) return {};
+    return {
+      il: { ilKodu: ilce.ilKodu, ad: ilce.il.ad },
+      ilce: { ilceKodu: filtreler.ilceKodu, ad: ilce.ad },
+    };
+  }
+
+  if (filtreler.ilKodu) {
+    const il = await prisma.il.findUnique({
+      where: { ilKodu: filtreler.ilKodu },
+      select: { ad: true },
+    });
+    return il ? { il: { ilKodu: filtreler.ilKodu, ad: il.ad } } : {};
+  }
+
+  return {};
+}

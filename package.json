@@ -21,6 +21,7 @@
     "veri:kazanim": "tsx scripts/ornek-kazanim.ts",
     "veri:dis-kullanici": "tsx scripts/ornek-dis-kullanici.ts",
     "db:studio": "prisma studio",
+    "hata:ara": "tsx scripts/hata-ara.ts",
     "senkron:danisman": "tsx scripts/gecelik-senkron.ts",
     "bakim:saklama": "tsx scripts/veri-saklama.ts"
   },

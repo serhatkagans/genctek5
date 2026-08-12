@@ -42,9 +42,15 @@ function parametreEkle(yol: string, anahtar: string, deger: string): string {
 /**
  * "GençTek danışman öğretmeni olarak görev almak istiyorum" işareti.
  *
- * Panel'deki bölümle AYNI kural katmanını çağırır
- * (`danismanlikDurumunuDegistir`); yalnızca yüzeyi değişti. Görev bırakıldığında
- * öğrencilerin devri o fonksiyonun içinde yürüyor.
+ * Kural katmanı ayrı (`danismanlikDurumunuDegistir`); görev bırakıldığında
+ * öğrencilerin devri de orada yürüyor.
+ *
+ * ÇAĞIRAN EKRAN PANELİM (12 Ağustos 2026). Form bu ekrandaydı ama bu ekran
+ * görev almamış öğretmene kapandı (bkz. ogrenciEnvanteriGorebilirMi) — işareti
+ * koyacak kişi buraya hiç gelemiyordu. Eylem dosyası taşınmadı: formun
+ * gönderildiği yer değişse de iş aynı işin parçası ve `donusYolu` verilmediğinde
+ * varsayılan dönüş adresi Öğrencilerim, yani görev alındıktan sonra açılan ilk
+ * ekran zaten burası oluyor.
  */
 export async function danismanlikIsaretiEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();

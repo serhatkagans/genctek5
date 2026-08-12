@@ -227,7 +227,7 @@ Tablo öğrenci için açıldı, **öğretmen de aynı tabloya yazar** (bu yüzd
 
 **"Yaptığım ürünler" için ayrı tablo yoktur**: bu tablodaki `tip=URUN` kayıtlarıdır, yalnızca ayrı bir kartta gösterilir. İkinci bir tablo aynı kaydın iki yerde yaşamasına ve birinden silinip diğerinde kalmasına yol açardı.
 
-**Katıldığı GençTek etkinlikleri bu tabloda TUTULMAZ.** O liste `basvuru` (durum=SECILDI) + `faaliyet` (tarihi geçmiş, durum=AKTIF) üzerinden türetilir. Türetilebilen veriyi kullanıcının eliyle ikinci kez girmesi hem yanlış hem doğrulanamaz olurdu; aynı gerekçeyle İl/İlçe/Okul Temsilcisi görevleri (kaynağı `ogrenci_gorev_rolu`), öğretmenin danışmanlıkları (`danisman_atama`) ve düzenlediği faaliyetler (`faaliyet.duzenleyen_kullanici_id`) de buraya yazılmaz.
+**Katıldığı GençTek etkinlikleri bu tabloda TUTULMAZ.** O liste `basvuru` (durum=SECILDI, `katildi_mi` yoklaması) + `faaliyet_belgesi` + `faaliyet` (tarihi geçmiş, durum=AKTIF) üzerinden türetilir. Türetilebilen veriyi kullanıcının eliyle ikinci kez girmesi hem yanlış hem doğrulanamaz olurdu; aynı gerekçeyle İl/İlçe/Okul Temsilcisi görevleri (kaynağı `ogrenci_gorev_rolu`), öğretmenin danışmanlıkları (`danisman_atama`) ve düzenlediği faaliyetler (`faaliyet.duzenleyen_kullanici_id`) de buraya yazılmaz.
 
 **kazanim_baglanti** — kazanım kaydının bağlantıları (6 Ağustos 2026)
 `id`, `kazanim_id` (FK → `kullanici_kazanim`, ON DELETE CASCADE), `adres`, `etiket`, `sira_no`
@@ -341,6 +341,11 @@ Yorum listesi sorgusu her zaman `WHERE faaliyet_id = ? ORDER BY olusturma_tarihi
 | geri_cekme_tarihi | timestamptz, null | |
 | degerlendiren_kullanici_id | int, null, FK | |
 | degerlendirme_tarihi | timestamptz, null | |
+| katildi_mi | boolean, null | **Yoklama** (12 Ağustos 2026): true geldi · false gelmedi · NULL alınmadı |
+| yoklama_alan_kullanici_id | int, null, FK | Yoklamayı işaretleyen yetkili |
+| yoklama_tarihi | timestamptz, null | |
+
+**`durum` "katılabilir" der, `katildi_mi` "katıldı" der.** İkisi ayrı sütun çünkü ayrı sorular: seçilmiş olmak etkinliğe gelmeyi garanti etmiyor ve gelmeyen öğrencinin profiline etkinlik düşüyordu. Alan **NOT NULL DEFAULT false olamaz**: o, geçmişteki bütün başvuruları "gelmedi" işaretlemek ve öğrencilerin kazanılmış katılımlarını bir gecede silmek olurdu. Kuralın tamamı için bkz. `domain-rules.md` · *Yoklama: katılımın doğrudan kanıtı*.
 
 **Katılımcı öğrenci olmak zorunda değildir.** Öğretmenler de faaliyetlere başvurur (alan adı bu yüzden `ogrenci_id` değil `katilimci_id`). Katılımcının öğrenci mi öğretmen mi olduğu **sütunda tutulmaz**, aktif rolünden okunur: kopyalanan bir tip alanı öğrenci mezun olduğunda ya da öğretmen görev değiştirdiğinde eskir.
 

@@ -75,7 +75,7 @@ const SENARYO_TANIMLARI = [
     kod: "gorevsiz",
     baslik: "Görev almamış öğretmen",
     aciklama:
-      "Sisteme girer ama hiçbir öğrenci verisi göremez; danışmanlık görevini profilinden kendisi işaretler.",
+      "Sisteme girer ama hiçbir öğrenci verisi göremez; danışmanlık görevini Panelim ekranından kendisi işaretler. İşaretlediği anda kartı bu gruptan çıkar, üstteki \"Okul koordinatörü\" grubuna geçer.",
     Ikon: Building2 as Ikon,
     seritSinifi: "border-l-cizgi",
   },
@@ -83,7 +83,16 @@ const SENARYO_TANIMLARI = [
 
 type SenaryoKodu = (typeof SENARYO_TANIMLARI)[number]["kod"];
 
-/** Bir senaryo başlığı altında en fazla kaç kart gösterilir. */
+/**
+ * Bir senaryo başlığı altında en fazla kaç kart gösterilir.
+ *
+ * Sınır KALDIRILABİLİR: başlıktaki "tümünü göster" bağlantısı o grubu açar
+ * (bkz. `tumu` parametresi). 12 Ağustos 2026 · istek: "danışman olmak istiyorum
+ * düğmesine basınca öğretmen listeden siliniyor" — kart silinmiyordu, görevi
+ * işaretleyen öğretmen danışman grubuna geçiyor ve o grup 25 kartta kırpıldığı
+ * için aranan kişi kırpılan kısımda kalıyordu. Kırpma sessiz değildi ama
+ * "… ve N kişi daha" satırı da kişiye ulaşmanın bir yolunu vermiyordu.
+ */
 const GOSTERIM_SINIRI = 25;
 
 function KimlikKarti({
@@ -120,9 +129,9 @@ function KimlikKarti({
 export default async function GirisSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ hata?: string; ara?: string }>;
+  searchParams: Promise<{ hata?: string; ara?: string; tumu?: string }>;
 }) {
-  const { hata, ara } = await searchParams;
+  const { hata, ara, tumu } = await searchParams;
   const aranan = (ara ?? "").trim().toLocaleLowerCase("tr");
   const [tema, kimlikler] = await Promise.all([
     aktifTema(),
@@ -313,13 +322,21 @@ export default async function GirisSayfasi({
             );
             if (grup.length === 0) return null;
 
-            // Uzun listeler kırpılır; aranan kişiye aramayla ulaşılır. Kırpma
-            // sessiz yapılmaz, kaç kişinin gizlendiği yazılır.
-            const gosterilecek = grup.slice(0, GOSTERIM_SINIRI);
+            // Uzun listeler kırpılır ama kırpma bir çıkmaz değil: kaç kişinin
+            // gizlendiği yazılıyor ve grubun tamamı tek tıkla açılıyor.
+            const acik = tumu === senaryo.kod;
+            const gosterilecek = acik ? grup : grup.slice(0, GOSTERIM_SINIRI);
             const gizlenen = grup.length - gosterilecek.length;
+            const grupYolu = (acilacak: string | null) => {
+              const sorgu = new URLSearchParams();
+              if (ara) sorgu.set("ara", ara);
+              if (acilacak) sorgu.set("tumu", acilacak);
+              const metin = sorgu.toString();
+              return `${metin ? `/giris?${metin}` : "/giris"}#${senaryo.kod}`;
+            };
 
             return (
-              <section key={senaryo.kod}>
+              <section key={senaryo.kod} id={senaryo.kod}>
                 <h2 className="flex flex-wrap items-center gap-2 font-semibold text-baslik">
                   <senaryo.Ikon size={17} className="text-vurgu-metin" />
                   {senaryo.baslik}
@@ -342,7 +359,25 @@ export default async function GirisSayfasi({
                 </div>
                 {gizlenen > 0 && (
                   <p className="mt-2 text-sm text-metin-yumusak">
-                    … ve {gizlenen} kişi daha. Aramayla daraltın.
+                    … ve {gizlenen} kişi daha.{" "}
+                    <Link
+                      href={grupYolu(senaryo.kod)}
+                      className="font-medium text-vurgu-metin underline underline-offset-2"
+                    >
+                      Tümünü göster
+                    </Link>{" "}
+                    veya aramayla daraltın.
+                  </p>
+                )}
+                {acik && grup.length > GOSTERIM_SINIRI && (
+                  <p className="mt-2 text-sm text-metin-yumusak">
+                    Grubun tamamı ({grup.length} kişi) açık.{" "}
+                    <Link
+                      href={grupYolu(null)}
+                      className="font-medium text-vurgu-metin underline underline-offset-2"
+                    >
+                      Kısalt
+                    </Link>
                   </p>
                 )}
               </section>

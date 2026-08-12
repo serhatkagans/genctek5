@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { DuyuruFormDurumu } from "@/components/DuyuruFormu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { topluDuyuruGonder } from "@/lib/bildirim/gonder";
 import { duyuruyuCoz } from "@/lib/bildirim/toplu";
@@ -20,23 +21,48 @@ import { YetkiHatasi } from "@/lib/yetki/tipler";
 
 const YOL = "/panel/duyurular";
 
-function hataylaDon(mesaj: string): never {
-  redirect(`${YOL}?hata=${encodeURIComponent(mesaj)}`);
+/**
+ * HATA ARTIK YÖNLENDİRMİYOR, DURUM DÖNDÜRÜYOR (12 Ağustos 2026 · istek: "onay
+ * kutusunu işaretlemeden gönder deyince mesaj gitmiyor — bu normal, ancak
+ * yazdığı başlık ve metin siliniyor").
+ *
+ * Eskiden `?hata=...` adresine yönlendiriliyordu; sayfa yeniden çizilince form
+ * boş geliyor ve 4000 karaktere kadar yazılabilen metin uçuyordu. Değerleri
+ * adres çubuğunda geri taşımak da olmazdı — uzun metin URL sınırlarını zorlar.
+ * Form artık `useActionState` ile çalışıyor ve yazılanlar tarayıcıda kalıyor
+ * (bkz. components/DuyuruFormu.tsx).
+ *
+ * BAŞARIDA HÂLÂ YÖNLENDİRME VAR: gönderilen duyuru geri alınamaz, sayfanın
+ * yenilenmesi gönderimi tekrarlamamalı (POST/Redirect/GET).
+ */
+function hatayla(
+  mesaj: string,
+  degerler: DuyuruFormDurumu["degerler"],
+): DuyuruFormDurumu {
+  return { hata: mesaj, degerler };
 }
 
-export async function duyuruGonderEylemi(veri: FormData): Promise<void> {
+export async function duyuruGonderEylemi(
+  _oncekiDurum: DuyuruFormDurumu,
+  veri: FormData,
+): Promise<DuyuruFormDurumu> {
   const kullanici = await oturumKullanicisiZorunlu();
   if (!sistemAyarlariniYonetebilirMi(kullanici)) {
     throw new YetkiHatasi("Toplu duyuruyu yalnızca proje yöneticisi gönderir.");
   }
 
-  const karar = duyuruyuCoz({
+  // Kullanıcının yazdıkları: her ret yolunda forma geri konuyor.
+  const degerler = {
     hedef: String(veri.get("hedef") ?? ""),
     baslik: String(veri.get("baslik") ?? ""),
     icerik: String(veri.get("icerik") ?? ""),
+  };
+
+  const karar = duyuruyuCoz({
+    ...degerler,
     onaylandiMi: veri.get("onay") === "evet",
   });
-  if (!karar.olurMu) hataylaDon(karar.neden);
+  if (!karar.olurMu) return hatayla(karar.neden, degerler);
 
   /*
    * Alıcılar ROLDEN okunur, kullanıcı tipinden değil: "öğretmen" diye bir rol
@@ -77,7 +103,10 @@ export async function duyuruGonderEylemi(veri: FormData): Promise<void> {
   });
 
   if (alicilar.length === 0) {
-    hataylaDon("Seçtiğiniz gruba uyan aktif kullanıcı yok; duyuru gönderilmedi.");
+    return hatayla(
+      "Seçtiğiniz gruba uyan aktif kullanıcı yok; duyuru gönderilmedi.",
+      degerler,
+    );
   }
 
   const sonuc = await topluDuyuruGonder({

@@ -13,6 +13,8 @@ import {
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
 } from "@/components/ui";
+import { YolIzi } from "@/components/YonetimKartlari";
+import { envanterYolIzi } from "../envanter-yolu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { gorevYillari, gorevYillariYaz } from "@/lib/ogretmen/gorev-yillari";
@@ -179,6 +181,17 @@ export default async function OgretmenlerSayfasi({
 
   const yerFiltresiVar = iller.length > 0 || okullar.length > 0;
 
+  /*
+   * YOL İZİ — bu ekranın panoya dönüş yolu (12 Ağustos 2026 · istek: "ilçeden
+   * öğretmenlere geçince navigasyon kayboluyor, tarayıcının geri düğmesine
+   * basmak gerekiyor"). Ayrıntı için bkz. yonetim-kurallari.ts · yonetimYolIzi.
+   */
+  const yolIziAdimlari = await envanterYolIzi(
+    kullanici,
+    "Öğretmenler",
+    filtreler,
+  );
+
   const disaAktarmaSorgusu = sorguMetni(parametreler, ["sayfa"]);
   const disaAktarmaBaglantisi = disaAktarmaSorgusu
     ? `/panel/ogretmenler/disa-aktar?${disaAktarmaSorgusu}`
@@ -186,6 +199,8 @@ export default async function OgretmenlerSayfasi({
 
   return (
     <div className="space-y-6">
+      {yolIziAdimlari && <YolIzi adimlar={yolIziAdimlari} />}
+
       <SayfaBasligi
         baslik="Öğretmenler"
         aciklama={
