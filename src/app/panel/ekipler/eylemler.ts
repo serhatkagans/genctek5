@@ -1,0 +1,304 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import { BILDIRIM_KODLARI, bildirimGonder } from "@/lib/bildirim/gonder";
+import { prisma } from "@/lib/db";
+import {
+  buEkibiYonetebilirMi,
+  ekipAdiniCoz,
+  ekipMesajiniCoz,
+  ekipSohbetineYazabilirMi,
+  ekipYonetebilirMi,
+} from "@/lib/ekip/kurallar";
+import { ekibiGetir } from "@/lib/ekip/veri";
+import { koordinatorIlKodu, projeYoneticisiMi } from "@/lib/yetki/izinler";
+import { erisimLogla } from "@/lib/yetki/log";
+import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
+
+/**
+ * Ekip eylemleri (13 Ağustos 2026).
+ *
+ * Kararların tamamı `lib/ekip/kurallar.ts` içinde ve saf; burada veritabanı
+ * işi, bildirim ve erişim kaydı var.
+ *
+ * KAPSAM HER EYLEMDE YENİDEN SORULUYOR (ekran basılırken sorulmuş olsa bile):
+ * ekip kimliği gizli form alanından geliyor ve kurcalanabilir. Başka ilin
+ * ekibine üye eklemek, o ilin öğrencisine onaysız yazışma hakkı vermek
+ * olurdu.
+ */
+
+const YOL = "/panel/ekipler";
+
+function hataylaDon(yol: string, mesaj: string): never {
+  redirect(`${yol}?hata=${encodeURIComponent(mesaj)}`);
+}
+
+function ekipYolu(ekipId: number): string {
+  return `${YOL}/${ekipId}`;
+}
+
+/** Yeni ekip kurar. Ad ve açıklama koordinatörün kendi girdiği metinlerdir. */
+export async function ekipKurEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!ekipYonetebilirMi(kullanici)) {
+    throw new YetkiHatasi("Ekip kurma yetkiniz yok.");
+  }
+
+  const karar = ekipAdiniCoz({
+    ad: String(veri.get("ad") ?? ""),
+    aciklama: String(veri.get("aciklama") ?? ""),
+  });
+  if (!karar.olurMu) hataylaDon(YOL, karar.neden);
+
+  /*
+   * EKİBİN İLİ: koordinatörün kendi ili. Merkez personelinin ili yoktur, bu
+   * yüzden formdaki il seçiminden okunur — ekibin bir ile bağlı olması
+   * kapsam kuralının dayanağı ve ilsiz ekip, kimsenin yönetemeyeceği ekip
+   * demek olurdu.
+   */
+  const ilKodu = projeYoneticisiMi(kullanici)
+    ? String(veri.get("ilKodu") ?? "").trim()
+    : (koordinatorIlKodu(kullanici) ?? "");
+  if (!ilKodu) hataylaDon(YOL, "Ekibin bağlı olacağı ili seçin.");
+
+  const il = await prisma.il.findUnique({
+    where: { ilKodu },
+    select: { ilKodu: true },
+  });
+  if (!il) hataylaDon(YOL, "Seçilen il bulunamadı.");
+
+  /*
+   * AYNI İLDE AYNI AD İKİ KEZ OLMAZ. Veritabanında kısmi unique index var
+   * (ux_ekip_il_ad_aktif); burada önce sorulup anlaşılır bir hata dönülüyor —
+   * kısıt ihlali kullanıcıya ham veritabanı hatası olarak çıkardı.
+   */
+  const ayniAd = await prisma.ekip.findFirst({
+    where: { ilKodu, ad: karar.ad, aktif: true },
+    select: { id: true },
+  });
+  if (ayniAd) {
+    hataylaDon(YOL, "Bu ilde aynı adla açık bir ekip zaten var.");
+  }
+
+  const ekip = await prisma.ekip.create({
+    data: {
+      ad: karar.ad,
+      aciklama: karar.aciklama,
+      ilKodu,
+      kuranKullaniciId: kullanici.id,
+    },
+    select: { id: true, ad: true },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "ROL",
+    hedefId: ekip.id,
+    detay: `Ekip kuruldu: ${ekip.ad} (il ${ilKodu})`,
+  });
+
+  revalidatePath(YOL);
+  redirect(`${ekipYolu(ekip.id)}?durum=ekip-kuruldu`);
+}
+
+/**
+ * Ekibe üye ekler.
+ *
+ * ADAY, EKİBİN İLİNDEN olmak zorunda: ekip ilin topluluğudur ve üyelik
+ * onaysız yazışma hakkı doğurduğu için "kimi ekleyebilirim" sorusunun cevabı
+ * dar tutuldu. Merkez de bu koşula tabidir — istisna, ekibi il dışına açacak
+ * tek kapıyı açardı.
+ */
+export async function ekibeUyeEkleEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const ekipId = Number.parseInt(String(veri.get("ekipId") ?? ""), 10);
+  const uyeId = Number.parseInt(String(veri.get("kullaniciId") ?? ""), 10);
+  if (!Number.isFinite(ekipId) || !Number.isFinite(uyeId)) {
+    throw new BulunamadiHatasi();
+  }
+
+  const ekip = await ekibiGetir(ekipId);
+  if (!ekip) throw new BulunamadiHatasi();
+  if (!buEkibiYonetebilirMi(kullanici, ekip.ilKodu)) {
+    throw new YetkiHatasi("Bu ekibi yönetme yetkiniz yok.");
+  }
+  if (!ekip.aktif) hataylaDon(ekipYolu(ekipId), "Kapatılmış ekibe üye eklenmez.");
+
+  const aday = await prisma.kullanici.findFirst({
+    where: { id: uyeId, aktif: true, ilKodu: ekip.ilKodu },
+    select: { id: true, ad: true, soyad: true },
+  });
+  if (!aday) {
+    hataylaDon(
+      ekipYolu(ekipId),
+      "Kişi bulunamadı ya da ekibin ilinde kayıtlı değil.",
+    );
+  }
+
+  if (ekip.uyeKullaniciIdleri.includes(aday.id)) {
+    hataylaDon(ekipYolu(ekipId), "Bu kişi zaten ekibin üyesi.");
+  }
+
+  await prisma.ekipUyesi.create({
+    data: { ekipId, kullaniciId: aday.id },
+  });
+
+  /*
+   * EKLENEN KİŞİYE BİLDİRİM: ekip onun kurmadığı ve kendiliğinden uğramayacağı
+   * bir ekran. Haberi olmadan üyesi olduğu bir sohbete yazılanlar okunmadan
+   * kalırdı. Bildirim metni sohbetin gözetime açık olduğunu da söylüyor.
+   */
+  await bildirimGonder({
+    kullaniciId: aday.id,
+    kod: BILDIRIM_KODLARI.EKIBE_EKLENDINIZ,
+    degiskenler: {
+      ekipAdi: ekip.ad,
+      ekleyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+    },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: aday.id,
+    detay: `Ekibe üye eklendi: ${ekip.ad} · ${aday.ad} ${aday.soyad}`,
+  });
+
+  revalidatePath(ekipYolu(ekipId));
+  redirect(`${ekipYolu(ekipId)}?durum=uye-eklendi`);
+}
+
+/** Üyeyi ekipten çıkarır. Yazdığı mesajlar kalır (bkz. migration notu). */
+export async function ekiptenUyeCikarEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const ekipId = Number.parseInt(String(veri.get("ekipId") ?? ""), 10);
+  const uyeId = Number.parseInt(String(veri.get("kullaniciId") ?? ""), 10);
+  if (!Number.isFinite(ekipId) || !Number.isFinite(uyeId)) {
+    throw new BulunamadiHatasi();
+  }
+
+  const ekip = await ekibiGetir(ekipId);
+  if (!ekip) throw new BulunamadiHatasi();
+  if (!buEkibiYonetebilirMi(kullanici, ekip.ilKodu)) {
+    throw new YetkiHatasi("Bu ekibi yönetme yetkiniz yok.");
+  }
+
+  await prisma.ekipUyesi.deleteMany({
+    where: { ekipId, kullaniciId: uyeId },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: uyeId,
+    detay: `Ekipten üye çıkarıldı: ${ekip.ad}`,
+  });
+
+  revalidatePath(ekipYolu(ekipId));
+  redirect(`${ekipYolu(ekipId)}?durum=uye-cikarildi`);
+}
+
+/**
+ * Ekibi kapatır (pasife alır).
+ *
+ * SİLME YOK: dağılan ekibin mesajları ve üye listesi kayıt olarak kalır,
+ * yalnızca listelerde görünmez ve sohbetine yazılamaz.
+ */
+export async function ekibiKapatEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const ekipId = Number.parseInt(String(veri.get("ekipId") ?? ""), 10);
+  if (!Number.isFinite(ekipId)) throw new BulunamadiHatasi();
+
+  const ekip = await ekibiGetir(ekipId);
+  if (!ekip) throw new BulunamadiHatasi();
+  if (!buEkibiYonetebilirMi(kullanici, ekip.ilKodu)) {
+    throw new YetkiHatasi("Bu ekibi yönetme yetkiniz yok.");
+  }
+
+  await prisma.ekip.update({
+    where: { id: ekipId },
+    data: { aktif: false },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "ROL",
+    hedefId: ekipId,
+    detay: `Ekip kapatıldı: ${ekip.ad}`,
+  });
+
+  revalidatePath(YOL);
+  redirect(`${YOL}?durum=ekip-kapatildi`);
+}
+
+/** Ekip sohbetine mesaj yazar. */
+export async function ekipMesajiGonderEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const ekipId = Number.parseInt(String(veri.get("ekipId") ?? ""), 10);
+  if (!Number.isFinite(ekipId)) throw new BulunamadiHatasi();
+
+  const ekip = await ekibiGetir(ekipId);
+  if (!ekip) throw new BulunamadiHatasi();
+  if (!ekipSohbetineYazabilirMi(kullanici, ekip)) {
+    throw new YetkiHatasi("Bu ekibin sohbetine yazamazsınız.");
+  }
+
+  const karar = ekipMesajiniCoz(String(veri.get("icerik") ?? ""));
+  if (!karar.olurMu) hataylaDon(ekipYolu(ekipId), karar.neden);
+
+  const mesaj = await prisma.ekipMesaji.create({
+    data: {
+      ekipId,
+      yazanKullaniciId: kullanici.id,
+      icerik: karar.icerik,
+    },
+    select: { id: true },
+  });
+
+  /*
+   * YENİ MESAJ BİLDİRİMİ (13 Ağustos 2026).
+   *
+   * KİME: ekibin diğer üyeleri ve — üye değilse — ekibi kuran koordinatör.
+   * Kuran kişi sohbetin sorumlusudur; ekibinde konuşulanı ancak ekrana
+   * girdiğinde öğrenmesi, gözetimi tesadüfe bırakırdı.
+   *
+   * YAZANIN KENDİSİ HARİÇ: kendi mesajının bildirimini almak, panelin
+   * okunmamış sayacını anlamsızlaştırırdı.
+   *
+   * METİNDE MESAJ İÇERİĞİ YOK ve bu kasıtlı (bkz. migration notu): tekrar
+   * engeli içerik karşılaştırdığı için sabit metin, bir ekipteki arka arkaya
+   * gelen mesajları TEK bildirime indiriyor; ayrıca bildirimin e-posta kopyası
+   * sohbet içeriğini ekosistem dışına taşımıyor.
+   *
+   * HEDEF EKİP: bildirim panelde "Ekibe git" düğmesiyle çıkıyor.
+   */
+  const bildirilecekler = new Set<number>(ekip.uyeKullaniciIdleri);
+  const kuran = await prisma.ekip.findUnique({
+    where: { id: ekipId },
+    select: { kuranKullaniciId: true },
+  });
+  if (kuran) bildirilecekler.add(kuran.kuranKullaniciId);
+  bildirilecekler.delete(kullanici.id);
+
+  for (const kullaniciId of bildirilecekler) {
+    await bildirimGonder({
+      kullaniciId,
+      kod: BILDIRIM_KODLARI.EKIPTE_YENI_MESAJ,
+      degiskenler: { ekipAdi: ekip.ad },
+      hedef: { tip: "EKIP", id: ekipId },
+    });
+  }
+
+  revalidatePath(ekipYolu(ekipId));
+  redirect(`${ekipYolu(ekipId)}#mesaj-${mesaj.id}`);
+}

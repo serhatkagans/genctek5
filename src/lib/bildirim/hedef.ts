@@ -27,6 +27,7 @@ export interface BildirimBaglantisi {
 
 const ETIKETLER: Record<BildirimHedefTipi, string> = {
   FAALIYET: "Etkinliğe git",
+  EKIP: "Ekibe git",
 };
 
 /**
@@ -55,6 +56,10 @@ export function bildirimBaglantisi(
 
   if (hedefTip === "FAALIYET") {
     return { yol: `/panel/etkinlikler/${hedefId}`, etiket: ETIKETLER.FAALIYET };
+  }
+
+  if (hedefTip === "EKIP") {
+    return { yol: `/panel/ekipler/${hedefId}`, etiket: ETIKETLER.EKIP };
   }
 
   return null;

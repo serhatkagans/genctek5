@@ -10,14 +10,11 @@ import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import { TemaSecici } from "@/components/TemaSecici";
 import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { ilkGirisKilidiVarMi, onayDurumlari } from "@/lib/kvkk/onay";
+import { onayliMentorMu } from "@/lib/mentor/veri";
 import { aktifTema } from "@/lib/tema";
 import {
-  danismanMi,
   disKullaniciMi,
-  ilKoordinatoruMu,
-  projeYoneticisiMi,
   rolEnvanteriGorebilirMi,
-  talepPanosuGorebilirMi,
   yonetimPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
 
@@ -87,7 +84,7 @@ export default async function PanelDuzeni({
   ];
 
   /*
-   * MEZUN / PAYDAŞ / MENTÖR MENÜSÜ: Profil · Panel · Etkinlikler · Pano
+   * MEZUN / PAYDAŞ / MENTÖR MENÜSÜ: Profil · Panel · Etkinlikler · Pano · Market
    * (7 Ağustos 2026 · istek: "mezun paydaş mentör sayfasında şu sekmeler
    * olacak" — Profil, Panel, Etkinlikler).
    *
@@ -97,21 +94,42 @@ export default async function PanelDuzeni({
    * karşılığının olmaması, panodan çıkan kişiye geri dönecek bir yol
    * bırakmıyordu.
    *
-   * Bağlantılarım ve Market hâlâ BASILMIYOR. Erken dönüş kullanılıyor çünkü
-   * kalan blokların hepsi görev rollerine bakıyor ve dış kullanıcıda zaten
-   * hiçbiri açılmıyor; tek tek "dış kullanıcı değilse" koşulu eklemek aynı
-   * kararı beş yerde tekrar ederdi.
+   * MARKET 13 AĞUSTOS'TA EKLENDİ (istek: "mezun, paydaş ve mentör girişlerine
+   * market gelecek, onlarda market görünmüyor"). Vitrin bu rollere BAŞTAN BERİ
+   * açıktı (bkz. aşağıdaki Market notu: "mezunun ekosistemde göreceği ilk şey
+   * buydu"); eksik olan yalnızca menüdeki satırdı, yani sayfa vardı ama kapısı
+   * yoktu. Ürün ekleme de bu rollerde çalışıyor — kayıt formu Panel'de.
    *
-   * SAYFALAR SİLİNMEDİ ve YETKİ DARALMADI: `/panel/urunler` ve
-   * `/panel/yazismalar` adresle çalışmaya devam ediyor, onaylı yazışmalar
-   * duruyor. Kaldırılan şey yalnızca menüdeki satır — istek sekme listesini
-   * sayıyor, yetki tablosunu değil.
+   * Bağlantılarım hâlâ BASILMIYOR. Erken dönüş kullanılıyor çünkü kalan
+   * blokların hepsi görev rollerine bakıyor ve dış kullanıcıda zaten hiçbiri
+   * açılmıyor; tek tek "dış kullanıcı değilse" koşulu eklemek aynı kararı beş
+   * yerde tekrar ederdi.
+   *
+   * SAYFA SİLİNMEDİ ve YETKİ DARALMADI: `/panel/yazismalar` adresle çalışmaya
+   * devam ediyor, onaylı yazışmalar duruyor. Kaldırılan şey yalnızca menüdeki
+   * satır — istek sekme listesini sayıyor, yetki tablosunu değil.
    */
+  /*
+   * MENTÖRLÜĞÜM SEKMESİ — YALNIZCA ONAYLI MENTÖRDE (13 Ağustos 2026 · istek:
+   * "mentörlerin kendi sayfası olsun … talepleri inceleyip cevap yazacak").
+   *
+   * Koşul veritabanına gidiyor, role değil: mentörlük bir rol değil onaya bağlı
+   * bir kayıttır (bkz. lib/mentor/veri.ts · onayliMentorMu). Sorgu menüde
+   * duruyor çünkü sekmenin varlığı da bir yetki bildirimi — sayfa 404 dönerken
+   * menüde adının görünmesi, kullanıcıyı kapalı bir kapıya yollardı.
+   *
+   * Mentör olabilen herkeste basılıyor: dış kullanıcı da (mezun, paydaş,
+   * mentör) onaylı mentör olabiliyor, bu yüzden kontrol erken dönüşten ÖNCE.
+   */
+  const mentorSekmesi = (await onayliMentorMu(kullanici.id))
+    ? [{ yol: "/panel/mentorlugum", etiket: "Mentörlüğüm" }]
+    : [];
+
   if (disKullaniciMi(kullanici)) {
     baglantilar.push({ yol: "/panel/etkinlikler", etiket: "Etkinlikler" });
-    if (talepPanosuGorebilirMi(kullanici)) {
-      baglantilar.push({ yol: "/panel/talepler", etiket: "Pano" });
-    }
+    baglantilar.push({ yol: "/panel/talepler", etiket: "Pano" });
+    baglantilar.push(...mentorSekmesi);
+    baglantilar.push({ yol: "/panel/urunler", etiket: "Market" });
     return (
       <PanelCercevesi
         kullanici={kullanici}
@@ -142,22 +160,21 @@ export default async function PanelDuzeni({
   }
 
   /*
-   * DANIŞMAN ÖĞRETMENDE "ÖĞRENCİLERİM" SEKME OLARAK KALDI (7 Ağustos 2026 ·
-   * istek: "sekmeler bu şekilde öğrencininki gibi, farklı olarak öğrencilerim
-   * sekmesi olacak").
+   * DANIŞMAN ÖĞRETMENDE "ÖĞRENCİLERİM" SEKMESİ KALKTI (13 Ağustos 2026 · istek:
+   * "danışman öğretmenin öğrencilerim menüsü kalkacak, panelde zaten
+   * danışmanlığımdaki öğrenciler var, danışmanlığımdaki öğrenciler öğrencilerim
+   * olacak").
    *
-   * Yönetim panosu ona AÇILMIYOR (bkz. yonetimPanosuGorebilirMi): pano il
-   * kırılımıdır, öğretmenin işi ise kendi öğrencileridir. Sekmesi kalkarsa
-   * listesine gidecek hiçbir yolu kalmazdı — koordinatör ve merkez ise aynı
-   * listeye panodaki karttan giriyor.
+   * Sekme 7 Ağustos'ta, listeye gidecek başka yol olmadığı için konmuştu; o
+   * gerekçe artık geçerli değil — Panel'de aynı ekrana giden sayılı kart duruyor
+   * ve adı isteğe uyarak "Öğrencilerim" oldu (bkz. app/panel/page.tsx). Aynı
+   * listeye koordinatör ve merkez de kendi kartlarından giriyor, yani üç rolde
+   * de kapı tek biçimde panelde.
+   *
+   * SAYFA SİLİNMEDİ ve YETKİ DARALMADI: `/panel/ogrenciler` adresle çalışmaya,
+   * danışman kendi öğrencilerini görmeye ve Okul Temsilcisi atamaya devam
+   * ediyor (bkz. ogrenciEnvanteriGorebilirMi). Değişen tek şey menüdeki satır.
    */
-  if (
-    danismanMi(kullanici) &&
-    !ilKoordinatoruMu(kullanici) &&
-    !projeYoneticisiMi(kullanici)
-  ) {
-    baglantilar.push({ yol: "/panel/ogrenciler", etiket: "Öğrencilerim" });
-  }
 
   /*
    * "Çalışma Gruplarım" ve "Danışmanım" MENÜDE YOK (B3/C1 · 5 Ağustos 2026).
@@ -222,18 +239,25 @@ export default async function PanelDuzeni({
    */
 
   /*
-   * Pano (eski adıyla Talep Panosu) öğrenci, öğretmen ve dış kullanıcılara
-   * açık. Merkez personeli dışarıda: YEĞİTEK'in takım arkadaşı araması diye bir
-   * durum yok, onun duyuru kanalı ayrı.
+   * Pano (eski adıyla Talep Panosu) SİSTEMDEKİ HERKESE açık — proje yöneticisi
+   * dahil (13 Ağustos 2026 · istek: "proje yöneticisinin pano sayfası
+   * görünmüyor, diğer kullanıcılarda var").
+   *
+   * Sekme daha önce merkez personelinde basılmıyordu çünkü görme ile ilan açma
+   * tek izinden geçiyordu ve merkez ilan açmıyor. Sonuç, sistemin en canlı
+   * kullanıcı alanının onu yönetenden gizlenmesiydi. İkisi ayrıldı: merkez
+   * panoyu okuyor, ilan açma ve bağlantı isteği ona hâlâ kapalı
+   * (bkz. panodaEslesmeArayabilirMi).
    *
    * PANO EKOSİSTEM DIŞINA AÇILMAZ (S21 · 6 Ağustos 2026): ilanları yalnızca
    * sisteme girmiş kullanıcılar görür. Sponsor ilanı da bu kuralın içindedir —
    * dışarıya açık bir ilan sayfası istenirse bu ayrı bir karardır ve KVKK
    * tarafı yeniden değerlendirilmelidir (ilanı açan çoğunlukla 18 yaş altı).
    */
-  if (talepPanosuGorebilirMi(kullanici)) {
-    baglantilar.push({ yol: "/panel/talepler", etiket: "Pano" });
-  }
+  baglantilar.push({ yol: "/panel/talepler", etiket: "Pano" });
+
+  // Panonun hemen ardında: mentörün işi panodaki ilanları cevaplamak.
+  baglantilar.push(...mentorSekmesi);
 
   /*
    * ÜRÜNLERİM (GençTek Market) HERKESE AÇIK (I · 6 Ağustos 2026).

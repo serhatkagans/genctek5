@@ -37,9 +37,27 @@
 | Bildirim şablonu düzenleme | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 | Rol/atama envanterini görüntüleme | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 | Etkinlik takvimini görüntüleme | ✓ | ✓ | ✓ | ✓ | Ulusal + kendi ili | Ulusal + kendi ili |
-| Talep panosunu görme / ilan açma | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
+| Talep panosunu görme | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Panoda ilan açma | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
 | Bağlantı isteği gönderme (onaya tabi) | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
+| Panodaki ilana cevap yazma | ✗ | Onaylı mentörse | Onaylı mentörse | Onaylı mentörse | Onaylı mentörse | Onaylı mentörse |
+| YEĞİTEK Okul Sorumlusu işareti koyma | ✗ | ✓ (kendi işareti) | ✗ | ✗ | ✗ | ✗ |
+| YEĞİTEK Okul Sorumlusu listesini görme | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Ekip kurma / üye ekleme | ✗ | ✗ | Kendi ili | Tüm iller | ✗ | ✗ |
+| Ekip sohbetini okuma / yazma | Üyesiyse | Üyesiyse | Üyesi ya da ekip kendi ilindeyse | Her ekipte | Üyesiyse | Üyesiyse |
 | EBA dışı giriş başvurusunu onaylama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+
+**Panoda görme ile ilan açma ayrı satırlardır** (13 Ağustos 2026 · istek: "proje yöneticisinin pano sayfası görünmüyor, diğer kullanıcılarda var"). Tek satırdılar ve merkez personeli ilan açmadığı için pano onun menüsünde hiç görünmüyordu; sonuç, sistemin en canlı kullanıcı alanının onu yönetenden gizlenmesiydi. Merkez artık panoyu **okuyor** — hangi konularda destek ve mentör arandığı yönetimsel bir bilgidir — ama ilan açmıyor ve ilanlara bağlantı isteği göndermiyor: YEĞİTEK'in takım arkadaşı araması diye bir durum yok, duyuru kanalı ayrı (`panodaEslesmeArayabilirMi`). Aynı ayrım "Bağlantı isteği gönderme" satırında da geçerlidir.
+
+**Panodaki ilana cevabı yalnızca ONAYLI MENTÖR yazar** (13 Ağustos 2026 · istek: "mentörlerin kendi sayfası olsun … talepleri inceleyip cevap yazacak"). Mentörlük bir rol değil, merkezin onayladığı bir kayıttır; matristeki hücreler bu yüzden role değil o kayda bakar. Cevap AÇIKTIR — ilanın altında herkes okur. Birebir yazışma kapısı değişmedi: o hâlâ bağlantı isteği ve danışman/koordinatör onayından geçiyor. Cevabı gizleme yetkisi yazarında ve gözetim rollerindedir (danışman, koordinatör, merkez).
+
+**"Okul koordinatörü" ayrı bir rol DEĞİLDİR** — 13 Ağustos 2026'ya kadar ekranlarda danışman öğretmenin adı olarak kullanılıyordu ve o gün etiketler **"Danışman öğretmen"** olarak değiştirildi (istek: "okul koordinatörlerini danışman öğretmen yapalım"). Sayılan şey değişmedi: aktif `DANISMAN` rolü. **Okul başına tekillik yoktur** — bir okulda kaç öğretmen isterse danışmanlık görevini işaretler ve her biri kendi öğrencilerine danışmanlık yapar. Tekillik kuralları yalnızca il başına bir il koordinatörü, okul başına bir Okul Temsilcisi, il/ilçe başına birer temsilcidir.
+
+**YEĞİTEK Okul Sorumlusu bir ROL değil İŞARETTİR** (13 Ağustos 2026). Danışman öğretmen panelinden kendisi işaretler, onay aranmaz ve işaret **hiçbir veri erişimi vermez**; tek karşılığı merkezin yönetim panosundaki listede görünmektir. Rol yapılsaydı her kapsam filtresine hiçbir şeyi değiştirmeyen ikinci bir dal eklenirdi (mentörlükte de aynı karar verildi). Listede, işareti duran ama danışmanlık görevini bırakmış kişiler ayrıca etiketlenir.
+
+**Ekip, danışman onayından geçmeden yazışma hakkı doğuran TEK yapıdır** (13 Ağustos 2026 · istek: "il koordinatörü ekipler kurabilsin … ekiplere katılanlarla mesajlaşma sohbet yapabilsin"). Bu yüzden kurma yetkisi ilde tek kişidedir ve üye yalnızca ekibin ilinden seçilebilir. Karşılığında sohbet gizli değildir: ekibin ilinin koordinatörü ve proje yöneticisi üye olmasalar da mesajları okur ve bu, ekrandaki kalıcı uyarıda ve üyeye giden bildirimde yazılıdır. Bir koordinatör istediği kadar ekip kurabilir; ekipler birbirinden bağımsızdır (ayrı üye listesi, ayrı sohbet).
+
+**Ekip bildirimleri iki olayda gider:** ekibe eklendiğinde (eklenen kişiye) ve sohbete mesaj yazıldığında (diğer üyelere ve ekibi kuran koordinatöre). İkinci bildirimin metni **mesajı taşımaz**, yalnızca hangi ekipte olduğunu söyler: bildirim tekrarı içerik karşılaştırdığı için sabit metin arka arkaya gelen mesajları tek satıra indiriyor, ayrıca bildirimin e-posta kopyası sohbet içeriğini ekosistem dışına taşımıyor. Bildirim panelde "Ekibe git" düğmesiyle çıkar.
 
 **Rol/atama envanteri**, "Öğrenci/öğretmen verisi görüntüleme" satırından **ayrı** bir yetkidir: o tekil profil erişimi, bu toplu/yönetimsel görünüm. İl koordinatörü kendi ilindeki danışmansız okulları zaten görür; envanter aynı sorguyu **il filtresi olmadan** çalıştırdığı için yalnızca proje yöneticisine açıktır.
 

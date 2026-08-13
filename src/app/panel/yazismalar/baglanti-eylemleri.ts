@@ -10,7 +10,7 @@ import {
   istekKarariniCoz,
   istekMesajiniCoz,
 } from "@/lib/iletisim/kurallar";
-import { talepPanosuGorebilirMi } from "@/lib/yetki/izinler";
+import { panodaEslesmeArayabilirMi } from "@/lib/yetki/izinler";
 import { baglantiKarariFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
@@ -174,7 +174,7 @@ export async function baglantiIstegiGonderEylemi(
   veri: FormData,
 ): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
-  if (!talepPanosuGorebilirMi(kullanici)) {
+  if (!panodaEslesmeArayabilirMi(kullanici)) {
     throw new YetkiHatasi("Bağlantı isteği gönderme yetkiniz yok.");
   }
 
@@ -233,7 +233,7 @@ export async function kisiyeBaglantiIstegiEylemi(
    * bağlantı isteği göndermez, onun kanalı ayrıdır). Ayrı bir izin adı
    * uydurmak, aynı kuralın iki yerde ayrışmasına açık kapı bırakırdı.
    */
-  if (!talepPanosuGorebilirMi(kullanici)) {
+  if (!panodaEslesmeArayabilirMi(kullanici)) {
     throw new YetkiHatasi("Bağlantı isteği gönderme yetkiniz yok.");
   }
 

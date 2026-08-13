@@ -248,6 +248,24 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\n{{isteyenAdSoyad}}, {{hedefAdSoyad}} ile iletişim kurmak istiyor ({{talepBasligi}}).\n\nPanelden inceleyip onaylayabilir ya da gerekçesiyle reddedebilirsiniz. Onaylanana kadar taraflar birbirine ulaşamaz.\n\nGençTek",
   },
   {
+    kod: "EKIPTE_YENI_MESAJ",
+    konu: "{{ekipAdi}} ekibinde yeni mesaj",
+    govdeSablonu:
+      'Merhaba,\n\n"{{ekipAdi}}" ekibinin sohbetine yeni mesaj yazıldı. Okumak için bildirimdeki bağlantıyı kullanabilir ya da Ekiplerim kartından ekibe girebilirsiniz.\n\nGençTek',
+  },
+  {
+    kod: "EKIBE_EKLENDINIZ",
+    konu: "{{ekipAdi}} ekibine eklendiniz",
+    govdeSablonu:
+      'Merhaba,\n\n{{ekleyenAdSoyad}} sizi "{{ekipAdi}}" ekibine ekledi. Ekip sohbetine Panel\'deki Ekiplerim kartından ulaşabilirsiniz.\n\nEkip sohbeti gizli değildir: ekibi kuran il koordinatörü ve proje yöneticisi mesajları okuyabilir.\n\nGençTek',
+  },
+  {
+    kod: "TALEBE_CEVAP_GELDI",
+    konu: "Panodaki ilanınıza cevap geldi",
+    govdeSablonu:
+      'Merhaba,\n\n"{{talepBasligi}}" başlıklı ilanınıza {{cevaplayanAdSoyad}} cevap yazdı. Cevabı panodaki ilanınızın altında okuyabilirsiniz.\n\nGençTek',
+  },
+  {
     kod: "BAGLANTI_ISTEGI_KARARI",
     konu: "Bağlantı isteğiniz {{sonuc}}",
     govdeSablonu:

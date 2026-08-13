@@ -60,12 +60,12 @@ function tekil(deger: string | string[] | undefined): string | null {
  * kişi iki ekranda aynı görünüyor — onaylayan kişi, kararını verdikten sonra
  * öğrencinin ne göreceğini de görmüş oluyor.
  *
- * FOTOĞRAF BASILMIYOR, baş harfler basılıyor. Sebep bir tasarım tercihi değil
- * yetki kuralı: `/panel/mentorler/[id]/foto` yalnızca PANOYU GÖREBİLEN kişiye
- * ve yalnızca ONAYLANMIŞ mentör için cevap veriyor. Bu ekranın tek sahibi
- * proje yöneticisi ve `talepPanosuGorebilirMi` ona kapalı — buraya konacak her
- * <img> istisnasız kırık görsel olurdu. Kuralı gevşetmek yerine kuyruk baş
- * harfle yetiniyor; onay kararı fotoğrafa bakılarak verilmez.
+ * FOTOĞRAF BASILMIYOR, baş harfler basılıyor. `/panel/mentorler/[id]/foto`
+ * yalnızca ONAYLANMIŞ mentör için cevap veriyor; bu ekranın kuyruğu ise onay
+ * BEKLEYENLERDİR — konacak her <img> orada kırık görsel olurdu. (Rotanın ikinci
+ * koşulu "panoyu görebilme" idi ve 13 Ağustos 2026'da proje yöneticisine de
+ * açıldı; engel artık o değil, kaydın onaylanmamış olması.) Onaylananlar için
+ * de baş harf yeterli: onay kararı fotoğrafa bakılarak verilmez.
  */
 function MentorKimligi({
   adSoyad,

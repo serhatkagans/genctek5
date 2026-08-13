@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   UserCog,
   Users,
+  UsersRound,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -28,6 +29,7 @@ import {
 } from "@/components/YonetimKartlari";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { ekipYonetebilirMi } from "@/lib/ekip/kurallar";
 import {
   birimUyarilari,
   illeriSuz,
@@ -63,7 +65,7 @@ const SINIF_SECIM =
  * İki işi birden yapar:
  *
  *   1. KIRILIM. Merkez tüm illeri, il koordinatörü kendi ilinin ilçelerini
- *      görür; her kartta o birimdeki okul, öğretmen, okul koordinatörü, öğrenci
+ *      görür; her kartta o birimdeki okul, öğretmen, danışman öğretmen, öğrenci
  *      ve (ilde) etkinlik sayısı yazar, altında da o birimin EKSİKLERİ durur.
  *      Karta tıklandıkça bir basamak inilir: il → ilçe → okul.
  *   2. ALT MENÜ. Üst menüden kalkan yönetim sekmeleri (Öğrenciler, Öğretmenler,
@@ -160,7 +162,7 @@ export default async function YonetimSayfasi({
           {ogretmenEnvanteriGorebilirMi(kullanici) && (
             <KisayolKarti
               baslik="Öğretmenler"
-              aciklama="Okul koordinatörleri ve görev almamış öğretmenler"
+              aciklama="Danışman öğretmenler ve görev almamış öğretmenler"
               Ikon={Users}
               yol="/panel/ogretmenler"
             />
@@ -204,6 +206,45 @@ export default async function YonetimSayfasi({
               aciklama="Mentör başvuruları ve karara bağlanan mentörler"
               Ikon={Compass}
               yol="/panel/mentorluk"
+            />
+          )}
+          {/*
+            EKİPLERİM (13 Ağustos 2026 · istek: "il koordinatörü ekipler
+            kurabilsin … bunu da yönetim paneline kart olarak ekleyelim, ismi
+            ekiplerim olsun").
+
+            Kart, ekibin kurulduğu ve yönetildiği tek kapıdır: menüde sekmesi
+            yok, çünkü ekip günlük bir iş değil — koordinatörün ihtiyaç
+            duyduğunda kurduğu bir topluluk. Üyeler ekiplerine kendi
+            panellerindeki karttan giriyor (bkz. app/panel/page.tsx).
+
+            Yetki `ekipYonetebilirMi`: il koordinatörü ve merkez. Yönetim
+            panosunu zaten bu ikisi açıyor ama kart yine de koşullu — panoya
+            ileride başka bir rol girerse ekip kurma kapısı sessizce açılmasın.
+          */}
+          {/*
+            YEĞİTEK OKUL SORUMLULARI (13 Ağustos 2026 · istek: "proje
+            yöneticisinin yönetim panelinde de YEĞİTEK Okul Sorumlusu isminde
+            bir kart olsun ve oradan onların listesini görebilsin").
+
+            Yalnızca merkezde: liste ülke geneli bir görünüm ve rol/atama
+            envanteriyle aynı kategoride. Koordinatör kartı görmüyor çünkü
+            ekranın kendisi de ona kapalı (bkz. okul-sorumlulari/page.tsx).
+          */}
+          {rolEnvanteriGorebilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="YEĞİTEK Okul Sorumlusu"
+              aciklama="Kendini okul sorumlusu olarak işaretlemiş danışman öğretmenlerin listesi"
+              Ikon={ShieldCheck}
+              yol="/panel/okul-sorumlulari"
+            />
+          )}
+          {ekipYonetebilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="Ekiplerim"
+              aciklama="İlinizde kurduğunuz ekipler, üyeleri ve ekip sohbetleri"
+              Ikon={UsersRound}
+              yol="/panel/ekipler"
             />
           )}
           {/*
@@ -260,8 +301,8 @@ export default async function YonetimSayfasi({
             baslik={merkezMi ? "İller" : "İlçeler"}
             aciklama={
               merkezMi
-                ? "Her kartta ildeki okul, öğretmen, okul koordinatörü, öğrenci ve etkinlik sayısı"
-                : "Her kartta ilçedeki okul, öğretmen, okul koordinatörü ve öğrenci sayısı"
+                ? "Her kartta ildeki okul, öğretmen, danışman öğretmen, öğrenci ve etkinlik sayısı"
+                : "Her kartta ilçedeki okul, öğretmen, danışman öğretmen ve öğrenci sayısı"
             }
             Ikon={MapPin}
           />
@@ -347,11 +388,11 @@ export default async function YonetimSayfasi({
             ilce={toplam.ilce}
             okul={toplam.okul}
             ogretmen={toplam.ogretmen}
-            okulKoordinatoru={toplam.okulKoordinatoru}
+            danismanOgretmen={toplam.danismanOgretmen}
             ogrenci={toplam.ogrenci}
             faaliyet={merkezMi ? toplam.faaliyet : undefined}
             koordinatorsuzIl={toplam.koordinatorsuzIl}
-            koordinatorsuzOkul={toplam.koordinatorsuzOkul}
+            danismansizOkul={toplam.danismansizOkul}
             danismansizOgrenci={toplam.danismansizOgrenci}
             raporsuzFaaliyet={toplam.raporsuzFaaliyet}
           />
@@ -379,7 +420,7 @@ export default async function YonetimSayfasi({
                   }`}
                   okulSayisi={il.okulSayisi}
                   ogretmenSayisi={il.ogretmenSayisi}
-                  okulKoordinatoruSayisi={il.okulKoordinatoruSayisi}
+                  danismanOgretmenSayisi={il.danismanOgretmenSayisi}
                   ogrenciSayisi={il.ogrenciSayisi}
                   faaliyetSayisi={il.faaliyetSayisi}
                   uyarilar={birimUyarilari(il)}
@@ -400,7 +441,7 @@ export default async function YonetimSayfasi({
                 ad={ilce.ad}
                 okulSayisi={ilce.okulSayisi}
                 ogretmenSayisi={ilce.ogretmenSayisi}
-                okulKoordinatoruSayisi={ilce.okulKoordinatoruSayisi}
+                danismanOgretmenSayisi={ilce.danismanOgretmenSayisi}
                 ogrenciSayisi={ilce.ogrenciSayisi}
                 /*
                  * Şeritteki eksiklerin hangi ilçeden geldiği ancak kartta

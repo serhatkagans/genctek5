@@ -326,6 +326,7 @@ model Il {
   ogrenciGorevleri OgrenciGorevRolu[]
   paydaslar        Paydas[]
   disBasvurular    DisKullaniciBasvurusu[]
+  ekipler          Ekip[]
 
   @@map("il")
 }
@@ -499,6 +500,14 @@ model Kullanici {
   gizledigiGonderiler Gonderi[]       @relation("GonderiGizleyen")
   gonderiYorumlari    GonderiYorumu[] @relation("GonderiYorumuYazan")
   gizledigiYorumlar   GonderiYorumu[] @relation("GonderiYorumuGizleyen")
+
+  talepCevaplari        TalepCevabi[] @relation("TalepCevabiYazan")
+  gizledigiTalepCevaplari TalepCevabi[] @relation("TalepCevabiGizleyen")
+
+  kurduguEkipler      Ekip[]       @relation("EkipKuran")
+  ekipUyelikleri      EkipUyesi[]  @relation("EkipUyesi")
+  ekipMesajlari       EkipMesaji[] @relation("EkipMesajiYazan")
+  gizledigiEkipMesajlari EkipMesaji[] @relation("EkipMesajiGizleyen")
 
   @@index([kurumKodu])
   @@index([ilKodu])
@@ -726,6 +735,25 @@ model OgretmenProfil {
   kullaniciId          Int       @id @map("kullanici_id")
   danismanOlmakIstiyor Boolean   @default(false) @map("danisman_olmak_istiyor")
   isaretlemeTarihi     DateTime? @map("isaretleme_tarihi") @db.Timestamptz(6)
+
+  /// YEĞİTEK OKUL SORUMLUSU (13 Ağustos 2026 · istek: "okuldaki danışman
+  /// öğretmenlerden bazıları YEĞİTEK Okul Sorumlusu olarak görev alıyor
+  /// olabilir … eğer YEĞİTEK okul sorumlusu ise o alanı işaretlesin").
+  ///
+  /// AYRI BİR ROL DEĞİL, İŞARET: `danisman_olmak_istiyor` ile birebir aynı
+  /// desende ve aynı tabloda. Rol yapılsaydı kapsam filtrelerinin hepsine
+  /// hiçbir şey değiştirmeyen ikinci bir dal eklenirdi — bu işaret kimseye
+  /// yeni bir veri erişimi vermiyor, yalnızca "bu öğretmen okulda YEĞİTEK'in
+  /// muhatabı" bilgisini taşıyor.
+  ///
+  /// ONAY YOK, KİŞİ KENDİ İŞARETLER (danışmanlık işaretiyle aynı): görev okul
+  /// idaresi ile YEĞİTEK arasında zaten verilmiş bir görevdir, sistem onu
+  /// kaydeder. Merkez listeyi yönetim panosundan görür ve yanlışını
+  /// öğretmenle konuşur.
+  yegitekOkulSorumlusu Boolean   @default(false) @map("yegitek_okul_sorumlusu")
+  /// İşaretin konduğu an; kaldırıldığında null'a döner (isaretlemeTarihi ile
+  /// aynı desen). Merkez listesinde "ne zamandır sorumlu" sütununu besler.
+  yegitekIsaretlemeTarihi DateTime? @map("yegitek_isaretleme_tarihi") @db.Timestamptz(6)
   /// Kişinin kendi girdiği iletişim bilgisi; e-Okul'dan GELMEZ ve senkronda
   /// üzerine yazılmaz. Öğretmen, il koordinatörü, YEĞİTEK personeli ve dış
   /// kullanıcılar (mezun, paydaş temsilcisi) aynı tabloyu kullanır — iletişim
@@ -1616,6 +1644,10 @@ model Bildirim {
 /// gerekirdi.
 enum BildirimHedefTipi {
   FAALIYET
+  /// Ekip sohbeti (13 Ağustos 2026). Bildirim panelde "Ekibe git" düğmesine
+  /// dönüşür; ekibe iki ayrı kapıdan girildiği için (üyede Panel kartı,
+  /// koordinatörde Yönetim Paneli kartı) doğrudan bağlantı gerekli.
+  EKIP
 }
 
 /// Bildirim metinleri koda gömülmez, buradan yönetilir. Kod sabittir ve
@@ -1701,12 +1733,127 @@ model Talep {
   acan         Kullanici        @relation("TalepAcan", fields: [acanKullaniciId], references: [id])
   calismaGrubu CalismaGrubu?    @relation(fields: [calismaGrubuId], references: [id])
   istekler     BaglantiIstegi[]
+  cevaplar     TalepCevabi[]
 
   @@index([acanKullaniciId])
   @@index([calismaGrubuId])
   @@index([kapatildiMi, sonGecerlilik])
   @@index([tur])
   @@map("talep")
+}
+
+/// İL KOORDİNATÖRÜNÜN KURDUĞU EKİP (13 Ağustos 2026).
+///
+/// İstek: "il koordinatörü ekipler kurabilsin, ekip ismini kendileri girsin,
+/// ekiplere katılanlarla mesajlaşma sohbet yapabilsin".
+///
+/// ÇALIŞMA GRUBUNDAN AYRI TABLO ve bu bilinçli: `calisma_grubu` merkezin
+/// tanımladığı SABİT listedir (Yapay Zekâ, Robotik…), ülke genelinde aynıdır ve
+/// öğrenci ona kendisi katılır. Ekip ise ilin kendi kurduğu, adını kendi
+/// koyduğu, üyesini tek tek seçtiği bir topluluktur. İkisi tek tabloya
+/// konsaydı, "ilimdeki ekip" ile "ülke genelindeki çalışma alanı" aynı süzgece
+/// düşer ve öğrencinin katılabildiği liste ilden ile değişirdi.
+///
+/// İLE BAĞLIDIR: kuran koordinatörün ili yazılır. Kapsam kuralı buradan çıkar —
+/// koordinatör kendi ilinin ekiplerini yönetir, merkez hepsini görür.
+///
+/// SİLME YOK, PASİFE ALMA VAR (calisma_grubu ile aynı): dağılan ekibin
+/// mesajları ve üye geçmişi kayıt olarak kalır.
+model Ekip {
+  id                Int      @id @default(autoincrement())
+  ad                String   @db.VarChar(150)
+  aciklama          String?  @db.Text
+  ilKodu            String   @map("il_kodu") @db.VarChar(2)
+  kuranKullaniciId  Int      @map("kuran_kullanici_id")
+  aktif             Boolean  @default(true)
+  olusturmaTarihi   DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+
+  il       Il          @relation(fields: [ilKodu], references: [ilKodu])
+  kuran    Kullanici   @relation("EkipKuran", fields: [kuranKullaniciId], references: [id])
+  uyeler   EkipUyesi[]
+  mesajlar EkipMesaji[]
+
+  @@index([ilKodu, aktif])
+  @@index([kuranKullaniciId])
+  @@map("ekip")
+}
+
+/// Ekip üyeliği.
+///
+/// ÇIKARILAN ÜYE SATIRI SİLİNİR (yazışmadaki gibi "bitiş tarihi" tutulmaz):
+/// üyelik bir görev değil bir katılımdır ve geçmişi rapor edilmiyor. Kişinin
+/// yazdığı mesajlar kalır — onlar kaydın kendisidir.
+model EkipUyesi {
+  ekipId          Int      @map("ekip_id")
+  kullaniciId     Int      @map("kullanici_id")
+  eklenmeTarihi   DateTime @default(now()) @map("eklenme_tarihi") @db.Timestamptz(6)
+
+  ekip      Ekip      @relation(fields: [ekipId], references: [id], onDelete: Cascade)
+  kullanici Kullanici @relation("EkipUyesi", fields: [kullaniciId], references: [id])
+
+  @@id([ekipId, kullaniciId])
+  @@index([kullaniciId])
+  @@map("ekip_uyesi")
+}
+
+/// Ekip sohbetindeki mesaj.
+///
+/// GİZLİ KANAL DEĞİLDİR (lib/iletisim/kurallar.ts ile aynı ilke): ekibi kuran
+/// koordinatör ve proje yöneticisi mesajları okur. Kullanıcıların çoğu 18 yaş
+/// altı; okunmayan bir kanal vaadi verilmiyor çünkü tutulamazdı.
+///
+/// SİLME YOK, GİZLEME VAR — model Mesaj ve model Gonderi ile aynı gerekçe.
+model EkipMesaji {
+  id                  Int       @id @default(autoincrement())
+  ekipId              Int       @map("ekip_id")
+  yazanKullaniciId    Int       @map("yazan_kullanici_id")
+  icerik              String    @db.Text
+  olusturmaTarihi     DateTime  @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  gizlendiMi          Boolean   @default(false) @map("gizlendi_mi")
+  gizleyenKullaniciId Int?      @map("gizleyen_kullanici_id")
+  gizlenmeTarihi      DateTime? @map("gizlenme_tarihi") @db.Timestamptz(6)
+
+  ekip     Ekip       @relation(fields: [ekipId], references: [id], onDelete: Cascade)
+  yazan    Kullanici  @relation("EkipMesajiYazan", fields: [yazanKullaniciId], references: [id])
+  gizleyen Kullanici? @relation("EkipMesajiGizleyen", fields: [gizleyenKullaniciId], references: [id])
+
+  @@index([ekipId, olusturmaTarihi])
+  @@map("ekip_mesaji")
+}
+
+/// Panodaki bir ilana yazılan CEVAP (13 Ağustos 2026).
+///
+/// İstek: "mentörlerin kendi sayfası olsun, destek atacağı sayfayı görecek,
+/// talepleri inceleyip cevap yazacak".
+///
+/// NİYE AÇIK CEVAP, ÖZEL MESAJ DEĞİL: bu sistemde yetişkin ile 18 yaş altı
+/// kullanıcı arasındaki BİREBİR yazışma danışman/koordinatör onayından geçer
+/// (bkz. model BaglantiIstegi) ve bu kural gevşetilmedi. Panoya yazılan cevap
+/// ise ilanı gören herkesin okuduğu bir metindir — ilan zaten açıktır ve cevabı
+/// da açık olması, aynı soruyu soracak ikinci öğrenciye de yarar. Mentör
+/// birebir konuşmak isterse yolu yine bağlantı isteğidir.
+///
+/// SİLME YOKTUR, GİZLEME VARDIR (model Gonderi ile aynı gerekçe): içerik
+/// korunur, çünkü şikâyet incelemesinde en çok ihtiyaç duyulan kayıt silinmiş
+/// olandır. Gizleme yetkisi gözetim rollerindedir (danışman, il koordinatörü,
+/// proje yöneticisi) ve yazarın kendisi de gizleyebilir.
+model TalepCevabi {
+  id                  Int       @id @default(autoincrement())
+  talepId             Int       @map("talep_id")
+  yazanKullaniciId    Int       @map("yazan_kullanici_id")
+  icerik              String    @db.Text
+  olusturmaTarihi     DateTime  @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  gizlendiMi          Boolean   @default(false) @map("gizlendi_mi")
+  gizleyenKullaniciId Int?      @map("gizleyen_kullanici_id")
+  gizlenmeTarihi      DateTime? @map("gizlenme_tarihi") @db.Timestamptz(6)
+
+  talep    Talep      @relation(fields: [talepId], references: [id])
+  yazan    Kullanici  @relation("TalepCevabiYazan", fields: [yazanKullaniciId], references: [id])
+  gizleyen Kullanici? @relation("TalepCevabiGizleyen", fields: [gizleyenKullaniciId], references: [id])
+
+  @@index([talepId, olusturmaTarihi])
+  @@index([yazanKullaniciId, olusturmaTarihi])
+  @@map("talep_cevabi")
 }
 
 /// İki kişi arasında yazışma açılabilmesi için gereken onay.

@@ -7,6 +7,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { MentorlukDuzenleme } from "@/components/ProfilDuzenleme";
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import {
   BilgiKutusu,
@@ -32,10 +33,18 @@ import { basHarfler } from "@/lib/mentor/kurallar";
 import {
   type HavuzMentoru,
   mentorHavuzunuGetir,
+  mentorluguGetir,
 } from "@/lib/mentor/veri";
 import { uygulamaYolu } from "@/lib/ortam";
-import { girdiTarihi, tarihYaz } from "@/lib/tarih";
-import { talepPanosuGorebilirMi } from "@/lib/yetki/izinler";
+import { girdiTarihi, tarihSaatYaz, tarihYaz } from "@/lib/tarih";
+import {
+  mentorlukBasvurabilirMi,
+  panodaEslesmeArayabilirMi,
+} from "@/lib/yetki/izinler";
+import {
+  mentorlukBasvurEylemi,
+  mentorluguBirakEylemi,
+} from "../mentorluk/eylemler";
 import { baglantiIstegiGonderEylemi } from "../yazismalar/baglanti-eylemleri";
 import { talepKapatEylemi, talepAcEylemi } from "./eylemler";
 
@@ -263,6 +272,13 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "istek-gonderildi":
     "Bağlantı isteğiniz gönderildi. Danışman öğretmeniniz ya da il koordinatörünüz onayladığında yazışma açılır.",
   kapatildi: "İlanınız kapatıldı; listede görünmüyor.",
+  /*
+   * Mentörlük mesajları PANEL'DEN BURAYA taşındı (13 Ağustos 2026): başvuru
+   * bölümü panoya geldi, eylemin dönüş adresi de öyle. Panel'de bırakılsalardı
+   * başvurusunu gönderen kişi hiçbir onay iletisi görmezdi.
+   */
+  "mentorluk-basvuruldu": "Mentörlük başvurunuz alındı ve onaya gönderildi.",
+  "mentorluk-birakildi": "Mentörlüğü bıraktınız.",
 };
 
 export default async function TaleplerSayfasi({
@@ -279,7 +295,27 @@ export default async function TaleplerSayfasi({
   const kullanici = await oturumKullanicisiZorunlu();
   const { durum, hata, grup, ara, tur } = await searchParams;
 
-  const acabilir = talepPanosuGorebilirMi(kullanici);
+  /*
+   * "Açabilir" panonun YAZAN tarafıdır: ilan formları ve ilandaki bağlantı
+   * isteği kutusu buna bakıyor. Sayfanın kendisi herkese açık — proje yöneticisi
+   * panoyu 13 Ağustos 2026'dan beri OKUYOR ama ilan açmıyor (bkz.
+   * lib/yetki/izinler.ts). Ekranın geri kalanı ikisinde de aynı.
+   */
+  const acabilir = panodaEslesmeArayabilirMi(kullanici);
+  /*
+   * MENTÖR OLARAK BAŞVURU ARTIK PANODA (13 Ağustos 2026 · istek: "panelde
+   * mentör olarak başvur kalksın … panoya Mentör olarak başvur alanı açılacak,
+   * panoda iki bölüm vardı, 3. bu olacak").
+   *
+   * Yeri burası çünkü mentörlüğün karşılığı bu ekranda: "Mentör talebi aç"
+   * formu ve havuz ızgarası hemen üstte. Başvuru Panel'deyken kişi mentör
+   * olmayı kabul ettiği yerde ne işe yarayacağını görmüyordu.
+   *
+   * Öğrenci hariç herkes başvurabilir (bkz. mentorlukBasvurabilirMi) — bu
+   * yüzden `acabilir` değil AYRI bir koşul: merkez personeli panoda ilan
+   * açmıyor ama mentör olabiliyor.
+   */
+  const mentorBasvurabilir = mentorlukBasvurabilirMi(kullanici);
   const simdi = new Date();
 
   const grupId = Number.parseInt(grup ?? "", 10);
@@ -293,7 +329,14 @@ export default async function TaleplerSayfasi({
   const seciliTur = talepTuruGecerliMi(tur ?? "") ? (tur as TalepTuru) : null;
   const tursuzIstendi = tur === "belirtilmemis";
 
-  const [gruplar, talepler, kendiTalepleri, mentorler] = await Promise.all([
+  const [
+    gruplar,
+    talepler,
+    kendiTalepleri,
+    mentorler,
+    mentorlugum,
+    mentorlukGruplarim,
+  ] = await Promise.all([
     prisma.calismaGrubu.findMany({
       where: { aktif: true },
       orderBy: { siraNo: "asc" },
@@ -347,6 +390,23 @@ export default async function TaleplerSayfasi({
             },
           },
         },
+        /*
+         * MENTÖR CEVAPLARI İLANIN ALTINDA (13 Ağustos 2026 · mentör sayfası).
+         * Cevap mentör ekranından yazılıyor ama okunacağı yer burası: ilan
+         * sahibi bildirimle panoya geliyor ve cevabı ilanının altında buluyor.
+         * Gizlenmiş cevap basılmaz.
+         */
+        cevaplar: {
+          where: { gizlendiMi: false },
+          orderBy: { olusturmaTarihi: "asc" },
+          select: {
+            id: true,
+            icerik: true,
+            olusturmaTarihi: true,
+            yazanKullaniciId: true,
+            yazan: { select: { ad: true, soyad: true } },
+          },
+        },
       },
     }),
     prisma.talep.findMany({
@@ -360,6 +420,21 @@ export default async function TaleplerSayfasi({
      * açılışına gereksiz bir gidiş dönüş eklenirdi.
      */
     mentorHavuzunuGetir(),
+    /*
+     * Kişinin KENDİ mentörlük kaydı ve seçtiği gruplar — başvuru bölümünü
+     * besler. Başvuramayan kullanıcı için sorgu hiç açılmıyor; öğrencide bu
+     * iki satır boşuna dönerdi ve pano en çok öğrencinin açtığı ekrandır.
+     *
+     * Seçilebilir grup listesi için AYRI sorgu yok: yukarıdaki `gruplar` zaten
+     * aktif çalışma gruplarıdır ve süzgeç de onu kullanıyor.
+     */
+    mentorBasvurabilir ? mentorluguGetir(kullanici.id) : null,
+    mentorBasvurabilir
+      ? prisma.mentorlukCalismaGrubu.findMany({
+          where: { mentorlukKullaniciId: kullanici.id },
+          select: { calismaGrubuId: true },
+        })
+      : [],
   ]);
 
   const filtreVar =
@@ -382,6 +457,20 @@ export default async function TaleplerSayfasi({
         kuralı ilk temasta bilmeli. Metin tek bir sabitten geliyor.
       */}
       <BilgiKutusu cesit="uyari">{GIZLILIK_UYARISI}</BilgiKutusu>
+
+      {/*
+        İLAN AÇAMAYAN KİŞİYE SEBEBİ YAZILIYOR (13 Ağustos 2026). Merkez personeli
+        panoyu o gün görmeye başladı; formların sessizce yok olması "sayfa yarım
+        açıldı" izlenimi verirdi. Ekranın ne İŞE yaradığını da söylüyor: merkez
+        buraya ilan asmaya değil, hangi konularda destek ve mentör arandığını
+        görmeye geliyor.
+      */}
+      {!acabilir && (
+        <BilgiKutusu cesit="bilgi">
+          Panoyu görüntülüyorsunuz. Merkez personeli ilan açmaz ve ilanlara
+          bağlantı isteği göndermez; duyuru kanalı ayrıdır (Mesaj Gönder).
+        </BilgiKutusu>
+      )}
 
       <form method="get" className="rounded-kart border border-cizgi bg-kart p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -500,7 +589,11 @@ export default async function TaleplerSayfasi({
             {talepler.map((talep) => {
               const roller = acanRolleri(talep.acan.roller);
               return (
-              <li key={talep.id} className="rounded-kart border border-cizgi p-4">
+              <li
+                key={talep.id}
+                id={`talep-${talep.id}`}
+                className="scroll-mt-24 rounded-kart border border-cizgi p-4"
+              >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="font-semibold text-baslik">{talep.baslik}</h3>
                   <span className="flex flex-wrap items-center gap-2">
@@ -550,6 +643,46 @@ export default async function TaleplerSayfasi({
                     {tarihYaz(talep.sonGecerlilik)} tarihine kadar
                   </span>
                 </div>
+
+                {/*
+                  MENTÖR CEVAPLARI (13 Ağustos 2026). Cevaplar mentör
+                  sayfasından yazılıyor, okunacakları yer burası: ilan sahibi
+                  bildirimle geliyor ve cevabı ilanının altında buluyor.
+
+                  BAĞLANTI KUTUSUNDAN ÖNCE basılıyor — önce "cevap geldi mi",
+                  sonra "birebir konuşmak ister miyim". Sıra ters olsaydı cevap,
+                  bir formun altında gözden kaçardı.
+
+                  Gizleme düğmesi BURADA YOK: gözetim rolleri cevabı görüyor ama
+                  kaldırma işi tek ekranda toplandı (mentör sayfası ve eylem);
+                  panodaki her satıra düğme koymak, öğrencinin gördüğü listeyi
+                  moderasyon aracına çevirirdi.
+                */}
+                {talep.cevaplar.length > 0 && (
+                  <div className="mt-3 border-t border-cizgi pt-3">
+                    <p className="text-sm font-medium text-metin">
+                      Mentör cevapları ({talep.cevaplar.length})
+                    </p>
+                    <ul className="mt-2 space-y-2">
+                      {talep.cevaplar.map((cevap) => (
+                        <li
+                          key={cevap.id}
+                          className="rounded-kart bg-zemin px-3 py-2"
+                        >
+                          <p className="text-sm font-medium text-metin">
+                            {cevap.yazan.ad} {cevap.yazan.soyad}
+                            <span className="ml-2 font-normal text-metin-yumusak">
+                              {tarihSaatYaz(cevap.olusturmaTarihi)}
+                            </span>
+                          </p>
+                          <p className="mt-1 whitespace-pre-line text-metin">
+                            {cevap.icerik}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/*
                   Kendi ilanına istek gönderilmez. İletişim bilgisi burada
@@ -648,6 +781,45 @@ export default async function TaleplerSayfasi({
             <MentorHavuzu mentorler={mentorler} />
           </TalepFormu>
         </>
+      )}
+
+      {/*
+        ÜÇÜNCÜ BÖLÜM: MENTÖR OLARAK BAŞVUR (13 Ağustos 2026 · istek: "panoda iki
+        bölüm vardı, 3. bu olacak").
+
+        ÇAPA `mentorlugum` KALDI: eylemlerin dönüş adresi, panelden gelen kart
+        ve e-postalardaki bağlantılar bu çapayı taşıyor (bkz.
+        mentorluk/eylemler.ts). Adres değişti, çapa değişmedi.
+
+        İki talep formunun ALTINDA: pano önce "ne arıyorsun" sorusunu soruyor,
+        bu bölüm "ne verebilirsin" sorusudur ve daha az kişiyi ilgilendirir.
+      */}
+      {mentorBasvurabilir && (
+        <Kart>
+          <span id="mentorlugum" className="block scroll-mt-24" />
+          <KartBasligi
+            baslik="Mentör olarak başvur"
+            aciklama="Bildiğiniz konularda öğrencilere yol gösterin. Başvurunuz proje yöneticisinin onayından geçer; onaylanınca yukarıdaki mentör havuzunda görünürsünüz."
+            Ikon={GraduationCap}
+          />
+          <MentorlukDuzenleme
+            mevcut={
+              mentorlugum
+                ? {
+                    durum: mentorlugum.durum,
+                    konular: mentorlugum.konular,
+                    retGerekcesi: mentorlugum.retGerekcesi,
+                    seciliGrupIdleri: mentorlukGruplarim.map(
+                      (satir) => satir.calismaGrubuId,
+                    ),
+                  }
+                : null
+            }
+            gruplar={gruplar}
+            basvurEylemi={mentorlukBasvurEylemi}
+            birakEylemi={mentorluguBirakEylemi}
+          />
+        </Kart>
       )}
     </div>
   );

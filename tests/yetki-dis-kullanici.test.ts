@@ -6,6 +6,7 @@ import {
   faaliyetGorunurMu,
   mezunMu,
   ogretmenEnvanteriGorebilirMi,
+  panodaEslesmeArayabilirMi,
   paydasEkleyebilirMi,
   paydasGorebilirMi,
   paydasTemsilcisiMi,
@@ -79,7 +80,20 @@ describe("başvuru ve talep panosu", () => {
   it("talep panosu başvuru yetkisinden AYRIDIR: dış kullanıcı panoyu görür", () => {
     expect(talepPanosuGorebilirMi(mezunYap())).toBe(true);
     expect(talepPanosuGorebilirMi(paydasTemsilcisiYap())).toBe(true);
-    expect(talepPanosuGorebilirMi(projeYoneticisiYap())).toBe(false);
+  });
+
+  it("panoyu proje yöneticisi de GÖRÜR ama ilan açamaz", () => {
+    // 13 Ağustos 2026: görme ile ilan açma ayrıldı. Merkez, sistemin en canlı
+    // kullanıcı alanını okuyabilmeli; ilan asan taraf ise o değil.
+    expect(talepPanosuGorebilirMi(projeYoneticisiYap())).toBe(true);
+    expect(panodaEslesmeArayabilirMi(projeYoneticisiYap())).toBe(false);
+  });
+
+  it("ilan açma ve bağlantı isteği panoyu gören herkeste açık", () => {
+    expect(panodaEslesmeArayabilirMi(ogrenciYap())).toBe(true);
+    expect(panodaEslesmeArayabilirMi(danismanYap())).toBe(true);
+    expect(panodaEslesmeArayabilirMi(mezunYap())).toBe(true);
+    expect(panodaEslesmeArayabilirMi(paydasTemsilcisiYap())).toBe(true);
   });
 });
 

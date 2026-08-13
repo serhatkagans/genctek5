@@ -18,7 +18,10 @@ export const dynamic = "force-dynamic";
  *
  *   1. İSTEYEN panoyu görebilmeli (`talepPanosuGorebilirMi`). Havuz panonun
  *      parçası; panoyu göremeyen birinin oradaki kişilerin yüzünü görmesi için
- *      bir sebep yok.
+ *      bir sebep yok. Bu koşul 13 Ağustos 2026'da GEVŞEDİ — pano artık merkez
+ *      personeline de açık, yani koşul pratikte "oturumu olan" demek. Kapı yine
+ *      de buradan geçiyor: pano ekosistem dışına açılırsa (S21) fotoğrafın
+ *      kimlere gittiği de aynı yerden değişmeli.
  *   2. HEDEF, durumu ONAYLANDI olan bir mentör olmalı. Onay bekleyen,
  *      reddedilmiş ya da mentörlüğü bırakmış kişinin fotoğrafı verilmez —
  *      kimlik bilinerek adres denenirse bile. Bu, rotayı "her kullanıcının

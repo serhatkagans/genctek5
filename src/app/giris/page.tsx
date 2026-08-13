@@ -28,7 +28,7 @@ import { girisEylemi } from "./eylemler";
  * değişmez.
  *
  * Kimlikler dört yetki senaryosuna göre gruplanır (YEĞİTEK, il koordinatörü,
- * okul koordinatörü, öğrenci), çünkü test edilen şey kişi değil o rolün ne
+ * danışman öğretmen, öğrenci), çünkü test edilen şey kişi değil o rolün ne
  * görüp ne yapabildiğidir. Gruplama sabit listeden değil veritabanındaki aktif
  * rollerden gelir: bir öğretmen danışmanlık görevini bıraktığında kartı
  * kendiliğinden son gruba düşer.
@@ -57,7 +57,7 @@ const SENARYO_TANIMLARI = [
   },
   {
     kod: "okul",
-    baslik: "Okul koordinatörü — GençTek danışman öğretmeni",
+    baslik: "Danışman öğretmen — GençTek danışman öğretmeni",
     aciklama:
       "Yalnızca danışmanlığındaki öğrencileri görür, okulunda etkinlik açar.",
     Ikon: ShieldCheck as Ikon,
@@ -75,7 +75,7 @@ const SENARYO_TANIMLARI = [
     kod: "gorevsiz",
     baslik: "Görev almamış öğretmen",
     aciklama:
-      "Sisteme girer ama hiçbir öğrenci verisi göremez; danışmanlık görevini Panelim ekranından kendisi işaretler. İşaretlediği anda kartı bu gruptan çıkar, üstteki \"Okul koordinatörü\" grubuna geçer.",
+      "Sisteme girer ama hiçbir öğrenci verisi göremez; danışmanlık görevini Panelim ekranından kendisi işaretler. İşaretlediği anda kartı bu gruptan çıkar, üstteki \"Danışman öğretmen\" grubuna geçer.",
     Ikon: Building2 as Ikon,
     seritSinifi: "border-l-cizgi",
   },

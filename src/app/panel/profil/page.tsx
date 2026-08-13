@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Sparkles,
   UserCheck,
+  UserRound,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -452,6 +453,34 @@ export default async function ProfilSayfasi({
             />
           )}
         </dl>
+      </Kart>
+
+      {/*
+        HAKKIMDA (13 Ağustos 2026 · istek: "panele hakkımda bölümü ekle,
+        profilde görünsün, elle uzmanlıklarını üzerinde çalıştığı projeleri
+        yazsın").
+
+        KİMLİK BİLGİLERİNİN HEMEN ARDINDA: kimlik alanları e-Okul'dan gelir ve
+        kişiyi "kayıtta ne yazıyor" diye anlatır; bu metin ise kişinin kendini
+        anlattığı tek yerdir ve profili okuyanın ilk merak ettiği şeydir.
+
+        Metni olmayanda da kart BASILIYOR ve ne yazılacağını söylüyor: boş
+        bırakmak, alanın var olduğunu hiç duymamış kullanıcıyı öylece bırakırdı.
+        Düzenleme Panel'de (Profil GÖSTERİR, Panel DÜZENLER).
+      */}
+      <Kart>
+        <KartBasligi
+          baslik="Hakkımda"
+          aciklama="Uzmanlıklarınız ve üzerinde çalıştığınız projeler; bu metni siz yazarsınız."
+          Ikon={UserRound}
+        />
+        <p className="whitespace-pre-line text-metin">
+          {kayit.hakkinda || "Henüz bir tanıtım metni yazmadınız."}
+        </p>
+        <PaneldenDuzenleBaglantisi
+          capa="hakkimda"
+          etiket="Hakkımda metnimi Panel'den düzenle →"
+        />
       </Kart>
 
       {/*

@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
-import { BulunamadiHatasi } from "@/lib/yetki/tipler";
+import { danismanMi } from "@/lib/yetki/izinler";
+import { erisimLogla } from "@/lib/yetki/log";
+import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
 
 /**
  * Bildirim okundu işaretleme.
@@ -45,4 +48,71 @@ export async function tumBildirimleriOkuEylemi(): Promise<void> {
 
   revalidatePath("/panel");
   revalidatePath("/panel/bildirimler");
+}
+
+/**
+ * YEĞİTEK OKUL SORUMLUSU İŞARETİ (13 Ağustos 2026 · istek: "okuldaki danışman
+ * öğretmenlerden bazıları YEĞİTEK Okul Sorumlusu olarak görev alıyor olabilir
+ * … eğer YEĞİTEK okul sorumlusu ise o alanı işaretlesin").
+ *
+ * DANIŞMANLIK İŞARETİYLE AYNI DESEN (bkz. lib/ogretmen/danismanlik.ts): onay
+ * yoktur, kişi kendi işaretler. Görev okul idaresi ile YEĞİTEK arasında zaten
+ * verilmiştir; sistem onu kaydeder, dağıtmaz.
+ *
+ * İŞARET YETKİ VERMEZ: hiçbir kapsam filtresi bu alanı okumuyor. Tek karşılığı,
+ * merkezin yönetim panosundaki listede görünmek.
+ *
+ * KOŞUL DANIŞMANLIK: işaret yalnızca danışmanlık görevini almış öğretmende
+ * anlamlı — okulun YEĞİTEK muhatabı, okulda GençTek işini yürüten kişidir.
+ * Görevini bırakan öğretmende işaret de kalkar (aşağıdaki `danismanMi`
+ * kontrolü, formu görmeyen birinin adres üzerinden işaret koymasını da
+ * engeller).
+ */
+export async function yegitekSorumlusuIsaretiEylemi(
+  veri: FormData,
+): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!danismanMi(kullanici)) {
+    throw new YetkiHatasi(
+      "YEĞİTEK Okul Sorumlusu işaretini yalnızca danışman öğretmen koyabilir.",
+    );
+  }
+
+  const sorumluMu = veri.get("sorumluMu") === "evet";
+  const simdi = new Date();
+
+  await prisma.ogretmenProfil.upsert({
+    where: { kullaniciId: kullanici.id },
+    update: {
+      yegitekOkulSorumlusu: sorumluMu,
+      yegitekIsaretlemeTarihi: sorumluMu ? simdi : null,
+    },
+    create: {
+      kullaniciId: kullanici.id,
+      yegitekOkulSorumlusu: sorumluMu,
+      yegitekIsaretlemeTarihi: sorumluMu ? simdi : null,
+    },
+  });
+
+  /*
+   * ERİŞİM KAYDI TUTULUYOR: işaret, merkezin listesine giren bir beyandır ve
+   * "bu kişi ne zaman kendini sorumlu ilan etti" sorusunun cevabı kayıtta
+   * durmalı.
+   */
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: kullanici.id,
+    detay: sorumluMu
+      ? "YEĞİTEK Okul Sorumlusu işareti kondu"
+      : "YEĞİTEK Okul Sorumlusu işareti kaldırıldı",
+  });
+
+  revalidatePath("/panel");
+  revalidatePath("/panel/profil");
+  revalidatePath("/panel/okul-sorumlulari");
+  redirect(
+    `/panel?durum=${sorumluMu ? "yegitek-isaretlendi" : "yegitek-kaldirildi"}#yegitek-sorumlulugum`,
+  );
 }

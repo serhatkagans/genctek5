@@ -8,7 +8,7 @@ import type { YonetimYeri } from "./yonetim-kurallari";
  * Yönetim panosunun sayımları — il → ilçe → okul kırılımı.
  *
  * Panonun tek soruyu üç düzeyde sorması bilinçli: "burada kaç okul, kaç
- * öğretmen, kaç okul koordinatörü, kaç öğrenci var". Merkez ile başlar,
+ * öğretmen, kaç danışman öğretmen, kaç öğrenci var". Merkez ile başlar,
  * koordinatör ilçeden başlar; sayının anlamı ikisinde de aynıdır, yalnızca
  * kapsam daralır.
  *
@@ -48,8 +48,8 @@ const AKTIF_OGRENCI = {
   roller: { some: { rolKodu: "OGRENCI" as const, bitisTarihi: null } },
 };
 
-/** Aktif okul koordinatörü (danışman öğretmen) koşulu. */
-const AKTIF_KOORDINATOR = {
+/** Aktif danışman öğretmen (danışman öğretmen) koşulu. */
+const AKTIF_DANISMAN = {
   aktif: true,
   roller: { some: { rolKodu: "DANISMAN" as const, bitisTarihi: null } },
 };
@@ -61,7 +61,7 @@ const AKTIF_KOORDINATOR = {
  * kaç öğretmen var"; ikincisi zaten koordinatör satırında duruyor.
  *
  * `aktif: true` KOŞULU EKLENİR, envanter listesinde bu koşul yokken. Şeritteki
- * öğretmen sayısı okul koordinatörü sayısını KAPSAMAK zorunda ve koordinatör
+ * öğretmen sayısı danışman öğretmen sayısını KAPSAMAK zorunda ve koordinatör
  * sayımı aktif kullanıcıya bakıyor; iki ölçüt ayrılsaydı pasif bir danışman
  * öğretmen sütununda görünüp koordinatör sütununda görünmez, üstteki sayı alttan
  * küçük kalabilirdi.
@@ -69,16 +69,16 @@ const AKTIF_KOORDINATOR = {
 const AKTIF_OGRETMEN = { aktif: true, ...OGRETMEN };
 
 /**
- * Okul koordinatörü olmayan aktif okul.
+ * Danışman öğretmen olmayan aktif okul.
  *
  * Kapalı okul sayılmaz: sayının karşılığı bir iştir ("buraya danışman ata") ve
  * kapalı okula danışman atanmaz. Koşul `none` ile kuruluyor, "koordinatör sayısı
  * sıfır" diye sonradan süzülerek değil — süzme, okulları tek tek çekmeyi
  * gerektirirdi (81 il için bunu yapmıyoruz, bkz. dosya başlığı).
  */
-const KOORDINATORSUZ_OKUL = {
+const DANISMANSIZ_OKUL = {
   aktif: true,
-  kullanicilar: { none: AKTIF_KOORDINATOR },
+  kullanicilar: { none: AKTIF_DANISMAN },
 };
 
 /**
@@ -118,10 +118,10 @@ export interface IlOzeti {
   ad: string;
   ilceSayisi: number;
   okulSayisi: number;
-  /** Okul koordinatörü atanmamış aktif okul sayısı — doldurulacak boşluk. */
-  koordinatorsuzOkulSayisi: number;
+  /** Danışman öğretmen atanmamış aktif okul sayısı — doldurulacak boşluk. */
+  danismansizOkulSayisi: number;
   ogretmenSayisi: number;
-  okulKoordinatoruSayisi: number;
+  danismanOgretmenSayisi: number;
   ogrenciSayisi: number;
   /** Aktif danışman ataması olmayan öğrenci — takipsiz kalanlar. */
   danismansizOgrenciSayisi: number;
@@ -172,7 +172,7 @@ export async function ilOzetleriniGetir(): Promise<IlOzeti[]> {
     }),
     prisma.kurum.groupBy({
       by: ["ilKodu"],
-      where: KOORDINATORSUZ_OKUL,
+      where: DANISMANSIZ_OKUL,
       _count: { _all: true },
     }),
     prisma.kullanici.groupBy({
@@ -182,7 +182,7 @@ export async function ilOzetleriniGetir(): Promise<IlOzeti[]> {
     }),
     prisma.kullanici.groupBy({
       by: ["ilKodu"],
-      where: AKTIF_KOORDINATOR,
+      where: AKTIF_DANISMAN,
       _count: { _all: true },
     }),
     prisma.kullanici.groupBy({
@@ -233,7 +233,7 @@ export async function ilOzetleriniGetir(): Promise<IlOzeti[]> {
   const okulSayilari = sayimHaritasi(okullar, "ilKodu");
   const bosOkulSayilari = sayimHaritasi(bosOkullar, "ilKodu");
   const ogretmenSayilari = sayimHaritasi(ogretmenler, "ilKodu");
-  const koordinatorSayilari = sayimHaritasi(koordinatorler, "ilKodu");
+  const danismanSayilari = sayimHaritasi(koordinatorler, "ilKodu");
   const ogrenciSayilari = sayimHaritasi(ogrenciler, "ilKodu");
   const danismansizSayilari = sayimHaritasi(danismansizlar, "ilKodu");
   const faaliyetSayilari = sayimHaritasi(faaliyetler, "ilKodu");
@@ -251,9 +251,9 @@ export async function ilOzetleriniGetir(): Promise<IlOzeti[]> {
     ad: il.ad,
     ilceSayisi: ilceSayilari.get(il.ilKodu) ?? 0,
     okulSayisi: okulSayilari.get(il.ilKodu) ?? 0,
-    koordinatorsuzOkulSayisi: bosOkulSayilari.get(il.ilKodu) ?? 0,
+    danismansizOkulSayisi: bosOkulSayilari.get(il.ilKodu) ?? 0,
     ogretmenSayisi: ogretmenSayilari.get(il.ilKodu) ?? 0,
-    okulKoordinatoruSayisi: koordinatorSayilari.get(il.ilKodu) ?? 0,
+    danismanOgretmenSayisi: danismanSayilari.get(il.ilKodu) ?? 0,
     ogrenciSayisi: ogrenciSayilari.get(il.ilKodu) ?? 0,
     danismansizOgrenciSayisi: danismansizSayilari.get(il.ilKodu) ?? 0,
     faaliyetSayisi: faaliyetSayilari.get(il.ilKodu) ?? 0,
@@ -266,9 +266,9 @@ export interface IlceOzeti {
   ilceKodu: string;
   ad: string;
   okulSayisi: number;
-  koordinatorsuzOkulSayisi: number;
+  danismansizOkulSayisi: number;
   ogretmenSayisi: number;
-  okulKoordinatoruSayisi: number;
+  danismanOgretmenSayisi: number;
   ogrenciSayisi: number;
   danismansizOgrenciSayisi: number;
 }
@@ -304,7 +304,7 @@ export async function ilceOzetleriniGetir(ilKodu: string): Promise<IlceOzeti[]> 
       }),
       prisma.kurum.groupBy({
         by: ["ilceKodu"],
-        where: { ilKodu, ...KOORDINATORSUZ_OKUL },
+        where: { ilKodu, ...DANISMANSIZ_OKUL },
         _count: { _all: true },
       }),
       prisma.kullanici.groupBy({
@@ -314,7 +314,7 @@ export async function ilceOzetleriniGetir(ilKodu: string): Promise<IlceOzeti[]> 
       }),
       prisma.kullanici.groupBy({
         by: ["ilceKodu"],
-        where: { ilKodu, ...AKTIF_KOORDINATOR },
+        where: { ilKodu, ...AKTIF_DANISMAN },
         _count: { _all: true },
       }),
       prisma.kullanici.groupBy({
@@ -332,7 +332,7 @@ export async function ilceOzetleriniGetir(ilKodu: string): Promise<IlceOzeti[]> 
   const okulSayilari = sayimHaritasi(okullar, "ilceKodu");
   const bosOkulSayilari = sayimHaritasi(bosOkullar, "ilceKodu");
   const ogretmenSayilari = sayimHaritasi(ogretmenler, "ilceKodu");
-  const koordinatorSayilari = sayimHaritasi(koordinatorler, "ilceKodu");
+  const danismanSayilari = sayimHaritasi(koordinatorler, "ilceKodu");
   const ogrenciSayilari = sayimHaritasi(ogrenciler, "ilceKodu");
   const danismansizSayilari = sayimHaritasi(danismansizlar, "ilceKodu");
 
@@ -340,9 +340,9 @@ export async function ilceOzetleriniGetir(ilKodu: string): Promise<IlceOzeti[]> 
     ilceKodu: ilce.ilceKodu,
     ad: ilce.ad,
     okulSayisi: okulSayilari.get(ilce.ilceKodu) ?? 0,
-    koordinatorsuzOkulSayisi: bosOkulSayilari.get(ilce.ilceKodu) ?? 0,
+    danismansizOkulSayisi: bosOkulSayilari.get(ilce.ilceKodu) ?? 0,
     ogretmenSayisi: ogretmenSayilari.get(ilce.ilceKodu) ?? 0,
-    okulKoordinatoruSayisi: koordinatorSayilari.get(ilce.ilceKodu) ?? 0,
+    danismanOgretmenSayisi: danismanSayilari.get(ilce.ilceKodu) ?? 0,
     ogrenciSayisi: ogrenciSayilari.get(ilce.ilceKodu) ?? 0,
     danismansizOgrenciSayisi: danismansizSayilari.get(ilce.ilceKodu) ?? 0,
   }));
@@ -353,7 +353,7 @@ export interface OkulOzeti {
   ad: string;
   okulTuru: string;
   ogretmenSayisi: number;
-  okulKoordinatoruSayisi: number;
+  danismanOgretmenSayisi: number;
   ogrenciSayisi: number;
   danismansizOgrenciSayisi: number;
 }
@@ -386,7 +386,7 @@ export async function okulOzetleriniGetir(
       }),
       prisma.kullanici.groupBy({
         by: ["kurumKodu"],
-        where: { kurumKodu: { in: kodlar }, ...AKTIF_KOORDINATOR },
+        where: { kurumKodu: { in: kodlar }, ...AKTIF_DANISMAN },
         _count: { _all: true },
       }),
       prisma.kullanici.groupBy({
@@ -402,12 +402,12 @@ export async function okulOzetleriniGetir(
     ]);
 
   const ogretmenSayilari = sayimHaritasi(ogretmenler, "kurumKodu");
-  const koordinatorSayilari = sayimHaritasi(koordinatorler, "kurumKodu");
+  const danismanSayilari = sayimHaritasi(koordinatorler, "kurumKodu");
   const ogrenciSayilari = sayimHaritasi(ogrenciler, "kurumKodu");
   const danismansizSayilari = sayimHaritasi(danismansizlar, "kurumKodu");
 
   /*
-   * Okul basamağında "koordinatörsüz okul" AYRICA SORULMAZ: kartın kendisi bir
+   * Okul basamağında "danışmansız okul" AYRICA SORULMAZ: kartın kendisi bir
    * okul, koordinatör sayısı da zaten kartta yazıyor. Sıfır olan satır boş
    * okuldur; toplam da bunun üzerinden hesaplanır
    * (bkz. yonetim-kurallari.ts · ozetToplami).
@@ -417,8 +417,8 @@ export async function okulOzetleriniGetir(
     ad: okul.ad,
     okulTuru: okul.okulTuru,
     ogretmenSayisi: ogretmenSayilari.get(String(okul.kurumKodu)) ?? 0,
-    okulKoordinatoruSayisi:
-      koordinatorSayilari.get(String(okul.kurumKodu)) ?? 0,
+    danismanOgretmenSayisi:
+      danismanSayilari.get(String(okul.kurumKodu)) ?? 0,
     ogrenciSayisi: ogrenciSayilari.get(String(okul.kurumKodu)) ?? 0,
     danismansizOgrenciSayisi:
       danismansizSayilari.get(String(okul.kurumKodu)) ?? 0,

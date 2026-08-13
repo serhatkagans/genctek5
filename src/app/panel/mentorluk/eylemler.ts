@@ -30,11 +30,23 @@ import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
 
 const PANEL = "/panel";
 const KUYRUK = "/panel/mentorluk";
+/*
+ * BAŞVURU BÖLÜMÜ PANODA (13 Ağustos 2026 · istek: "paneldeki Mentör olarak
+ * başvur kısmını panoya al"). Dönüş adresi de oraya bakıyor; panele
+ * döndürülseydi kişi başvurusunu gönderdikten sonra formun bulunmadığı bir
+ * ekranda "başvurunuz alındı" iletisini arardı.
+ *
+ * ÇAPA `mentorlugum` DEĞİŞMEDİ: e-postalardaki ve panel kartındaki bağlantılar
+ * onu taşıyor.
+ */
+const PANO = "/panel/talepler";
 
-function panele(sorgu: string): never {
+function basvuruyaDon(sorgu: string): never {
+  revalidatePath(PANO);
+  // Panel'deki "Mentörlüklerim" kartı ile profildeki durum da tazelenmeli.
   revalidatePath(PANEL);
   revalidatePath("/panel/profil");
-  redirect(`${PANEL}?bolum=mentorlugum&${sorgu}#mentorlugum`);
+  redirect(`${PANO}?${sorgu}#mentorlugum`);
 }
 
 export async function mentorlukBasvurEylemi(veri: FormData): Promise<void> {
@@ -59,7 +71,7 @@ export async function mentorlukBasvurEylemi(veri: FormData): Promise<void> {
     gecerliGrupIdleri: gruplar.map((grup) => grup.id),
   });
   if (!karar.olurMu) {
-    panele(`hata=${encodeURIComponent(karar.neden)}`);
+    basvuruyaDon(`hata=${encodeURIComponent(karar.neden)}`);
   }
 
   await mentorlukBasvurusuKaydet({
@@ -76,7 +88,7 @@ export async function mentorlukBasvurEylemi(veri: FormData): Promise<void> {
     detay: `Mentörlük başvurusu yapıldı (${karar.grupIdleri.length} çalışma grubu)`,
   });
 
-  panele("durum=mentorluk-basvuruldu");
+  basvuruyaDon("durum=mentorluk-basvuruldu");
 }
 
 /**
@@ -109,7 +121,7 @@ export async function mentorluguBirakEylemi(): Promise<void> {
     detay: "Mentörlük bırakıldı",
   });
 
-  panele("durum=mentorluk-birakildi");
+  basvuruyaDon("durum=mentorluk-birakildi");
 }
 
 /**

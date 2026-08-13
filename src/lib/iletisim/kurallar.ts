@@ -314,6 +314,28 @@ export function mesajMetniniCoz(
   return { olurMu: true, icerik };
 }
 
+/**
+ * Panodaki ilana yazılan CEVAP metni (13 Ağustos 2026 · mentör sayfası).
+ *
+ * Sınır mesajlarla aynı (`MESAJ_MAKS`): cevap da bir metin kutusudur ve
+ * mentörden kısa, okunabilir bir yanıt bekleniyor. Ayrı bir sabit tanımlamak,
+ * iki sınırın zamanla ayrışmasına ve "hangi kutuda ne kadar yazabiliyorum"
+ * sorusuna yol açardı.
+ */
+export function cevapMetniniCoz(
+  metin: string,
+): { olurMu: true; icerik: string } | { olurMu: false; neden: string } {
+  const icerik = metin.trim();
+  if (!icerik) return { olurMu: false, neden: "Cevap boş olamaz." };
+  if (icerik.length > MESAJ_MAKS) {
+    return {
+      olurMu: false,
+      neden: `Cevap en fazla ${MESAJ_MAKS} karakter olabilir.`,
+    };
+  }
+  return { olurMu: true, icerik };
+}
+
 export function istekMesajiniCoz(
   metin: string,
 ): { olurMu: true; mesaj: string } | { olurMu: false; neden: string } {

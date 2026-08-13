@@ -11,10 +11,10 @@ export interface OzetToplami {
   ilce: number;
   okul: number;
   ogretmen: number;
-  okulKoordinatoru: number;
+  danismanOgretmen: number;
   ogrenci: number;
-  /** Okul koordinatörü atanmamış aktif okul. */
-  koordinatorsuzOkul: number;
+  /** Danışman öğretmen atanmamış aktif okul. */
+  danismansizOkul: number;
   /** İl koordinatörü atanmamış il — yalnızca il kartlarında dolar. */
   koordinatorsuzIl: number;
   /** Aktif danışman ataması olmayan öğrenci. */
@@ -41,7 +41,7 @@ export interface OzetToplami {
  *     ilçe sayılır. Okul kartında ise ilçe diye bir şey yok, sıfır sayılır;
  *     ölçüt olarak `okulSayisi`ın varlığına bakılır, çünkü basamağı ayıran alan
  *     odur.
- *   - Okul kartında "koordinatörsüz okul" alanı yoktur: koordinatör sayısı
+ *   - Okul kartında "danışmansız okul" alanı yoktur: koordinatör sayısı
  *     sıfırsa o kartın kendisi boş bir okuldur.
  *   - `koordinatorAdi` yalnızca il kartında bulunur; boş olan il, merkezin
  *     dolduracağı yerdir. Alan hiç yoksa (ilçe/okul kartı) sayılmaz —
@@ -51,9 +51,9 @@ export function ozetToplami(
   satirlar: readonly {
     ilceSayisi?: number;
     okulSayisi?: number;
-    koordinatorsuzOkulSayisi?: number;
+    danismansizOkulSayisi?: number;
     ogretmenSayisi: number;
-    okulKoordinatoruSayisi: number;
+    danismanOgretmenSayisi: number;
     ogrenciSayisi: number;
     danismansizOgrenciSayisi: number;
     faaliyetSayisi?: number;
@@ -68,12 +68,12 @@ export function ozetToplami(
         (satir.ilceSayisi ?? (satir.okulSayisi === undefined ? 0 : 1)),
       okul: toplam.okul + (satir.okulSayisi ?? 1),
       ogretmen: toplam.ogretmen + satir.ogretmenSayisi,
-      okulKoordinatoru: toplam.okulKoordinatoru + satir.okulKoordinatoruSayisi,
+      danismanOgretmen: toplam.danismanOgretmen + satir.danismanOgretmenSayisi,
       ogrenci: toplam.ogrenci + satir.ogrenciSayisi,
-      koordinatorsuzOkul:
-        toplam.koordinatorsuzOkul +
-        (satir.koordinatorsuzOkulSayisi ??
-          (satir.okulKoordinatoruSayisi === 0 ? 1 : 0)),
+      danismansizOkul:
+        toplam.danismansizOkul +
+        (satir.danismansizOkulSayisi ??
+          (satir.danismanOgretmenSayisi === 0 ? 1 : 0)),
       koordinatorsuzIl:
         toplam.koordinatorsuzIl + (satir.koordinatorAdi === null ? 1 : 0),
       danismansizOgrenci:
@@ -92,9 +92,9 @@ export function ozetToplami(
       ilce: 0,
       okul: 0,
       ogretmen: 0,
-      okulKoordinatoru: 0,
+      danismanOgretmen: 0,
       ogrenci: 0,
-      koordinatorsuzOkul: 0,
+      danismansizOkul: 0,
       koordinatorsuzIl: 0,
       danismansizOgrenci: 0,
       faaliyet: 0,
@@ -134,12 +134,12 @@ export interface IlSuzgeci {
  * 81 ilin kart listesini süzer ve sıralar.
  *
  * SIRALAMA VERİTABANINDA DEĞİL BURADA: "boşluğu çok olan üstte" ölçütü üç ayrı
- * sayımın bileşimi (koordinatörsüz il, koordinatörsüz okul, danışmansız
+ * sayımın bileşimi (koordinatörsüz il, danışmansız okul, danışmansız
  * öğrenci) ve bu sayımlar ayrı sorgulardan geliyor — tek bir `orderBy` ile
  * ifade edilemezdi. Liste 81 satır; sıralamanın maliyeti yok.
  *
  * "Boşluk" sıralaması TOPLAM BİR PUAN DEĞİL, sıralı bir karşılaştırmadır: önce
- * koordinatörü olmayan iller, sonra koordinatörsüz okulu çok olanlar, sonra
+ * koordinatörü olmayan iller, sonra danışmansız okulu çok olanlar, sonra
  * danışmansız öğrencisi çok olanlar. Üç sayı toplansaydı 200 danışmansız
  * öğrencisi olan bir il, koordinatörü hiç olmayan ilin üstüne çıkardı; oysa
  * ikisi aynı ağırlıkta iş değil.
@@ -147,7 +147,7 @@ export interface IlSuzgeci {
 export function illeriSuz<
   T extends {
     ad: string;
-    koordinatorsuzOkulSayisi: number;
+    danismansizOkulSayisi: number;
     danismansizOgrenciSayisi: number;
     ogrenciSayisi: number;
     koordinatorAdi: string | null;
@@ -169,7 +169,7 @@ export function illeriSuz<
       (a, b) =>
         Number(a.koordinatorAdi === null ? 0 : 1) -
           Number(b.koordinatorAdi === null ? 0 : 1) ||
-        b.koordinatorsuzOkulSayisi - a.koordinatorsuzOkulSayisi ||
+        b.danismansizOkulSayisi - a.danismansizOkulSayisi ||
         b.danismansizOgrenciSayisi - a.danismansizOgrenciSayisi ||
         adaGore(a, b),
     );
@@ -186,14 +186,14 @@ export function illeriSuz<
  * görmek bir anlam taşır.
  */
 export function birimUyarilari(satir: {
-  koordinatorsuzOkulSayisi?: number;
+  danismansizOkulSayisi?: number;
   danismansizOgrenciSayisi: number;
   raporsuzFaaliyetSayisi?: number;
 }): string[] {
   const uyarilar: string[] = [];
 
-  if (satir.koordinatorsuzOkulSayisi) {
-    uyarilar.push(`${satir.koordinatorsuzOkulSayisi} okulda koordinatör yok`);
+  if (satir.danismansizOkulSayisi) {
+    uyarilar.push(`${satir.danismansizOkulSayisi} okulda danışman öğretmen yok`);
   }
   if (satir.danismansizOgrenciSayisi) {
     uyarilar.push(`${satir.danismansizOgrenciSayisi} öğrencinin danışmanı yok`);

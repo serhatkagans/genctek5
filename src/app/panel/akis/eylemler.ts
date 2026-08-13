@@ -202,8 +202,16 @@ export async function hakkindaKaydetEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
 
   const donusYolu = String(veri.get("donusYolu") ?? YOL) || YOL;
-  // Açık yönlendirme olmasın: yalnızca kendi panelimize dönebiliriz.
-  const yol = donusYolu.startsWith("/panel/") ? donusYolu : YOL;
+  /*
+   * Açık yönlendirme olmasın: yalnızca kendi panelimize dönebiliriz.
+   *
+   * "/panel" AYRICA SAYILIYOR (13 Ağustos 2026): koşul yalnızca "/panel/" ile
+   * başlayanları kabul ediyordu ve Panel'in kendi adresi eğik çizgiyle
+   * bitmiyor. Panel'e eklenen "Hakkımda" bölümü bu yüzden kaydetmesine rağmen
+   * kullanıcıyı Akış'a bırakıyordu.
+   */
+  const yol =
+    donusYolu === "/panel" || donusYolu.startsWith("/panel/") ? donusYolu : YOL;
 
   const karar = hakkindaMetniniCoz(String(veri.get("hakkinda") ?? ""));
   if (!karar.olurMu) hataylaDon(yol, karar.neden);

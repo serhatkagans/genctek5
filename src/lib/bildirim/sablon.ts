@@ -68,6 +68,31 @@ export const BILDIRIM_KODLARI = {
   BAGLANTI_ISTEGI_KARARI: "BAGLANTI_ISTEGI_KARARI",
   /** Bağlantı onaylandı ve yazışma açıldı; karşı tarafa gider. */
   YENI_YAZISMA: "YENI_YAZISMA",
+  /**
+   * Panodaki ilana cevap yazıldı; İLANI AÇANA gider (13 Ağustos 2026).
+   *
+   * Cevap panoda açıkta duruyor ama ilan sahibinin panoya kendiliğinden geri
+   * dönmesini beklemek, cevabın çoğu zaman hiç okunmaması demekti.
+   */
+  TALEBE_CEVAP_GELDI: "TALEBE_CEVAP_GELDI",
+  /**
+   * İl koordinatörünün kurduğu bir ekibe eklendiniz; EKLENEN KİŞİYE gider
+   * (13 Ağustos 2026).
+   *
+   * Ekip, kişinin kendiliğinden uğramayacağı bir ekran; haberi olmadan üyesi
+   * olduğu sohbete yazılanlar okunmadan kalırdı. Metin, sohbetin gözetime açık
+   * olduğunu da söylüyor.
+   */
+  EKIBE_EKLENDINIZ: "EKIBE_EKLENDINIZ",
+  /**
+   * Ekip sohbetine yeni mesaj yazıldı; DİĞER ÜYELERE ve ekibi kuran
+   * koordinatöre gider (13 Ağustos 2026).
+   *
+   * Metin mesajın kendisini TAŞIMAZ: tekrar engeli içerik karşılaştırdığı için
+   * sabit metin, arka arkaya gelen mesajları tek bildirime indiriyor; ayrıca
+   * bildirimin e-posta kopyası sohbet içeriğini dışarı taşımıyor.
+   */
+  EKIPTE_YENI_MESAJ: "EKIPTE_YENI_MESAJ",
   /** Faaliyet onaylandı ya da reddedildi; faaliyeti açana gider. */
   FAALIYET_ONAY_SONUCU: "FAALIYET_ONAY_SONUCU",
   DANISMANA_KOPYA_ULUSAL_BASVURU: "DANISMANA_KOPYA_ULUSAL_BASVURU",
@@ -232,6 +257,27 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "İsteği yapan öğrenciye gider. Onaylandıysa yazışma açılmıştır; reddedildiyse gerekçe yazılıdır.",
     degiskenler: ["hedefAdSoyad", "sonuc", "gerekce"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.TALEBE_CEVAP_GELDI,
+    baslik: "Panodaki ilana cevap geldi",
+    aciklama:
+      "Mentör ya da bir başka kullanıcı panodaki ilana cevap yazdığında İLANI AÇANA gider.",
+    degiskenler: ["talepBasligi", "cevaplayanAdSoyad"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.EKIBE_EKLENDINIZ,
+    baslik: "Ekibe eklendiniz",
+    aciklama:
+      "İl koordinatörü (ya da proje yöneticisi) kişiyi bir ekibe eklediğinde o kişiye gider.",
+    degiskenler: ["ekipAdi", "ekleyenAdSoyad"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.EKIPTE_YENI_MESAJ,
+    baslik: "Ekipte yeni mesaj",
+    aciklama:
+      "Ekip sohbetine mesaj yazıldığında diğer üyelere ve ekibi kuran koordinatöre gider. Metin mesajı taşımaz; yalnızca hangi ekipte olduğunu söyler.",
+    degiskenler: ["ekipAdi"],
   },
   {
     kod: BILDIRIM_KODLARI.YENI_YAZISMA,

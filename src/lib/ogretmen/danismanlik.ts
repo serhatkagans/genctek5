@@ -19,6 +19,18 @@ export class DanismanlikCakismasiHatasi extends Error {
   }
 }
 
+/*
+ * OKUL BAŞINA TEK DANIŞMAN KURALI YOK (13 Ağustos 2026). Kısa süre böyle bir
+ * kısıt düşünüldü ve geri alındı: "okul başına bir danışman olmayacak, birden
+ * fazla danışmanı olabilir okulun".
+ *
+ * Tekillik kuralları yalnızca şunlardır: il başına bir il koordinatörü
+ * (ux_il_koordinator_tek_aktif), okul başına bir Okul Temsilcisi öğrenci
+ * (ux_okul_temsilcisi), il/ilçe başına birer temsilci. Danışmanlık bunlardan
+ * biri değildir — bir okulda kaç öğretmen isterse işaretini koyabilir ve her
+ * biri kendi öğrencilerine danışmanlık yapar.
+ */
+
 export async function danismanlikDurumunuDegistir(
   kullaniciId: number,
   gorevAlmakIstiyor: boolean,

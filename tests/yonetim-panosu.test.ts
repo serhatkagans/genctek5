@@ -86,9 +86,9 @@ describe("kart toplamları", () => {
         {
           ilceSayisi: 39,
           okulSayisi: 12,
-          koordinatorsuzOkulSayisi: 4,
+          danismansizOkulSayisi: 4,
           ogretmenSayisi: 90,
-          okulKoordinatoruSayisi: 5,
+          danismanOgretmenSayisi: 5,
           ogrenciSayisi: 130,
           danismansizOgrenciSayisi: 12,
           faaliyetSayisi: 7,
@@ -98,9 +98,9 @@ describe("kart toplamları", () => {
         {
           ilceSayisi: 8,
           okulSayisi: 3,
-          koordinatorsuzOkulSayisi: 3,
+          danismansizOkulSayisi: 3,
           ogretmenSayisi: 12,
-          okulKoordinatoruSayisi: 0,
+          danismanOgretmenSayisi: 0,
           ogrenciSayisi: 0,
           danismansizOgrenciSayisi: 0,
           faaliyetSayisi: 0,
@@ -112,9 +112,9 @@ describe("kart toplamları", () => {
       ilce: 47,
       okul: 15,
       ogretmen: 102,
-      okulKoordinatoru: 5,
+      danismanOgretmen: 5,
       ogrenci: 130,
-      koordinatorsuzOkul: 7,
+      danismansizOkul: 7,
       koordinatorsuzIl: 1,
       danismansizOgrenci: 12,
       faaliyet: 7,
@@ -131,9 +131,9 @@ describe("kart toplamları", () => {
     const toplam = ozetToplami([
       {
         okulSayisi: 6,
-        koordinatorsuzOkulSayisi: 2,
+        danismansizOkulSayisi: 2,
         ogretmenSayisi: 40,
-        okulKoordinatoruSayisi: 4,
+        danismanOgretmenSayisi: 4,
         ogrenciSayisi: 55,
         danismansizOgrenciSayisi: 3,
       },
@@ -152,17 +152,17 @@ describe("kart toplamları", () => {
     const toplam = ozetToplami([
       {
         okulSayisi: 6,
-        koordinatorsuzOkulSayisi: 2,
+        danismansizOkulSayisi: 2,
         ogretmenSayisi: 40,
-        okulKoordinatoruSayisi: 4,
+        danismanOgretmenSayisi: 4,
         ogrenciSayisi: 55,
         danismansizOgrenciSayisi: 5,
       },
       {
         okulSayisi: 1,
-        koordinatorsuzOkulSayisi: 0,
+        danismansizOkulSayisi: 0,
         ogretmenSayisi: 9,
-        okulKoordinatoruSayisi: 1,
+        danismanOgretmenSayisi: 1,
         ogrenciSayisi: 12,
         danismansizOgrenciSayisi: 1,
       },
@@ -171,7 +171,7 @@ describe("kart toplamları", () => {
     expect(toplam.ilce).toBe(2);
     expect(toplam.okul).toBe(7);
     expect(toplam.ogretmen).toBe(49);
-    expect(toplam.koordinatorsuzOkul).toBe(2);
+    expect(toplam.danismansizOkul).toBe(2);
     expect(toplam.koordinatorsuzIl).toBe(0);
     expect(toplam.danismansizOgrenci).toBe(6);
   });
@@ -186,13 +186,13 @@ describe("kart toplamları", () => {
     const toplam = ozetToplami([
       {
         ogretmenSayisi: 22,
-        okulKoordinatoruSayisi: 2,
+        danismanOgretmenSayisi: 2,
         ogrenciSayisi: 40,
         danismansizOgrenciSayisi: 0,
       },
       {
         ogretmenSayisi: 14,
-        okulKoordinatoruSayisi: 1,
+        danismanOgretmenSayisi: 1,
         ogrenciSayisi: 25,
         danismansizOgrenciSayisi: 4,
       },
@@ -201,25 +201,25 @@ describe("kart toplamları", () => {
     expect(toplam.okul).toBe(2);
     expect(toplam.ilce).toBe(0);
     expect(toplam.ogretmen).toBe(36);
-    expect(toplam.okulKoordinatoru).toBe(3);
+    expect(toplam.danismanOgretmen).toBe(3);
     expect(toplam.ogrenci).toBe(65);
   });
 
   /*
-   * Okul basamağında koordinatörsüz okul ayrıca sorulmaz: koordinatör sayısı
+   * Okul basamağında danışmansız okul ayrıca sorulmaz: koordinatör sayısı
    * sıfır olan kartın kendisi boş bir okuldur.
    */
-  it("koordinatörsüz okul, okul kartında sıfır koordinatörden türetilir", () => {
+  it("danışmansız okul, okul kartında sıfır koordinatörden türetilir", () => {
     const okulSatiri = (koordinator: number) => ({
       ogretmenSayisi: 10,
-      okulKoordinatoruSayisi: koordinator,
+      danismanOgretmenSayisi: koordinator,
       ogrenciSayisi: 30,
       danismansizOgrenciSayisi: 0,
     });
 
     expect(
       ozetToplami([okulSatiri(0), okulSatiri(2), okulSatiri(0)])
-        .koordinatorsuzOkul,
+        .danismansizOkul,
     ).toBe(2);
   });
 
@@ -228,9 +228,9 @@ describe("kart toplamları", () => {
       ilce: 0,
       okul: 0,
       ogretmen: 0,
-      okulKoordinatoru: 0,
+      danismanOgretmen: 0,
       ogrenci: 0,
-      koordinatorsuzOkul: 0,
+      danismansizOkul: 0,
       koordinatorsuzIl: 0,
       danismansizOgrenci: 0,
       faaliyet: 0,
@@ -244,14 +244,14 @@ describe("il listesinin süzgeci ve sıralaması", () => {
     ad: string,
     sayilar: Partial<{
       ogrenciSayisi: number;
-      koordinatorsuzOkulSayisi: number;
+      danismansizOkulSayisi: number;
       danismansizOgrenciSayisi: number;
       koordinatorAdi: string | null;
     }> = {},
   ) => ({
     ad,
     ogrenciSayisi: 0,
-    koordinatorsuzOkulSayisi: 0,
+    danismansizOkulSayisi: 0,
     danismansizOgrenciSayisi: 0,
     koordinatorAdi: "Görevli Kişi" as string | null,
     ...sayilar,
@@ -306,7 +306,7 @@ describe("il listesinin süzgeci ve sıralaması", () => {
       [
         il("Bursa", { danismansizOgrenciSayisi: 500 }),
         il("Rize", { koordinatorAdi: null }),
-        il("Ankara", { koordinatorsuzOkulSayisi: 9 }),
+        il("Ankara", { danismansizOkulSayisi: 9 }),
       ],
       { sirala: "bosluk" },
     );
@@ -334,7 +334,7 @@ describe("kart uyarıları", () => {
   it("yalnızca sıfırdan büyük eksikler yazılır", () => {
     expect(
       birimUyarilari({
-        koordinatorsuzOkulSayisi: 0,
+        danismansizOkulSayisi: 0,
         danismansizOgrenciSayisi: 4,
         raporsuzFaaliyetSayisi: 0,
       }),
@@ -344,7 +344,7 @@ describe("kart uyarıları", () => {
   it("eksik yoksa uyarı da yok", () => {
     expect(
       birimUyarilari({
-        koordinatorsuzOkulSayisi: 0,
+        danismansizOkulSayisi: 0,
         danismansizOgrenciSayisi: 0,
       }),
     ).toEqual([]);
@@ -353,12 +353,12 @@ describe("kart uyarıları", () => {
   it("üç eksik birlikte sıralanır", () => {
     expect(
       birimUyarilari({
-        koordinatorsuzOkulSayisi: 2,
+        danismansizOkulSayisi: 2,
         danismansizOgrenciSayisi: 7,
         raporsuzFaaliyetSayisi: 1,
       }),
     ).toEqual([
-      "2 okulda koordinatör yok",
+      "2 okulda danışman öğretmen yok",
       "7 öğrencinin danışmanı yok",
       "1 etkinliğin raporu eksik",
     ]);

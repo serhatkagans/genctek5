@@ -24,7 +24,7 @@ import Link from "next/link";
  * Kart içindeki tek bir satır: solda ne olduğu, sağda sayısı.
  *
  * Üç sayı YAN YANA DURMUYOR. Öyleydi ve okunmuyordu: kart üç sütuna
- * bölündüğünde "Okul koordinatörü" etiketi iki satıra kırılıyor, altındaki
+ * bölündüğünde "Danışman öğretmen" etiketi iki satıra kırılıyor, altındaki
  * sayı komşularından aşağı kayıyor ve kart bir tablo değil dağınık bir sayı
  * yığını gibi görünüyordu. Alt alta üç satırda etiket kırılsa da hizalar
  * bozulmuyor.
@@ -51,7 +51,7 @@ function OlcumSatiri({
  * Toplam şeridindeki sayı — geniş alanda alt alta okunur.
  *
  * ALT SATIR SAYIYI NİTELER, ikinci bir ölçüm değildir: "1.204 okul" başlı
- * başına bir iş çıkarmaz, "312'sinde koordinatör yok" çıkarır. Ayrı bir ölçüm
+ * başına bir iş çıkarmaz, "312'sinde danışman öğretmen yok" çıkarır. Ayrı bir ölçüm
  * kutusu olsaydı şerit ikiye katlanır ve hangi sayının hangisinin içinde olduğu
  * kaybolurdu.
  */
@@ -106,7 +106,7 @@ export function BirimKarti({
   altBilgi,
   okulSayisi,
   ogretmenSayisi,
-  okulKoordinatoruSayisi,
+  danismanOgretmenSayisi,
   ogrenciSayisi,
   faaliyetSayisi,
   uyarilar,
@@ -114,11 +114,11 @@ export function BirimKarti({
   baglantilar,
 }: {
   ad: string;
-  /** İkinci satır: okul türü, görevdeki koordinatör, ilçe sayısı gibi. */
+  /** İkinci satır: okul türü, görevdeki danışman, ilçe sayısı gibi. */
   altBilgi?: string;
   okulSayisi?: number;
   ogretmenSayisi: number;
-  okulKoordinatoruSayisi: number;
+  danismanOgretmenSayisi: number;
   ogrenciSayisi: number;
   /** Yalnızca il kartında: bu eğitim-öğretim yılının etkinlikleri. */
   faaliyetSayisi?: number;
@@ -160,9 +160,9 @@ export function BirimKarti({
           <OlcumSatiri deger={okulSayisi} etiket="Okul" Ikon={School} />
         )}
         {/*
-          ÖĞRETMEN, KOORDİNATÖRÜN ÜSTÜNDE: ikincisi birincisinin alt kümesidir
+          ÖĞRETMEN, DANIŞMANIN ÜSTÜNDE: ikincisi birincisinin alt kümesidir
           (görev almış öğretmen). Alt küme üstte olsaydı iki sayının ilişkisi
-          okunmaz, "300 öğretmenin 80'i koordinatör" yerine iki bağımsız sayı
+          okunmaz, "300 öğretmenin 80'i danışman" yerine iki bağımsız sayı
           gibi görünürdü.
         */}
         <OlcumSatiri
@@ -171,8 +171,8 @@ export function BirimKarti({
           Ikon={Users}
         />
         <OlcumSatiri
-          deger={okulKoordinatoruSayisi}
-          etiket="Okul koordinatörü"
+          deger={danismanOgretmenSayisi}
+          etiket="Danışman öğretmen"
           Ikon={UserCog}
         />
         <OlcumSatiri
@@ -282,11 +282,11 @@ export function ToplamSeridi({
   ilce,
   okul,
   ogretmen,
-  okulKoordinatoru,
+  danismanOgretmen,
   ogrenci,
   faaliyet,
   koordinatorsuzIl = 0,
-  koordinatorsuzOkul = 0,
+  danismansizOkul = 0,
   danismansizOgrenci = 0,
   raporsuzFaaliyet = 0,
   okulEtiketi = "okul",
@@ -297,12 +297,12 @@ export function ToplamSeridi({
   ilce?: number;
   okul: number;
   ogretmen: number;
-  okulKoordinatoru: number;
+  danismanOgretmen: number;
   ogrenci: number;
   /** Yalnızca il kırılımında — faaliyetin ilçesi boş olabilir. */
   faaliyet?: number;
   koordinatorsuzIl?: number;
-  koordinatorsuzOkul?: number;
+  danismansizOkul?: number;
   danismansizOgrenci?: number;
   raporsuzFaaliyet?: number;
   okulEtiketi?: string;
@@ -335,21 +335,21 @@ export function ToplamSeridi({
         deger={okul}
         etiket={`Toplam ${okulEtiketi}`}
         Ikon={School}
-        // Okulu olmayan birimde "her okulda koordinatör var" demek boş bir
+        // Okulu olmayan birimde "her okulda danışman öğretmen var" demek boş bir
         // övgü olurdu; alt satır yalnızca sayılacak okul varken çıkar.
         alt={
           okul === 0
             ? undefined
-            : koordinatorsuzOkul > 0
-              ? `${koordinatorsuzOkul} okulda koordinatör yok`
-              : "Her okulda koordinatör var"
+            : danismansizOkul > 0
+              ? `${danismansizOkul} okulda danışman öğretmen yok`
+              : "Her okulda danışman öğretmen var"
         }
-        uyari={koordinatorsuzOkul > 0}
+        uyari={danismansizOkul > 0}
       />
       <Olcum deger={ogretmen} etiket="Toplam öğretmen" Ikon={Users} />
       <Olcum
-        deger={okulKoordinatoru}
-        etiket="Toplam okul koordinatörü"
+        deger={danismanOgretmen}
+        etiket="Toplam danışman öğretmen"
         Ikon={UserCog}
       />
       <Olcum

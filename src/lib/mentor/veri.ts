@@ -123,6 +123,25 @@ export async function mentorHavuzunuGetir(): Promise<HavuzMentoru[]> {
   }));
 }
 
+/**
+ * Kişi ONAYLI mentör mü? (13 Ağustos 2026 · mentör sayfası)
+ *
+ * Yetki dosyasında (lib/yetki/izinler.ts) DEĞİL, burada: oradaki fonksiyonlar
+ * saf ve oturumdaki rollere bakar, bu ise veritabanındaki mentörlük kaydına
+ * bakıyor — mentörlük bir ROL değil, onaya bağlı bir kayıttır (bkz. şemadaki
+ * Mentorluk notu: "MENTOR türünün ayrı bir rolü yoktur").
+ *
+ * `BEKLIYOR`, `REDDEDILDI` ve `BIRAKILDI` sayılmaz: üçü de "bugün mentör
+ * değil" demektir ve mentör sayfası ile cevap yazma yetkisi onaya bağlıdır.
+ */
+export async function onayliMentorMu(kullaniciId: number): Promise<boolean> {
+  const kayit = await prisma.mentorluk.findFirst({
+    where: { kullaniciId, durum: "ONAYLANDI" },
+    select: { kullaniciId: true },
+  });
+  return kayit !== null;
+}
+
 /** Kişinin kendi mentörlük kaydı; yoksa null. */
 export async function mentorluguGetir(
   kullaniciId: number,

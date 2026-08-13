@@ -294,7 +294,8 @@ export default async function UrunDetaySayfasi({
             className="inline-flex items-center gap-1.5 text-sm text-vurgu-metin hover:underline"
           >
             <Pencil size={14} aria-hidden />
-            Ürünlerini profilinden yönetebilirsin
+            Ürünlerini Panel&apos;deki &quot;Kayıtlarım&quot; bölümünden
+            yönetebilirsin
           </Link>
         </Kart>
       )}

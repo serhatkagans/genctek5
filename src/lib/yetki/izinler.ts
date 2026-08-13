@@ -496,17 +496,43 @@ export function basvuruYapabilirMi(kullanici: OturumKullanicisi): boolean {
 }
 
 /**
- * Talep panosunu görebilir mi?
+ * Panoyu (eski adıyla Talep Panosu) GÖREBİLİR Mİ?
  *
  * `basvuruYapabilirMi`den AYRI tutuldu: pano bir ilan tahtasıdır, faaliyete
  * başvurmakla ilgisi yok. Mezun ve paydaş temsilcisi panoyu görür (sponsorluk,
  * teknik destek, mentorluk ilanları ekosistemin en doğal buluşma noktası) ama
  * faaliyete katılımcı olarak başvuramaz.
  *
- * Merkez personeli yine dışarıda: YEĞİTEK'in takım arkadaşı araması diye bir
- * durum yok, onun duyuru kanalı ayrı.
+ * PROJE YÖNETİCİSİNE DE AÇILDI (13 Ağustos 2026 · istek: "proje yöneticisinin
+ * pano sayfası görünmüyor, diğer kullanıcılarda var"). Önce görme ve ilan açma
+ * tek kapıdan geçiyordu; merkez personeli ilan açmadığı için pano da menüsünden
+ * düşüyordu. Oysa panoyu görmemek, sistemdeki en canlı kullanıcı alanını
+ * yönetenden gizlemek demekti: merkez, hangi konularda destek ve mentör
+ * arandığını göremiyordu. Görme ile İLAN AÇMA bu yüzden ayrıldı — açma kapısı
+ * `panodaEslesmeArayabilirMi`de ve merkez orada hâlâ dışarıda.
+ *
+ * Görme yetkisi artık herkeste; fonksiyon yine de duruyor çünkü panonun
+ * ekosistem dışına kapalı olması (S21) bir karardır ve tek bir yerde yazılı
+ * kalmalı — dışarıya açık ilan sayfası istenirse değişecek yer burasıdır.
  */
-export function talepPanosuGorebilirMi(kullanici: OturumKullanicisi): boolean {
+export function talepPanosuGorebilirMi(_kullanici: OturumKullanicisi): boolean {
+  return true;
+}
+
+/**
+ * Panoda İLAN AÇABİLİR ve BAĞLANTI İSTEĞİ GÖNDEREBİLİR mi?
+ *
+ * Panonun yazan tarafı. İkisi tek fonksiyonda: ilan açmak da bağlantı isteği
+ * göndermek de aynı şeyin iki ucudur — panoda eşleşme aramak. Ayrı izin adları
+ * uydurmak, aynı kuralın iki yerde ayrışmasına açık kapı bırakırdı.
+ *
+ * Merkez personeli dışarıda: YEĞİTEK'in takım arkadaşı ya da mentör araması
+ * diye bir durum yok, onun duyuru kanalı ayrı (bkz. /panel/duyurular). Panoyu
+ * okuması ise serbest (bkz. talepPanosuGorebilirMi).
+ */
+export function panodaEslesmeArayabilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
   return !projeYoneticisiMi(kullanici);
 }
 

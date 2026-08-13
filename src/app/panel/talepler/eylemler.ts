@@ -6,17 +6,18 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { TALEP_TURU_ETIKETLERI, talebiCoz } from "@/lib/iletisim/kurallar";
 import { gunSonu } from "@/lib/tarih";
-import { talepPanosuGorebilirMi } from "@/lib/yetki/izinler";
+import { panodaEslesmeArayabilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
 
 /**
  * Pano (eski adıyla Talep Panosu) eylemleri.
  *
- * İlan açma yetkisi `talepPanosuGorebilirMi`: öğrenci, öğretmen ve dış
+ * İlan açma yetkisi `panodaEslesmeArayabilirMi`: öğrenci, öğretmen ve dış
  * kullanıcılar (mezun, paydaş temsilcisi) ilan açabilir. Merkez personeli
  * dışarıda — YEĞİTEK'in takım arkadaşı araması diye bir durum yok, duyuru
- * kanalı ayrı.
+ * kanalı ayrı. Panoyu OKUMASI ise serbest (13 Ağustos 2026 · bkz.
+ * talepPanosuGorebilirMi): görme ile açma o gün ayrıldı.
  *
  * Kapı faaliyete BAŞVURU yetkisinden ayrıdır: pano bir ilan tahtasıdır,
  * başvuruyla ilgisi yok (bkz. lib/yetki/izinler.ts).
@@ -30,7 +31,7 @@ function hataylaDon(mesaj: string): never {
 
 export async function talepAcEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
-  if (!talepPanosuGorebilirMi(kullanici)) {
+  if (!panodaEslesmeArayabilirMi(kullanici)) {
     throw new YetkiHatasi("İlan açma yetkiniz yok.");
   }
 

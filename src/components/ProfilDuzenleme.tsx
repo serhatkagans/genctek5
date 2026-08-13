@@ -547,9 +547,19 @@ export function MentorlukDuzenleme({
           </div>
         </fieldset>
 
+        {/*
+          ETİKET "UZMANLIĞINIZ VE YETKİNLİĞİNİZ" (13 Ağustos 2026 · istek:
+          "mentörlükte yazan Diğer mentörlük konularınız yerine uzmanlığınız ve
+          yetkinliğiniz hakkında bilgilendiriniz yazsın").
+
+          Alan aynı alan (`konular`) ve yine listede olmayanlar için: değişen,
+          ne yazılacağının sorulma biçimi. "Diğer konularınız" bir kutu
+          doldurtuyordu; yeni metin kişiden kendini anlatmasını istiyor —
+          panoda mentörü seçen öğrencinin okuduğu satır da bu.
+        */}
         <label className="block">
           <span className="text-sm font-medium text-metin">
-            Diğer mentörlük konularınız{" "}
+            Uzmanlığınız ve yetkinliğiniz hakkında bilgilendiriniz{" "}
             <span className="font-normal text-metin-yumusak">
               (listede olmayanlar)
             </span>

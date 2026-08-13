@@ -472,7 +472,7 @@ export function UrunlerKarti({
                   href="/panel?tur=URUN#kayitlarim"
                   className="font-medium text-vurgu-metin underline underline-offset-2"
                 >
-                  profilinden ekleyebilirsin
+                  Panel&apos;den ekleyebilirsin
                 </Link>
                 .
               </>
@@ -484,7 +484,7 @@ export function UrunlerKarti({
                   href="/panel?tur=URUN#kayitlarim"
                   className="font-medium text-vurgu-metin underline underline-offset-2"
                 >
-                  profilinizden ekleyebilirsiniz
+                  Panel&apos;den ekleyebilirsiniz
                 </Link>
                 .
               </>

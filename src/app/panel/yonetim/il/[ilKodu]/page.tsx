@@ -78,7 +78,7 @@ export default async function IlKirilimiSayfasi({
       <Kart>
         <KartBasligi
           baslik="İlçeler"
-          aciklama="Her kartta ilçedeki okul, öğretmen, okul koordinatörü ve öğrenci sayısı"
+          aciklama="Her kartta ilçedeki okul, öğretmen, danışman öğretmen ve öğrenci sayısı"
           Ikon={MapPin}
         />
 
@@ -87,9 +87,9 @@ export default async function IlKirilimiSayfasi({
             ilce={toplam.ilce}
             okul={toplam.okul}
             ogretmen={toplam.ogretmen}
-            okulKoordinatoru={toplam.okulKoordinatoru}
+            danismanOgretmen={toplam.danismanOgretmen}
             ogrenci={toplam.ogrenci}
-            koordinatorsuzOkul={toplam.koordinatorsuzOkul}
+            danismansizOkul={toplam.danismansizOkul}
             danismansizOgrenci={toplam.danismansizOgrenci}
           />
         </div>
@@ -107,7 +107,7 @@ export default async function IlKirilimiSayfasi({
                 uyarilar={birimUyarilari(ilce)}
                 okulSayisi={ilce.okulSayisi}
                 ogretmenSayisi={ilce.ogretmenSayisi}
-                okulKoordinatoruSayisi={ilce.okulKoordinatoruSayisi}
+                danismanOgretmenSayisi={ilce.danismanOgretmenSayisi}
                 ogrenciSayisi={ilce.ogrenciSayisi}
                 yol={`/panel/yonetim/ilce/${ilce.ilceKodu}`}
               />

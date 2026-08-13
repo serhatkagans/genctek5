@@ -18,8 +18,9 @@ import type { OturumKullanicisi } from "@/lib/yetki/tipler";
  * ekrandaki şeridin öbüründe olmamasıydı.
  *
  * `null` dönerse şerit basılmaz: panoyu açamayan kullanıcı (danışman öğretmen)
- * için "Yönetim Paneli" bir yol değil, kapalı bir kapıdır — onun listesi
- * menüsünde "Öğrencilerim" sekmesi olarak duruyor.
+ * için "Yönetim Paneli" bir yol değil, kapalı bir kapıdır — onun listesine
+ * girişi Panel'deki "Öğrencilerim" kartı (13 Ağustos 2026'dan beri menüde sekme
+ * değil, bkz. app/panel/layout.tsx).
  */
 export async function envanterYolIzi(
   kullanici: OturumKullanicisi,

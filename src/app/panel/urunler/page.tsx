@@ -23,9 +23,14 @@ export const dynamic = "force-dynamic";
  * (gerekçe: lib/market/kurallar.ts).
  *
  * ÜRÜN EKLEME EKRANI YOK — istekteki not bunu söylüyor: "Ürün Ekle:
- * 'Profilden ekleyebilirsiniz' notu girilecek". Ekleme profilde, market
- * yalnızca gösteriyor. İki yerden eklenebilseydi aynı formun iki kopyası
- * olurdu.
+ * '… ekleyebilirsiniz' notu girilecek". Ekleme tek yerde, market yalnızca
+ * gösteriyor; iki yerden eklenebilseydi aynı formun iki kopyası olurdu.
+ *
+ * O TEK YER PANEL'DEKİ "KAYITLARIM" BÖLÜMÜ. İstekte "profilden" yazıyordu ve
+ * form da orada başlamıştı; 7 Ağustos'ta Panel'e taşındı (Profil GÖSTERİR,
+ * Panel DÜZENLER). Ekrandaki notlar bir süre "profilden eklenir" demeye devam
+ * etti ve kullanıcıyı ekleme yapamayacağı ekrana yolladı — 13 Ağustos 2026'da
+ * düzeltildi.
  */
 export default async function MarketSayfasi({
   searchParams,
@@ -87,9 +92,9 @@ export default async function MarketSayfasi({
       />
 
       {/*
-        "ÜRÜN EKLE" DÜĞMESİ DEĞİL, NOT. İstekte yazan bu: ekleme profilde
-        yapılıyor. Düğme konsaydı market ayrı bir ekleme yolu gibi görünür,
-        tıklayan yine profile giderdi.
+        "ÜRÜN EKLE" DÜĞMESİ DEĞİL, NOT. İstekte yazan bu: ekleme başka bir
+        ekranda (Panel · Kayıtlarım) yapılıyor. Düğme konsaydı market ayrı bir
+        ekleme yolu gibi görünür, tıklayan yine oraya giderdi.
       */}
       <BilgiKutusu>
         <span className="flex flex-wrap items-center gap-1.5">
@@ -152,9 +157,16 @@ export default async function MarketSayfasi({
               ? "Henüz ürün eklemedin."
               : "Bu başlıkta henüz paylaşılan ürün yok."}
           </p>
+          {/*
+            METİN "PANEL" DİYOR (13 Ağustos 2026 · istek: "katkı kartlarımda
+            yaptığım ürünler profilden ekleniyormuş, o panelden eklenecek").
+            Form 7 Ağustos'ta Panel'e taşınmıştı; bu satır geride kalıp
+            kullanıcıyı ekleme yapamayacağı ekrana yolluyordu.
+          */}
           <p className="mt-2 text-sm text-metin-yumusak">
-            Ürünler profilden eklenir; eklerken &quot;Bu ürünü markette
-            paylaş&quot; kutusu işaretlenirse markette görünür.
+            Ürünler Panel ekranındaki &quot;Kayıtlarım&quot; bölümünden eklenir;
+            eklerken &quot;Bu ürünü markette paylaş&quot; kutusu işaretlenirse
+            markette görünür.
           </p>
         </Kart>
       ) : (

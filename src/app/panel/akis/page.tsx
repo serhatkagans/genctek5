@@ -32,8 +32,8 @@ import { tarihSaatYaz } from "@/lib/tarih";
 import {
   danismanMi,
   ilKoordinatoruMu,
+  panodaEslesmeArayabilirMi,
   projeYoneticisiMi,
-  talepPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
 import { kisiyeBaglantiIstegiEylemi } from "../yazismalar/baglanti-eylemleri";
 import {
@@ -138,7 +138,7 @@ export default async function AkisSayfasi({
   } as const;
 
   // Merkez personeli bağlantı isteği göndermez (panodakiyle aynı kapı).
-  const baglanabilir = talepPanosuGorebilirMi(kullanici);
+  const baglanabilir = panodaEslesmeArayabilirMi(kullanici);
 
   const [ben, gonderiler] = await Promise.all([
     prisma.kullanici.findUniqueOrThrow({

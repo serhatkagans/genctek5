@@ -71,28 +71,28 @@ export default async function IlceKirilimiSayfasi({
 
       <SayfaBasligi
         baslik={`${ilce.ad} · Okullar`}
-        aciklama="İlçedeki okullar ve her okuldaki öğretmen, okul koordinatörü ile öğrenci sayısı."
+        aciklama="İlçedeki okullar ve her okuldaki öğretmen, danışman öğretmen ile öğrenci sayısı."
       />
 
       <Kart>
         <KartBasligi
           baslik="Okullar"
-          aciklama="Okul koordinatörü, sistemde danışman öğretmen olarak görev almış öğretmendir."
+          aciklama="Danışman öğretmen, GençTek danışmanlık görevini işaretlemiş öğretmendir; bir okulda birden fazla olabilir."
           Ikon={School}
         />
 
         <div className="mb-5 rounded-kart border border-cizgi bg-zemin px-5 py-4">
           {/*
             İlçe ölçümü BURADA BASILMAZ: ekran zaten tek bir ilçenin içi, "toplam
-            ilçe 1" hiçbir şey söylemezdi. Koordinatörsüz okul ise burada en
-            somut hâline iniyor — koordinatör satırı sıfır olan kartlar.
+            ilçe 1" hiçbir şey söylemezdi. Danışmansız okul ise burada en
+            somut hâline iniyor — danışman öğretmen satırı sıfır olan kartlar.
           */}
           <ToplamSeridi
             okul={toplam.okul}
             ogretmen={toplam.ogretmen}
-            okulKoordinatoru={toplam.okulKoordinatoru}
+            danismanOgretmen={toplam.danismanOgretmen}
             ogrenci={toplam.ogrenci}
-            koordinatorsuzOkul={toplam.koordinatorsuzOkul}
+            danismansizOkul={toplam.danismansizOkul}
             danismansizOgrenci={toplam.danismansizOgrenci}
           />
         </div>
@@ -109,10 +109,10 @@ export default async function IlceKirilimiSayfasi({
                 ad={okul.ad}
                 altBilgi={okul.okulTuru}
                 ogretmenSayisi={okul.ogretmenSayisi}
-                okulKoordinatoruSayisi={okul.okulKoordinatoruSayisi}
+                danismanOgretmenSayisi={okul.danismanOgretmenSayisi}
                 ogrenciSayisi={okul.ogrenciSayisi}
                 /*
-                 * Okul kartında "koordinatörsüz okul" uyarısı YOK: koordinatör
+                 * Okul kartında "danışmansız okul" uyarısı YOK: danışman öğretmen
                  * satırındaki sıfır zaten onu söylüyor, ikisi birden yazılsaydı
                  * aynı şey kartta iki kez okunurdu (bkz. birimUyarilari).
                  */

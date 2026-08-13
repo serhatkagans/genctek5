@@ -19,7 +19,9 @@ import {
   ShieldCheck,
   Sparkles,
   UserCheck,
+  UserRound,
   Users,
+  UsersRound,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -28,11 +30,11 @@ import {
   KatlanabilirKart,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
+  SINIF_GIRDI,
 } from "@/components/ui";
 import { CalismaGrubuSecimi } from "@/components/CalismaGrubuSecimi";
 import { DanismanSecimi } from "@/components/DanismanSecimi";
 import { MesajSeridi } from "@/components/MesajSeridi";
-import { KapsamRozeti, KategoriRozeti } from "@/components/FaaliyetRozetleri";
 import {
   CvDuzenleme,
   DanismanlikDuzenleme,
@@ -41,7 +43,6 @@ import {
   IletisimDuzenleme,
   KayitEklemeFormu,
   KayitYonetimi,
-  MentorlukDuzenleme,
   ProfildeGorBaglantisi,
 } from "@/components/ProfilDuzenleme";
 import { RotamKarti } from "@/components/RotamKarti";
@@ -75,13 +76,16 @@ import {
   hedefSilEylemi,
 } from "./profil/hedef-eylemleri";
 import { profilFotoSinirlariniGetir } from "@/lib/kullanici/profil-foto";
+import {
+  MENTORLUK_DURUM_ETIKETLERI,
+  mentorKapsamiYaz,
+} from "@/lib/mentor/kurallar";
 import { mentorluguGetir } from "@/lib/mentor/veri";
 import { ogretmenKatkiSayilariGetir } from "@/lib/ogretmen/katki";
 import { katkiKartiMetni } from "@/lib/ogretmen/katki-ozeti";
-import {
-  mentorlukBasvurEylemi,
-  mentorluguBirakEylemi,
-} from "./mentorluk/eylemler";
+import { HAKKINDA_MAKS } from "@/lib/akis/kurallar";
+import { ekipSayimiGetir } from "@/lib/ekip/veri";
+import { hakkindaKaydetEylemi } from "./akis/eylemler";
 import { cvSinirlariniGetir } from "@/lib/ogrenci/cv";
 import { kazanimEkSinirlariniGetir } from "@/lib/kazanim/ek";
 import {
@@ -98,16 +102,8 @@ import {
 } from "@/lib/rapor/istatistik";
 import { ilKoordinatoruOzeti } from "@/lib/rol/koordinator";
 import { prisma } from "@/lib/db";
-import {
-  basvuruYapilabilirMi,
-  KAPSAM_ETIKETLERI,
-  kontenjanDurumu,
-} from "@/lib/faaliyet/kurallar";
-import {
-  kalanGunYaz,
-  seritteGosterilecekler,
-  takvimeAyir,
-} from "@/lib/faaliyet/takvim";
+import { KAPSAM_ETIKETLERI } from "@/lib/faaliyet/kurallar";
+import { seritteGosterilecekler, takvimeAyir } from "@/lib/faaliyet/takvim";
 import { katilimGecmisiGetir } from "@/lib/kazanim/getir";
 import { tarihYaz } from "@/lib/tarih";
 import {
@@ -126,7 +122,11 @@ import {
   ilDisiBasvuruFiltresi,
   ogrenciKapsamFiltresi,
 } from "@/lib/yetki/kapsam";
-import { bildirimOkunduEylemi, tumBildirimleriOkuEylemi } from "./eylemler";
+import {
+  bildirimOkunduEylemi,
+  tumBildirimleriOkuEylemi,
+  yegitekSorumlusuIsaretiEylemi,
+} from "./eylemler";
 import { danismanlikIsaretiEylemi } from "./ogrenciler/eylemler";
 
 export const dynamic = "force-dynamic";
@@ -193,9 +193,15 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "foto-silindi": "Profil fotoğrafınız kaldırıldı.",
   "belge-eklendi": "Destekleyici belge eklendi.",
   "belge-silindi": "Destekleyici belge kaldırıldı.",
-  "mentorluk-basvuruldu":
-    "Mentörlük başvurunuz alındı ve onaya gönderildi.",
-  "mentorluk-birakildi": "Mentörlüğü bıraktınız.",
+  // "Hakkımda" iki ekrandan da kaydedilebiliyor; ileti ikisinde de basılmalı.
+  "hakkinda-kaydedildi": "Hakkımda metniniz kaydedildi.",
+  "yegitek-isaretlendi":
+    "YEĞİTEK Okul Sorumlusu olarak işaretlendiniz. Proje yöneticisi listesinde görünüyorsunuz.",
+  "yegitek-kaldirildi": "YEĞİTEK Okul Sorumlusu işaretiniz kaldırıldı.",
+  /*
+   * Mentörlük iletileri panoya taşındı (13 Ağustos 2026): başvuru bölümü orada
+   * ve eylemler oraya dönüyor (bkz. talepler/page.tsx · DURUM_MESAJLARI).
+   */
   "destek-gruplari-kaydedildi":
     "Katkı verebileceğiniz çalışma grupları kaydedildi.",
 };
@@ -293,6 +299,13 @@ export default async function PanelSayfasi({
         soyad: true,
         kurumKodu: true,
         fotoYuklenmeTarihi: true,
+        /*
+         * HAKKIMDA (13 Ağustos 2026 · istek: "panele hakkımda bölümü ekle,
+         * profilde görünsün, elle uzmanlıklarını üzerinde çalıştığı projeleri
+         * yazsın"). Alan zaten vardı ve yalnızca Akış'tan düzenlenebiliyordu;
+         * Akış'a hiç uğramayan kullanıcı için görünmez bir alandı.
+         */
+        hakkinda: true,
         ogrenciProfil: true,
         ogretmenProfil: {
           select: {
@@ -312,6 +325,9 @@ export default async function PanelSayfasi({
             kurumAdi: true,
             gorevUnvani: true,
             aciklama: true,
+            // YEĞİTEK Okul Sorumluluğu bölümünün durumu (13 Ağustos 2026).
+            yegitekOkulSorumlusu: true,
+            yegitekIsaretlemeTarihi: true,
           },
         },
         kazanimlar: {
@@ -377,20 +393,21 @@ export default async function PanelSayfasi({
    * Grup listesi çalışma grubu seçimindekiyle AYNI kaynaktan gelir; pasife
    * alınmış grup teklif edilmez.
    */
-  const mentorlukVerisi = mentorlukBasvurabilirMi(kullanici)
-    ? await Promise.all([
-        mentorluguGetir(kullanici.id),
-        prisma.calismaGrubu.findMany({
-          where: { aktif: true },
-          orderBy: { siraNo: "asc" },
-          select: { id: true, ad: true },
-        }),
-        prisma.mentorlukCalismaGrubu.findMany({
-          where: { mentorlukKullaniciId: kullanici.id },
-          select: { calismaGrubuId: true },
-        }),
-      ])
+  /*
+   * YALNIZCA KENDİ KAYDI ÇEKİLİYOR (13 Ağustos 2026). Başvuru formu panoya
+   * taşındığı için grup listesine ve seçili gruplara burada gerek kalmadı;
+   * panelde kalan tek şey durumu gösteren kart.
+   */
+  const mentorlugum = mentorlukBasvurabilirMi(kullanici)
+    ? await mentorluguGetir(kullanici.id)
     : null;
+
+  /*
+   * Üyesi olunan AKTİF ekip sayısı — "Ekiplerim" kartı için (13 Ağustos 2026).
+   * Herkese soruluyor: ekibe öğrenci de öğretmen de mezun da eklenebiliyor ve
+   * tek `count` sorgusu, rol dallanması yazmaktan ucuz.
+   */
+  const ekipSayim = await ekipSayimiGetir(kullanici.id);
 
   /*
    * "ÇALIŞMA GRUPLARI" — dış kullanıcının katkı verebileceği alanlar
@@ -610,62 +627,14 @@ export default async function PanelSayfasi({
     : null;
 
   /*
-   * Başvuruya açık faaliyetler — panelin "kaçırma" listesi.
+   * BAŞVURUYA AÇIK FAALİYET SORGUSU KALKTI (13 Ağustos 2026). Panelin altındaki
+   * liste kaldırıldığı için (bkz. aşağıdaki not) tek tüketicisi kalmamıştı;
+   * sorgu durmaya devam etseydi her panel açılışında beş faaliyet ve onların
+   * tüm başvuruları boşuna okunurdu.
    *
-   * Sıra başvurusu EN SON AÇILAN'dan başlar: takvim ve şerit zaten "en yakın
-   * tarihli" ve "en önce kapanacak" sıralamalarını gösteriyor, üçüncü bir
-   * yerde aynı sırayı tekrarlamak yeni bilgi vermezdi. Kullanıcının burada
-   * aradığı "son girdiğimden beri ne açıldı" sorusunun cevabıdır.
-   *
-   * Başvurular da çekilir çünkü kart yalnızca listelemekle kalmaz, kişinin O
-   * FAALİYETE başvurup başvuramayacağını da söyler; kontenjan canlı sayılır
-   * (bkz. lib/faaliyet/kurallar.ts · kontenjanDurumu).
+   * SAYI KAYBOLMADI: karttaki `acikFaaliyetSayisi` mesaj şeridinin kayıtlarından
+   * (`seritKayitlari`) geliyor ve o sorgu duruyor.
    */
-  const acikFaaliyetler = basvuruYapabilirMi(kullanici)
-    ? await prisma.faaliyet.findMany({
-        where: {
-          AND: [
-            faaliyetKapsamFiltresi(kullanici),
-            { durum: "AKTIF" },
-            { onayDurumu: { in: ["ONAY_GEREKMEZ", "ONAYLANDI"] } },
-            { basvuruBaslangic: { lte: simdi } },
-            { basvuruBitis: { gte: simdi } },
-          ],
-        },
-        orderBy: [{ basvuruBaslangic: "desc" }, { id: "desc" }],
-        take: 5,
-        select: {
-          id: true,
-          ad: true,
-          tarih: true,
-          kapsam: true,
-          durum: true,
-          onayDurumu: true,
-          kontenjan: true,
-          basvuruBitis: true,
-          duzenleyenBirim: true,
-          basvurular: { select: { durum: true, katilimciId: true } },
-        },
-      })
-    : [];
-
-  const acikFaaliyetKartlari = acikFaaliyetler.map((faaliyet) => {
-    const benimBasvurum = faaliyet.basvurular.find(
-      (basvuru) => basvuru.katilimciId === kullanici.id,
-    );
-    const durum = kontenjanDurumu(faaliyet.basvurular, faaliyet.kontenjan);
-    return {
-      faaliyet,
-      kalanYer: durum.kalanYer,
-      karar: basvuruYapilabilirMi({
-        pencere: "ACIK" as const,
-        onayDurumu: faaliyet.onayDurumu,
-        faaliyetDurumu: faaliyet.durum,
-        mevcutBasvuruDurumu: benimBasvurum?.durum ?? null,
-        kontenjanDoluMu: durum.doluMu,
-      }),
-    };
-  });
 
   /*
    * Katılımcı olabilen herkesin tamamlanmış katılımları — ÖĞRENCİ DAHİL
@@ -869,8 +838,21 @@ export default async function PanelSayfasi({
               gitmenin yolu kartın kendisidir. Üç rolde de hedef aynı ekran,
               kapsamı kullanıcıdan geliyor (bkz. ogrenciKapsamFiltresi).
             */}
+            {/*
+              KARTIN ADI "ÖĞRENCİLERİM" (13 Ağustos 2026 · istek: "danışman
+              öğretmenin öğrencilerim menüsü kalkacak … danışmanlığımdaki
+              öğrenciler öğrencilerim olacak").
+
+              Kart artık öğretmenin o ekrana giden TEK kapısı: menüdeki sekme
+              aynı istekle kalktı (bkz. app/panel/layout.tsx). Adının menüden
+              kalkan sekmeyle aynı olması bilinçli — öğretmen aradığı yeri eski
+              adıyla arıyor.
+
+              Sayı okul kapsamıdır, danışmanlık listesi değil (bkz.
+              ogrenciKapsamFiltresi); açıklama satırı bunu yazıyor.
+            */}
             <OlcumKarti
-              baslik="Danışmanlığımdaki öğrenciler"
+              baslik="Öğrencilerim"
               Ikon={Users}
               deger={String(kapsamdakiOgrenciSayisi)}
               aciklama="Kendi okulunuzdaki öğrenciler"
@@ -1024,6 +1006,68 @@ export default async function PanelSayfasi({
           aciklama="Kapsamınızda şu an başvuru alanlar"
           yol="/panel/etkinlikler?acik=1"
         />
+
+        {/*
+          EKİPLERİM — ÜYENİN KAPISI (13 Ağustos 2026 · istek: "ekiplere
+          katılanlarla mesajlaşma sohbet yapabilsin").
+
+          Ekibi il koordinatörü kuruyor ve onun girişi Yönetim Paneli'ndeki
+          kart. Üye ise yönetim panosunu açamaz; ekibine gidecek bir yolu
+          olmasaydı, eklendiğine dair bildirimi alıp hiçbir yere
+          gidemeyecekti.
+
+          KART YALNIZCA ÜYELİĞİ OLANDA basılıyor: hiçbir ekibe eklenmemiş
+          kullanıcıya boş bir kart göstermek, ondan yapması beklenen bir şey
+          varmış izlenimi verirdi — ekibe kendi kendine katılamıyor.
+        */}
+        {ekipSayim > 0 && (
+          <OlcumKarti
+            baslik="Ekiplerim"
+            Ikon={UsersRound}
+            deger={String(ekipSayim)}
+            aciklama="Üyesi olduğunuz ekipler ve sohbetleri"
+            yol="/panel/ekipler"
+          />
+        )}
+
+        {/*
+          MENTÖRLÜKLERİM (13 Ağustos 2026 · istek: "mentörlüklerim isminde
+          panele kartların oraya bir kartı ekle").
+
+          Başvuru formu panoya taşındı; bu kart onun panelde bıraktığı iz ve
+          aynı zamanda TEK GİRİŞİ — çapasıyla birlikte doğrudan bölüme iniyor.
+
+          DEĞER DURUMU YAZAR, sayı değil: mentörlük tek kayıttır, "1" demek
+          hiçbir şey anlatmazdı. Kaydı olmayan kişi "Başvurulmadı" görür ve
+          karta tıklayınca başvuru formuna gider — kartın işi zaten o soruyu
+          sordurmak.
+        */}
+        {mentorlugum !== null || mentorlukBasvurabilirMi(kullanici) ? (
+          <OlcumKarti
+            baslik="Mentörlüklerim"
+            Ikon={GraduationCap}
+            deger={
+              mentorlugum
+                ? MENTORLUK_DURUM_ETIKETLERI[mentorlugum.durum]
+                : "Başvurulmadı"
+            }
+            aciklama={
+              mentorlugum
+                ? mentorKapsamiYaz(mentorlugum.grupAdlari, mentorlugum.konular)
+                : "Bildiğiniz konularda öğrencilere yol gösterin"
+            }
+            /*
+              ONAYLI MENTÖR KENDİ SAYFASINA GİDER, başvuru formuna değil
+              (13 Ağustos 2026): onaylanmış kişinin sorusu "başvurum ne oldu"
+              değil, "bana ne soruldu".
+            */
+            yol={
+              mentorlugum?.durum === "ONAYLANDI"
+                ? "/panel/mentorlugum"
+                : "/panel/talepler#mentorlugum"
+            }
+          />
+        ) : null}
       </div>
 
       {/*
@@ -1124,6 +1168,108 @@ export default async function PanelSayfasi({
         <ProfildeGorBaglantisi />
       </KatlanabilirKart>
 
+      {/*
+        HAKKIMDA (13 Ağustos 2026 · istek: "panele hakkımda bölümü ekle,
+        profilde görünsün, elle uzmanlıklarını üzerinde çalıştığı projeleri
+        yazsın").
+
+        ALAN YENİ DEĞİL, KAPISI YENİ: `kullanici.hakkinda` Akış'la birlikte
+        gelmişti ve yalnızca oradan düzenlenebiliyordu. Akış bir yayın akışıdır;
+        kişinin kendini tanıtan metnini oraya girmesi, Akış'a hiç uğramayanlar
+        için alanın var olmadığı anlamına geliyordu. Düzenleme artık Panel'de —
+        profilin düzenlenen her alanı gibi (Profil GÖSTERİR, Panel DÜZENLER).
+
+        EYLEM AYNI EYLEM (`hakkindaKaydetEylemi`) ve `donusYolu` ile buraya
+        dönüyor: Akış'taki kutu olduğu gibi duruyor, iki form tek kuralı
+        paylaşıyor. Metin sınırı da tek yerde (lib/akis/kurallar.ts).
+      */}
+      <KatlanabilirKart
+        baslik="Hakkımda"
+        aciklama="Uzmanlıklarınızı ve üzerinde çalıştığınız projeleri kendiniz yazın. Profilinizde ve Akış'ta görünür."
+        Ikon={UserRound}
+        capa="hakkimda"
+        baslangictaAcik={acilacakBolum === "hakkimda"}
+      >
+        <form action={hakkindaKaydetEylemi} className="space-y-3">
+          <input type="hidden" name="donusYolu" value="/panel" />
+          <label className="block">
+            <span className="text-sm font-medium text-metin">
+              Hakkımda metni
+            </span>
+            <textarea
+              name="hakkinda"
+              rows={5}
+              maxLength={HAKKINDA_MAKS}
+              defaultValue={profilKaydi.hakkinda ?? ""}
+              placeholder="Örn. Gömülü sistemler ve görüntü işleme üzerine çalışıyorum. Şu an okulumun TEKNOFEST takımında bir tarım drone'u projesi yürütüyorum."
+              className={SINIF_GIRDI}
+            />
+            <span className="mt-1 block text-sm text-metin-yumusak">
+              En fazla {HAKKINDA_MAKS} karakter. Telefon ve adres gibi iletişim
+              bilgilerinizi buraya YAZMAYIN.
+            </span>
+          </label>
+          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+            Kaydet
+          </button>
+        </form>
+        <ProfildeGorBaglantisi />
+      </KatlanabilirKart>
+
+      {/*
+        YEĞİTEK OKUL SORUMLULUĞU (13 Ağustos 2026 · istek: "okuldaki danışman
+        öğretmenlerden bazıları YEĞİTEK Okul Sorumlusu olarak görev alıyor
+        olabilir, bununla ilgili panelde bir işaretleme alanı yapalım").
+
+        YALNIZCA DANIŞMAN ÖĞRETMENDE: okulun YEĞİTEK muhatabı, okulda GençTek
+        işini yürüten kişidir. Görev almamış öğretmenin panelinde bu bölüm
+        olsaydı, işaret koyup hiçbir listede görünmediği bir hâl doğardı.
+
+        ONAY YOK, İŞARET YETKİ DE VERMEZ: kişi kendi beyan eder, karşılığı
+        merkezin yönetim panosundaki listede görünmektir (bkz. eylemler.ts).
+        Bu yüzden bölüm, danışmanlık işaretiyle aynı sadelikte: tek düğme.
+      */}
+      {danismanMi(kullanici) && (
+        <KatlanabilirKart
+          baslik="YEĞİTEK Okul Sorumluluğu"
+          aciklama="Okulunuzda YEĞİTEK Okul Sorumlusu olarak görevliyseniz işaretleyin. Onay gerektirmez; listeyi proje yöneticisi görür."
+          Ikon={ShieldCheck}
+          capa="yegitek-sorumlulugum"
+          baslangictaAcik={acilacakBolum === "yegitek-sorumlulugum"}
+        >
+          <p className="text-metin">
+            Durumunuz:{" "}
+            <strong>
+              {profilKaydi.ogretmenProfil?.yegitekOkulSorumlusu
+                ? "YEĞİTEK Okul Sorumlusu olarak işaretli"
+                : "İşaretli değil"}
+            </strong>
+            {profilKaydi.ogretmenProfil?.yegitekIsaretlemeTarihi && (
+              <span className="text-metin-yumusak">
+                {" · "}
+                {tarihYaz(profilKaydi.ogretmenProfil.yegitekIsaretlemeTarihi)}
+                {" tarihinde işaretlendi"}
+              </span>
+            )}
+          </p>
+          <form action={yegitekSorumlusuIsaretiEylemi} className="mt-4">
+            <input
+              type="hidden"
+              name="sorumluMu"
+              value={
+                profilKaydi.ogretmenProfil?.yegitekOkulSorumlusu ? "hayir" : "evet"
+              }
+            />
+            <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+              <ShieldCheck size={16} aria-hidden />
+              {profilKaydi.ogretmenProfil?.yegitekOkulSorumlusu
+                ? "İşareti kaldır"
+                : "YEĞİTEK Okul Sorumlusuyum"}
+            </button>
+          </form>
+        </KatlanabilirKart>
+      )}
+
       <KatlanabilirKart
         baslik={
           // Dış kullanıcıda bölüm yalnızca iletişim değil kurum, görev ve katkı
@@ -1175,52 +1321,17 @@ export default async function PanelSayfasi({
       */}
 
       {/*
-        MENTÖRLÜK BAŞVURUSU (7 Ağustos 2026).
-        İstek: "Öğretmen hesabında 'mentör başvurusu yap' bölümü ekleyelim.
-        hangi çalışma grubunda mentörlük yapabilir seçsin. hatta mümkünse
-        diğer mentörlük konuları ekleyebilsin? yani öğretmen mentör olabilsin"
+        "MENTÖR OLARAK BAŞVUR" BÖLÜMÜ PANODA (13 Ağustos 2026 · istek: "panelde
+        mentör olarak başvur kalksın … paneldeki Mentör olarak başvur kısmını
+        panoya al").
 
-        Öğretmene özel DEĞİL: il koordinatörü, proje yöneticisi, mezun ve
-        paydaş temsilcisi de mentör olabiliyor. Dışarıdan gelenler bunu
-        başvuru formunda istiyor; içerideki herkes buradan başvuruyor. Öğrenci
-        hariç — gerekçesi izinler.ts'te.
+        Gerekçe yerin kendisinde: mentörlüğün karşılığı panoda — "Mentör talebi
+        aç" formu ve mentör havuzu ızgarası orada. Başvuru burada dururken kişi,
+        kabul ettiği görevin ne işe yaradığını göremiyordu.
+
+        Panelde yerine SAYI KARTI kondu ("Mentörlüklerim"); yetki, kayıt ve
+        onay akışı değişmedi (bkz. mentorluk/eylemler.ts).
       */}
-      {mentorlukVerisi && (
-        <KatlanabilirKart
-          /*
-           * "MENTÖR OLARAK BAŞVUR" (11 Ağustos 2026 · istek: "mentörlüğüm
-           * kısmını mentör olarak başvur yap"). Bölüm ne yapılacağını söylüyor;
-           * "Mentörlüğüm" bir sahiplik bildiriyordu ve kullanıcıların çoğunda
-           * henüz sahip olunan bir şey yok — başvurulacak bir şey var.
-           *
-           * Çapa `mentorlugum` KALDI: eylemlerin dönüş adresi ve e-postalardaki
-           * bağlantılar bu çapayı taşıyor (bkz. mentorluk/eylemler.ts).
-           */
-          baslik="Mentör olarak başvur"
-          aciklama="Bildiğiniz konularda öğrencilere yol gösterin. Başvurunuz proje yöneticisinin onayından geçer."
-          Ikon={GraduationCap}
-          capa="mentorlugum"
-          baslangictaAcik={acilacakBolum === "mentorlugum"}
-        >
-          <MentorlukDuzenleme
-            mevcut={
-              mentorlukVerisi[0]
-                ? {
-                    durum: mentorlukVerisi[0].durum,
-                    konular: mentorlukVerisi[0].konular,
-                    retGerekcesi: mentorlukVerisi[0].retGerekcesi,
-                    seciliGrupIdleri: mentorlukVerisi[2].map(
-                      (satir) => satir.calismaGrubuId,
-                    ),
-                  }
-                : null
-            }
-            gruplar={mentorlukVerisi[1]}
-            basvurEylemi={mentorlukBasvurEylemi}
-            birakEylemi={mentorluguBirakEylemi}
-          />
-        </KatlanabilirKart>
-      )}
 
       {/*
         ÇALIŞMA GRUPLARI (7 Ağustos 2026 · istek: dış kullanıcı panelinde
@@ -1522,117 +1633,22 @@ export default async function PanelSayfasi({
         </section>
       )}
 
-      {basvuruYapabilirMi(kullanici) && (
-        <section>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
-              <Send size={18} className="text-vurgu-metin" aria-hidden />
-              Başvuruya açık etkinlikler
-            </h2>
-            <Link
-              href="/panel/etkinlikler?acik=1"
-              className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
-            >
-              Tüm etkinlikler
-            </Link>
-          </div>
+      {/*
+        "BAŞVURUYA AÇIK ETKİNLİKLER" ve "KATILDIĞIM ETKİNLİKLER" LİSTELERİ
+        KALKTI (13 Ağustos 2026 · istek: "başvuruya açık etkinlikler panelde hem
+        kartlarda hem altta var, alttaki kalkacak, kartlarda zaten var o
+        duracak" · "paneldeki alttaki Katıldığım etkinlikler kalkacak, kartlarda
+        zaten var").
 
-          {acikFaaliyetKartlari.length === 0 ? (
-            <Kart className="text-metin-yumusak">
-              Kapsamınızda şu an başvuru alan etkinlik yok. Yenileri açıldığında
-              burada ve bildirimlerinizde görürsünüz.
-            </Kart>
-          ) : (
-            <ul className="space-y-2">
-              {acikFaaliyetKartlari.map(({ faaliyet, karar, kalanYer }) => (
-                <li
-                  key={faaliyet.id}
-                  className="flex flex-wrap items-start justify-between gap-3 rounded-kart border border-cizgi bg-kart px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <Link
-                      href={`/panel/etkinlikler/${faaliyet.id}`}
-                      className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
-                    >
-                      {faaliyet.ad}
-                    </Link>
-                    <p className="mt-1 text-sm text-metin-yumusak">
-                      {tarihYaz(faaliyet.tarih)} ·{" "}
-                      {KAPSAM_ETIKETLERI[faaliyet.kapsam]} ·{" "}
-                      {faaliyet.duzenleyenBirim}
-                    </p>
-                    <p className="mt-0.5 text-sm text-metin-yumusak">
-                      Başvuru {kalanGunYaz(faaliyet.basvuruBitis, simdi)} ·{" "}
-                      {kalanYer} kişilik yer kaldı
-                    </p>
-                  </div>
-                  {/*
-                    Rozet "başvurabilir misin" sorusunu SATIRDA cevaplar:
-                    tıklayıp içeri girdikten sonra "zaten başvurmuşsun"
-                    demek, kullanıcıyı boşuna dolaştırmak olurdu.
-                  */}
-                  {karar.olurMu ? (
-                    <span className="shrink-0 rounded-full bg-olumlu-zemin px-3 py-1 text-xs font-semibold text-olumlu-metin">
-                      Başvurabilirsiniz
-                    </span>
-                  ) : (
-                    <span className="shrink-0 rounded-full bg-zemin px-3 py-1 text-xs font-medium text-metin-yumusak">
-                      {karar.neden}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+        İkisi de yukarıdaki ölçüm kartlarında SAYIYLA duruyor ve kartlar
+        tıklanabilir: "Başvurusu açık etkinlik" → /panel/etkinlikler?acik=1,
+        "Katıldığım etkinlikler" → katılım listesi. Aynı bilgi hem kartta hem
+        altta liste hâlinde basılınca panel iki kez aynı şeyi söylüyordu ve
+        asıl işleri (Mevcut durum, Kayıtlarım, takvim) aşağı itiyordu.
 
-      {katilimGecmisi && (
-        <section>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
-              <CalendarCheck size={18} className="text-vurgu-metin" aria-hidden />
-              Katıldığım etkinlikler
-            </h2>
-            <Link
-              href="/panel/kazanimlarim"
-              className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
-            >
-              Tüm katkılarım
-            </Link>
-          </div>
-
-          {katilimGecmisi.katilimlar.length === 0 ? (
-            <Kart className="text-metin-yumusak">
-              Henüz tamamlanmış bir etkinliğiniz yok. Başvurusu açık etkinliklere
-              yukarıdaki listeden ya da Etkinlikler ekranından başvurabilirsiniz.
-            </Kart>
-          ) : (
-            <ul className="space-y-2">
-              {katilimGecmisi.katilimlar.slice(0, 5).map((katilim) => (
-                <li
-                  key={katilim.faaliyetId}
-                  className="rounded-kart border border-cizgi bg-kart px-4 py-3"
-                >
-                  <Link
-                    href={`/panel/etkinlikler/${katilim.faaliyetId}`}
-                    className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
-                  >
-                    {katilim.ad}
-                  </Link>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-metin-yumusak">
-                      {tarihYaz(katilim.tarih)}
-                    </span>
-                    <KategoriRozeti kategori={katilim.etkinlikKategorisi} />
-                    <KapsamRozeti kapsam={katilim.kapsam} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+        VERİ AKIŞI DURUYOR: `seritKayitlari` ve `katilimGecmisi` kartların
+        sayılarını beslemeye devam ediyor, listeler yalnızca basılmıyor.
+      */}
 
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">
