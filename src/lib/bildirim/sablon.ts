@@ -124,6 +124,29 @@ export const BILDIRIM_KODLARI = {
    * (bkz. lib/dis-kimlik/eposta.ts).
    */
   ONAY_BEKLEYEN_DIS_BASVURU: "ONAY_BEKLEYEN_DIS_BASVURU",
+  /**
+   * Mentörlük başvurusu onay bekliyor; PROJE YÖNETİCİLERİNE gider
+   * (13 Ağustos 2026 · inceleme bulgusu).
+   *
+   * Sistemdeki tek sessiz onay kuyruğu buydu: başvuru kaydediliyor, kimseye
+   * haber gitmiyordu. Kuyruk ekranı da menüde değil (Yönetim Paneli'nde kart),
+   * yani başvuru merkez o kartı kendiliğinden açana kadar bekliyordu — oysa
+   * dış giriş başvurusu, etkinlik onayı ve bağlantı isteği için uyarı vardı.
+   *
+   * KOORDİNATÖRE GİTMEZ: kararı yalnızca merkez veriyor
+   * (bkz. mentorlukOnaylayabilirMi · 11 Ağustos 2026). Bilgi amaçlı kopya da
+   * gönderilmiyor; yapacağı bir şey olmayan uyarı, yapılacak olanı gölgeler.
+   */
+  ONAY_BEKLEYEN_MENTORLUK: "ONAY_BEKLEYEN_MENTORLUK",
+  /**
+   * Mentörlük başvurusu karara bağlandı; BAŞVURANA gider (13 Ağustos 2026).
+   *
+   * Emsali `BAGLANTI_ISTEGI_KARARI`: onay/ret her iki uçta da duyurulur.
+   * Panel'deki "Mentörlüklerim" kartı durumu zaten yazıyor ama kişinin karardan
+   * haberdar olması için panele uğramasını beklemek, onayla açılan
+   * "Mentörlüğüm" sekmesinin haftalarca fark edilmemesi demekti.
+   */
+  MENTORLUK_KARARI: "MENTORLUK_KARARI",
 } as const;
 
 export type BildirimKodu =
@@ -352,6 +375,20 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "EBA hesabı olmayan biri (mezun / paydaş temsilcisi) giriş başvurusu yaptığında proje yöneticilerine gider.",
     degiskenler: ["basvuranAdSoyad", "tur", "ilAdi"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_MENTORLUK,
+    baslik: "Onay bekleyen mentörlük başvurusu",
+    aciklama:
+      "Bir kullanıcı mentörlük başvurusu yaptığında proje yöneticilerine gider. Kararı yalnızca merkez verir; il koordinatörüne kopya çıkmaz.",
+    degiskenler: ["basvuranAdSoyad", "kapsam"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.MENTORLUK_KARARI,
+    baslik: "Mentörlük başvurusu sonucu",
+    aciklama:
+      "Başvuruyu yapan kişiye gider. Onaylandıysa Mentörlüğüm sekmesi açılmıştır; reddedildiyse gerekçe yazılıdır.",
+    degiskenler: ["sonuc", "gerekce"],
   },
 ];
 

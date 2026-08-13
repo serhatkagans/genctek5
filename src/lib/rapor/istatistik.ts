@@ -1,6 +1,18 @@
 import type { Prisma } from "@/generated/prisma/client";
 import type { OnayBelgesi } from "@/generated/prisma/enums";
 import { prisma } from "../db";
+import { belgeGuncellemeTarihleri } from "../kvkk/onay";
+import {
+  danismanMi,
+  ilKoordinatoruMu,
+  projeYoneticisiMi,
+} from "../yetki/izinler";
+import {
+  baglantiKarariFiltresi,
+  ogrenciKapsamFiltresi,
+  raporlanabilirFaaliyetFiltresi,
+} from "../yetki/kapsam";
+import type { OturumKullanicisi } from "../yetki/tipler";
 
 /**
  * Merkez (YEĞİTEK) istatistikleri — analiz isteği Bölüm 5.
@@ -250,5 +262,111 @@ export async function merkezBosluklariniGetir(
     bekleyenIlDisiBasvuru,
     bekleyenBaglantiIstegi,
     belgesiEksikKoordinator,
+  };
+}
+
+/**
+ * "Dikkat gerektirenler" panosunun bir kullanıcı için hâli.
+ *
+ * `null` alan "bu sayı sıfır" DEMEK DEĞİLDİR: "bu rolde gösterilmez" demektir.
+ * İkisi ayrılmak zorunda çünkü ekran sıfırı SÖNÜK AMA GÖRÜNÜR basıyor
+ * (bkz. app/panel/page.tsx) — sıfır iyi haberdir, gizlenirse "böyle bir ölçüt
+ * yok" izlenimi verir. Gösterilmeyecek satırın hiç basılmaması ise başka bir
+ * karardır ve o kararı bu tip taşıyor.
+ */
+export type BekleyenIsler = { [K in keyof MerkezBoslugu]: number | null };
+
+/**
+ * Kullanıcının KENDİ kapsamındaki bekleyen işler (13 Ağustos 2026 · inceleme
+ * bulgusu).
+ *
+ * ÖNCEDEN NE VARDI: pano yalnızca proje yöneticisinde basılıyordu. Sonuç,
+ * göstergenin gözlemleyende olup KARAR VERENDE olmamasıydı — merkez "ülke
+ * genelinde 14 bağlantı isteği bekliyor" satırını görüyor, o isteklerin
+ * onayını verecek danışman ve il koordinatörü hiçbir sayaç görmüyordu. Bildirim
+ * vardı ama bildirim okununca düşer; bekleyen iş düşmez.
+ *
+ * ROLE GÖRE HANGİ SATIRLAR: ölçüt "bu kişi bu sayıyı görünce BİR ŞEY
+ * YAPABİLİYOR mu" (bkz. MerkezBoslugu başlığı: "her alan bir eyleme karşılık
+ * gelir"). Bu yüzden:
+ *
+ *   · Danışman öğretmen — kendi açtığı raporsuz etkinlikler ve kendi
+ *     öğrencilerinin bekleyen bağlantı istekleri. "Danışmansız öğrenci"
+ *     BASILMAZ: danışmanı öğrenci seçer, öğretmenin kendine öğrenci atama
+ *     yetkisi yoktur; yapamayacağı bir işin sayacı yalnızca gürültü olurdu.
+ *   · İl koordinatörü — bunlara ek olarak ilindeki danışmansız öğrenciler.
+ *   · Merkez — altı satırın tamamı, ülke geneli (davranışı DEĞİŞMEDİ).
+ *
+ * KOORDİNATÖRDE "onay bekleyen etkinlik" ve "il dışı başvuru" BİLEREK YOK:
+ * ikisi de o rolde zaten ölçüm kartı olarak duruyor. Aynı sayıyı aynı ekranda
+ * iki kez basmak, 13 Ağustos'ta tam tersi yönde temizlenen bir hataydı.
+ *
+ * Yetkisi olmayan (öğrenci, dış kullanıcı) `null` alır ve bölüm hiç basılmaz.
+ */
+export async function bekleyenIsleriGetir(
+  kullanici: OturumKullanicisi,
+): Promise<BekleyenIsler | null> {
+  /*
+   * Merkez eski yoldan geçer: belge tarihleri YALNIZCA orada gerekiyor ve
+   * sorguyu herkes için açmak, satırı hiç basılmayacak bir sayaç uğruna her
+   * panel açılışına bir gidiş dönüş eklerdi.
+   */
+  if (projeYoneticisiMi(kullanici)) {
+    return merkezBosluklariniGetir(await belgeGuncellemeTarihleri());
+  }
+
+  const koordinatorMu = ilKoordinatoruMu(kullanici);
+  if (!koordinatorMu && !danismanMi(kullanici)) return null;
+
+  const bitmisKosulu = bitmisFaaliyetKosulu(new Date());
+
+  const [danismansizOgrenci, raporsuzFaaliyet, bekleyenBaglantiIstegi] =
+    await Promise.all([
+      koordinatorMu
+        ? prisma.kullanici.count({
+            where: {
+              AND: [
+                { aktif: true },
+                ogrenciKapsamFiltresi(kullanici),
+                { ogrenciAtamalari: { none: { bitisTarihi: null } } },
+              ],
+            },
+          })
+        : Promise.resolve(null),
+      /*
+       * Kapsam RAPOR yetkisinden okunuyor, görünürlükten değil: koordinatör
+       * başka illerin ulusal etkinliklerini listede görebiliyor ama onların
+       * raporunu yazmıyor (bkz. raporlanabilirFaaliyetFiltresi). Danışmanda
+       * filtre zaten "kendi açtıkları"na iniyor.
+       */
+      prisma.faaliyet.count({
+        where: {
+          AND: [
+            { durum: "AKTIF" },
+            { rapor: { is: null } },
+            bitmisKosulu,
+            raporlanabilirFaaliyetFiltresi(kullanici),
+          ],
+        },
+      }),
+      /*
+       * Ekranda karar verilebilen istekle BİREBİR aynı filtre
+       * (bkz. yazismalar/page.tsx). Ayrı bir koşul yazılsaydı sayaç "3 istek
+       * bekliyor" derken açılan listede iki satır çıkabilirdi.
+       */
+      prisma.baglantiIstegi.count({
+        where: {
+          AND: [{ onayDurumu: "BEKLIYOR" }, baglantiKarariFiltresi(kullanici)],
+        },
+      }),
+    ]);
+
+  return {
+    danismansizOgrenci,
+    raporsuzFaaliyet,
+    bekleyenFaaliyetOnayi: null,
+    bekleyenIlDisiBasvuru: null,
+    bekleyenBaglantiIstegi,
+    belgesiEksikKoordinator: null,
   };
 }

@@ -73,6 +73,31 @@ async function testVerisiniTemizle() {
    * cascade ile gider, ama silinen kullanıcının BAŞKASININ faaliyetindeki
    * başvurusu ve değerlendirici izi cascade kapsamında değildir; onları önce
    * elle temizliyoruz.
+   *
+   * ===========================================================================
+   * BU LİSTE NASIL TÜRETİLİR — eksilirse duman testi ilk adımda düşer
+   * ===========================================================================
+   * Aşağıda ELLE temizlenmesi gereken tablolar, `kullanici`ya bakan yabancı
+   * anahtarlardan silme kuralı CASCADE ya da SET NULL OLMAYANLARDIR:
+   * RESTRICT ve NO ACTION. CASCADE kendiliğinden gider, SET NULL'ı Postgres
+   * boşaltır; kalan ikisi silmeyi engeller.
+   *
+   * Yeni bir tablo eklendiğinde liste güncellenmezse temizlik yabancı anahtar
+   * hatasıyla düşer ve test hiç çalışmaz — bu 5 Ağustos'ta `kullanici_onayi`
+   * ile, 13 Ağustos'ta bağlantı/akış/ekip/pano tablolarıyla iki kez yaşandı.
+   * Güncel listeyi şu sorgu verir:
+   *
+   *   select tc.table_name, kcu.column_name, rc.delete_rule
+   *     from information_schema.table_constraints tc
+   *     join information_schema.key_column_usage kcu
+   *       on kcu.constraint_name = tc.constraint_name
+   *     join information_schema.constraint_column_usage ccu
+   *       on ccu.constraint_name = tc.constraint_name
+   *     join information_schema.referential_constraints rc
+   *       on rc.constraint_name = tc.constraint_name
+   *    where tc.constraint_type = 'FOREIGN KEY'
+   *      and ccu.table_name = 'kullanici'
+   *      and rc.delete_rule not in ('CASCADE', 'SET NULL');
    */
   await prisma.basvuru.deleteMany({
     where: {
@@ -98,13 +123,40 @@ async function testVerisiniTemizle() {
       ],
     },
   });
+  /*
+   * Rapor ve belge, faaliyet silinince cascade ile gider; buradaki silme
+   * BAŞKASININ faaliyetine yazılmış rapor ve orada üretilmiş/alınmış belge
+   * içindir. Faaliyet silinmeden ÖNCE çalışmaları gerekmiyor ama sıra burada
+   * duruyor ki "faaliyet çevresi" tek blokta okunsun.
+   */
+  await prisma.faaliyetRaporu.deleteMany({
+    where: { yazanKullaniciId: { in: idler } },
+  });
+  await prisma.faaliyetBelgesi.deleteMany({
+    where: {
+      OR: [
+        { katilimciId: { in: idler } },
+        { uretenKullaniciId: { in: idler } },
+      ],
+    },
+  });
   await prisma.faaliyet.deleteMany({
     where: {
       OR: [
         { duzenleyenKullaniciId: { in: idler } },
         { onaylayanKullaniciId: { in: idler } },
+        // İptal eden iz RESTRICT'tir: iptal edilmiş bir faaliyeti geride
+        // bırakan kullanıcı, o satır durdukça silinemez.
+        { iptalEdenKullaniciId: { in: idler } },
       ],
     },
+  });
+  /*
+   * Paydaş kaydı faaliyetlerden SONRA siliniyor: faaliyet–paydaş bağı faaliyete
+   * cascade bağlıdır, faaliyet önce gitmezse paydaş silinemez.
+   */
+  await prisma.paydas.deleteMany({
+    where: { ekleyenKullaniciId: { in: idler } },
   });
   await prisma.ogrenciGorevRolu.deleteMany({
     where: {
@@ -132,7 +184,79 @@ async function testVerisiniTemizle() {
   });
   await prisma.bildirim.deleteMany({ where: { kullaniciId: { in: idler } } });
   await prisma.erisimlogu.deleteMany({ where: { kullaniciId: { in: idler } } });
-  await prisma.ogrenciCalismaGrubu.deleteMany({ where: { ogrenciId: { in: idler } } });
+
+  /*
+   * BAĞLANTI VE YAZIŞMA (12–13 Ağustos 2026 tabloları).
+   *
+   * Mesaj ÖNCE: yazışma bağlantı isteğine, mesaj yazışmaya cascade bağlı, yani
+   * isteği silmek kendi yazışmasını da götürüyor. Ama silinen kullanıcının
+   * BAŞKALARININ yazışmasına yazdığı mesajlar o cascade'in dışında kalır ve
+   * `mesaj.yazan_kullanici_id` RESTRICT'tir.
+   */
+  await prisma.mesaj.deleteMany({ where: { yazanKullaniciId: { in: idler } } });
+  await prisma.baglantiIstegi.deleteMany({
+    where: {
+      OR: [
+        { isteyenKullaniciId: { in: idler } },
+        { hedefKullaniciId: { in: idler } },
+      ],
+    },
+  });
+
+  /*
+   * AKIŞ. Yorum önce: gönderi silinince kendi yorumları cascade ile gidiyor,
+   * başkasının gönderisine yazılan yorum gitmiyor.
+   */
+  await prisma.gonderiYorumu.deleteMany({
+    where: { yazanKullaniciId: { in: idler } },
+  });
+  await prisma.gonderi.deleteMany({
+    where: { yazanKullaniciId: { in: idler } },
+  });
+
+  // PANO. Cevap önce, aynı gerekçeyle (başkasının ilanına yazılan cevap).
+  await prisma.talepCevabi.deleteMany({
+    where: { yazanKullaniciId: { in: idler } },
+  });
+  await prisma.talep.deleteMany({ where: { acanKullaniciId: { in: idler } } });
+
+  // EKİPLER. Üyelik ve mesaj ekibe cascade bağlı; başkasının ekibindeki üyelik
+  // ve mesaj ayrıca temizleniyor.
+  await prisma.ekipMesaji.deleteMany({
+    where: { yazanKullaniciId: { in: idler } },
+  });
+  await prisma.ekipUyesi.deleteMany({ where: { kullaniciId: { in: idler } } });
+  await prisma.ekip.deleteMany({ where: { kuranKullaniciId: { in: idler } } });
+
+  /*
+   * MENTÖRLÜK. Kişinin KENDİ kaydı cascade ile gidiyor; buradaki tek sorun,
+   * silinen kullanıcının BAŞKASININ başvurusunda karar veren olarak durması.
+   * O satır silinmiyor, kararı veren boşaltılıyor: mentörlüğün kendisi geride
+   * kalan gerçek bir kayıttır, kimin onayladığı bilgisi ise silinen test
+   * kullanıcısıyla birlikte anlamını yitirir.
+   */
+  await prisma.mentorluk.updateMany({
+    where: { kararVerenKullaniciId: { in: idler } },
+    data: { kararVerenKullaniciId: null },
+  });
+
+  // DIŞ KİMLİK. Mock kullanıcılarda olağan değil ama karar veren olarak
+  // görünebiliyorlar (proje yöneticisi mock'ları dış başvuru onaylıyor).
+  await prisma.disKimlik.deleteMany({ where: { kullaniciId: { in: idler } } });
+  await prisma.disKullaniciBasvurusu.deleteMany({
+    where: {
+      OR: [
+        { kararVerenKullaniciId: { in: idler } },
+        { olusanKullaniciId: { in: idler } },
+      ],
+    },
+  });
+
+  await prisma.ogrenciCalismaGrubu.deleteMany({
+    where: {
+      OR: [{ ogrenciId: { in: idler } }, { ekleyenKullaniciId: { in: idler } }],
+    },
+  });
   await prisma.kullaniciRol.deleteMany({ where: { kullaniciId: { in: idler } } });
   await prisma.ogrenciProfil.deleteMany({ where: { kullaniciId: { in: idler } } });
   await prisma.ogretmenProfil.deleteMany({ where: { kullaniciId: { in: idler } } });

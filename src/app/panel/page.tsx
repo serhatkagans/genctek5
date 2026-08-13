@@ -6,6 +6,7 @@ import {
   Camera,
   CircleAlert,
   CalendarCheck,
+  CalendarClock,
   CalendarDays,
   CheckSquare,
   ClipboardCheck,
@@ -94,16 +95,20 @@ import {
   kazanimTipleri,
 } from "@/lib/kazanim/kurallar";
 import { uygulamaYolu } from "@/lib/ortam";
-import { belgeGuncellemeTarihleri } from "@/lib/kvkk/onay";
 import {
+  bekleyenIsleriGetir,
   faaliyetKatilimSayisi,
-  merkezBosluklariniGetir,
   merkezIstatistikleriniGetir,
 } from "@/lib/rapor/istatistik";
 import { ilKoordinatoruOzeti } from "@/lib/rol/koordinator";
 import { prisma } from "@/lib/db";
 import { KAPSAM_ETIKETLERI } from "@/lib/faaliyet/kurallar";
-import { seritteGosterilecekler, takvimeAyir } from "@/lib/faaliyet/takvim";
+import {
+  etkinligeKalanYaz,
+  seritteGosterilecekler,
+  takvimeAyir,
+} from "@/lib/faaliyet/takvim";
+import { yaklasanEtkinligimiGetir } from "@/lib/faaliyet/yaklasan";
 import { katilimGecmisiGetir } from "@/lib/kazanim/getir";
 import { tarihYaz } from "@/lib/tarih";
 import {
@@ -493,9 +498,14 @@ export default async function PanelSayfasi({
    * öğrenci var" ile "kaç öğrenci danışmansız" farklı sorular. Tek listede
    * olsalardı acil olanlar sayım kalabalığında kaybolurdu.
    */
-  const bosluklar = projeYoneticisiMi(kullanici)
-    ? await merkezBosluklariniGetir(await belgeGuncellemeTarihleri())
-    : null;
+  /*
+   * BÖLÜM ARTIK KARAR VERENDE DE VAR (13 Ağustos 2026 · inceleme bulgusu):
+   * danışman ve il koordinatörü kendi kapsamlarındaki bekleyen işleri görüyor.
+   * Hangi satırın hangi rolde basılacağını kural katmanı belirliyor
+   * (bkz. lib/rapor/istatistik.ts · bekleyenIsleriGetir); ekran yalnızca
+   * `null` gelen satırı atlıyor. Merkezin gördüğü altı satır değişmedi.
+   */
+  const bosluklar = await bekleyenIsleriGetir(kullanici);
 
   /*
    * "İl koordinatörüm" kartı, ilinde kime bağlı olduğunu bilmesi gereken okul
@@ -526,6 +536,17 @@ export default async function PanelSayfasi({
     : 0;
 
   const simdi = new Date();
+
+  /*
+   * Kişinin SIRADAKİ kendi etkinliği. Takvimin cevaplamadığı soru bu: takvim
+   * kapsamdaki her etkinliği gösteriyor, bu ise kişinin o gün orada olması
+   * gerekenini. Ölçüt rol değil kişisel bağdır — ayrıntı ve gerekçeler
+   * lib/faaliyet/yaklasan.ts başlığında.
+   */
+  const yaklasanEtkinligim = await yaklasanEtkinligimiGetir(
+    kullanici.id,
+    simdi,
+  );
 
   /*
    * Etkinlik takvimi (analiz dokümanı Bölüm 6): kapsamdaki faaliyetler
@@ -701,11 +722,19 @@ export default async function PanelSayfasi({
           <h2 className="font-semibold text-baslik">
             {mezunMu(kullanici) ? "Mezun hesabınız" : "Paydaş temsilcisi hesabınız"}
           </h2>
+          {/*
+            METİN MENÜYLE AYNI ŞEYİ SÖYLEMELİ (13 Ağustos 2026 · inceleme
+            bulgusu). Kutu "onaylanan bağlantılar üzerinden yazışabilirsiniz"
+            diyordu ama Bağlantılarım sekmesi bu rollerde basılmıyordu; vaadin
+            karşılığı ekranda yoktu. Sekme eklendi (bkz. panel/layout.tsx) ve
+            cümle, bugün açık olan üç alanın tamamını sayıyor.
+          */}
           <p className="mt-2 text-metin-yumusak">
-            Etkinlik takvimini ve panoyu görebilir, panoda ilan açabilir
-            ve onaylanan bağlantılar üzerinden yazışabilirsiniz. Öğrenci ve
-            öğretmen kayıtlarına erişiminiz yoktur; etkinliklere katılımcı
-            olarak başvuru şu an açık değildir.
+            Etkinlik takvimini ve panoyu görebilir, panoda ilan açabilir,
+            onaylanan bağlantılar üzerinden yazışabilir, akışta paylaşım
+            yapabilir ve markete ürün ekleyebilirsiniz. Öğrenci ve öğretmen
+            kayıtlarına erişiminiz yoktur; etkinliklere katılımcı olarak
+            başvuru şu an açık değildir.
           </p>
           <Link href="/panel/talepler" className={`${SINIF_BIRINCIL_BUTON} mt-4`}>
             Panoya git
@@ -764,6 +793,43 @@ export default async function PanelSayfasi({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/*
+          YAKLAŞAN ETKİNLİĞİM — IZGARANIN BAŞINDA (13 Ağustos 2026).
+
+          Kartların geri kalanı ayar ve sayım: danışman seçimi, grup seçimi,
+          başvuru adedi. Bunlarda acele yoktur. Buradaki tek tarihli taahhüt
+          bu kart, o yüzden en önde: "sırada ne var" sorusunun cevabı, üç sayım
+          kartının altında durmamalı.
+
+          KAYDI YOKSA HİÇ BASILMIYOR. Boş hâlde "yaklaşan etkinliğiniz yok +
+          başvuruya açık etkinliklere bak" yazmak akla geldi ama ikinci cümlenin
+          karşılığı zaten "Başvurusu açık etkinlik" kartı ve o herkeste
+          basılıyor; aynı kapıyı iki kez açmak olurdu. Boş kart göstermeme
+          kuralı Ekiplerim kartındakiyle aynı.
+
+          DEĞER = ETKİNLİK ADI, açıklama = tarih · kalan gün · SIFAT. Sıfat
+          şart: aynı kart hem "oraya katılıyorsun" hem "orayı sen düzenliyorsun"
+          diyebiliyor ve ikisi çok farklı işler. Başlığın söylediğiyle
+          bağlantının götürdüğü yerin ayrışması bu panelde daha önce gerçek bir
+          hataya yol açtı (bkz. aşağıdaki "Onay bekleyen etkinlik" notu).
+        */}
+        {yaklasanEtkinligim && (
+          <OlcumKarti
+            baslik="Yaklaşan etkinliğim"
+            Ikon={CalendarClock}
+            deger={yaklasanEtkinligim.ad}
+            aciklama={`${tarihYaz(yaklasanEtkinligim.tarih)} · ${etkinligeKalanYaz(
+              yaklasanEtkinligim.tarih,
+              simdi,
+            )} · ${
+              yaklasanEtkinligim.sifat === "DUZENLEYEN"
+                ? "düzenleyensiniz"
+                : "katılımcısınız"
+            }`}
+            yol={`/panel/etkinlikler/${yaklasanEtkinligim.id}`}
+          />
+        )}
+
         {ogrenciMi(kullanici) && (
           <>
             {/*
@@ -1069,6 +1135,104 @@ export default async function PanelSayfasi({
           />
         ) : null}
       </div>
+
+      {/*
+        BÖLÜM ÖLÇÜM KARTLARININ HEMEN ARDINA ALINDI (13 Ağustos 2026).
+
+        Eskiden katlanır profil bölümlerinin (Fotoğrafım, Hakkımda, Kayıtlarım,
+        CV) ALTINDA duruyordu. Merkezde bu göze batmıyordu; danışman ve
+        koordinatöre açılınca sorun oldu: "2 bağlantı isteği bekliyor" satırı,
+        beş katlanır kartın altında kaldığı için ekranda fiilen görünmüyordu ve
+        bölümü onlara açmanın tek gerekçesi zaten görünürlüktü.
+
+        Sıra artık işin aciliyetine göre: tarihli taahhüt (ölçüm kartları) →
+        bekleyen iş → takvim → bildirimler. Katlanır bölümler kişinin kendi
+        kaydını düzenlediği yer ve hiçbirinde bekleyen bir iş yok.
+      */}
+      {bosluklar && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">
+            <CircleAlert size={18} className="text-uyari-metin" aria-hidden />
+            Dikkat gerektirenler
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                etiket: "Danışmansız öğrenci",
+                deger: bosluklar.danismansizOgrenci,
+                alt: "Aktif danışman ataması yok",
+                yol: "/panel/ogrenciler",
+              },
+              {
+                etiket: "Raporsuz biten etkinlik",
+                deger: bosluklar.raporsuzFaaliyet,
+                alt: "Bitti ama raporu yazılmadı",
+                yol: "/panel/raporlar",
+              },
+              {
+                etiket: "Onay bekleyen etkinlik",
+                deger: bosluklar.bekleyenFaaliyetOnayi,
+                alt: "Öğrenci ve öğretmen önerileri dâhil",
+                yol: "/panel/etkinlikler",
+              },
+              {
+                etiket: "Bekleyen il dışı başvuru",
+                deger: bosluklar.bekleyenIlDisiBasvuru,
+                alt: "Kaynak ilin kararını bekliyor",
+                yol: "/panel/etkinlikler#il-disi",
+              },
+              {
+                etiket: "Bekleyen bağlantı isteği",
+                deger: bosluklar.bekleyenBaglantiIstegi,
+                alt: "Öğrenciler iletişim için bekliyor",
+                yol: "/panel/yazismalar#istekler",
+              },
+              {
+                etiket: "Belgesi eksik koordinatör",
+                deger: bosluklar.belgesiEksikKoordinator,
+                alt: "Taahhütname ya da gizlilik sözleşmesi onaylanmamış",
+                yol: "/panel/rol-envanteri",
+              },
+            ]
+              /*
+               * `null` = "bu rolde gösterilmez"; sıfırdan AYRI bir durumdur ve
+               * burada eleniyor. Sıfır aşağıda sönük ama görünür basılıyor —
+               * ikisi karıştırılırsa danışman, ilinin danışmansız öğrenci sayısı
+               * için "0" görür ve hiç kimsenin boşta olmadığını sanır.
+               */
+              .filter(
+                (satir): satir is typeof satir & { deger: number } =>
+                  satir.deger !== null,
+              )
+              .map((satir) => (
+              <Link
+                key={satir.etiket}
+                href={satir.yol}
+                /*
+                 * Sıfır olan kart SÖNÜK gösteriliyor, gizlenmiyor: kaybolan
+                 * kart "böyle bir ölçüt yok" izlenimi verirdi, oysa sıfır
+                 * iyi haberdir ve görünmesi gerekir.
+                 */
+                className={`rounded-kart border bg-kart p-4 transition hover:border-vurgu ${
+                  satir.deger > 0 ? "border-uyari-cizgi" : "border-cizgi"
+                }`}
+              >
+                <p className="text-sm font-medium text-metin-yumusak">
+                  {satir.etiket}
+                </p>
+                <p
+                  className={`mt-1 text-2xl font-bold ${
+                    satir.deger > 0 ? "text-uyari-metin" : "text-metin-yumusak"
+                  }`}
+                >
+                  {satir.deger}
+                </p>
+                <p className="mt-0.5 text-sm text-metin-yumusak">{satir.alt}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/*
         ÖĞRENCİNİN SEÇİMLERİ — eskiden iki ayrı sekmeydi, artık burada
@@ -1554,80 +1718,6 @@ export default async function PanelSayfasi({
                 </p>
                 <p className="mt-0.5 text-sm text-metin-yumusak">{satir.alt}</p>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {bosluklar && (
-        <section>
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">
-            <CircleAlert size={18} className="text-uyari-metin" aria-hidden />
-            Dikkat gerektirenler
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                etiket: "Danışmansız öğrenci",
-                deger: bosluklar.danismansizOgrenci,
-                alt: "Aktif danışman ataması yok",
-                yol: "/panel/ogrenciler",
-              },
-              {
-                etiket: "Raporsuz biten etkinlik",
-                deger: bosluklar.raporsuzFaaliyet,
-                alt: "Bitti ama raporu yazılmadı",
-                yol: "/panel/raporlar",
-              },
-              {
-                etiket: "Onay bekleyen etkinlik",
-                deger: bosluklar.bekleyenFaaliyetOnayi,
-                alt: "Öğrenci ve öğretmen önerileri dâhil",
-                yol: "/panel/etkinlikler",
-              },
-              {
-                etiket: "Bekleyen il dışı başvuru",
-                deger: bosluklar.bekleyenIlDisiBasvuru,
-                alt: "Kaynak ilin kararını bekliyor",
-                yol: "/panel/etkinlikler#il-disi",
-              },
-              {
-                etiket: "Bekleyen bağlantı isteği",
-                deger: bosluklar.bekleyenBaglantiIstegi,
-                alt: "Öğrenciler iletişim için bekliyor",
-                yol: "/panel/yazismalar#istekler",
-              },
-              {
-                etiket: "Belgesi eksik koordinatör",
-                deger: bosluklar.belgesiEksikKoordinator,
-                alt: "Taahhütname ya da gizlilik sözleşmesi onaylanmamış",
-                yol: "/panel/rol-envanteri",
-              },
-            ].map((satir) => (
-              <Link
-                key={satir.etiket}
-                href={satir.yol}
-                /*
-                 * Sıfır olan kart SÖNÜK gösteriliyor, gizlenmiyor: kaybolan
-                 * kart "böyle bir ölçüt yok" izlenimi verirdi, oysa sıfır
-                 * iyi haberdir ve görünmesi gerekir.
-                 */
-                className={`rounded-kart border bg-kart p-4 transition hover:border-vurgu ${
-                  satir.deger > 0 ? "border-uyari-cizgi" : "border-cizgi"
-                }`}
-              >
-                <p className="text-sm font-medium text-metin-yumusak">
-                  {satir.etiket}
-                </p>
-                <p
-                  className={`mt-1 text-2xl font-bold ${
-                    satir.deger > 0 ? "text-uyari-metin" : "text-metin-yumusak"
-                  }`}
-                >
-                  {satir.deger}
-                </p>
-                <p className="mt-0.5 text-sm text-metin-yumusak">{satir.alt}</p>
-              </Link>
             ))}
           </div>
         </section>

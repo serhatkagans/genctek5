@@ -1201,6 +1201,15 @@ export default async function FaaliyetDetaySayfasi({
       </Kart>
 
       <Kart>
+        {/*
+          ÇAPA: rapor ekranı buraya iniyor (bkz. rapor/page.tsx · "etkinliğin ek
+          listesine"). Rapor yazarken fotoğraf eklemek formun içinde yapılıyor;
+          görsel silmek, kapak seçmek ve PDF eklemek için buraya geliniyor.
+          Çapa olmadan bağlantı sayfanın en tepesine düşüyor ve kullanıcı ek
+          kartını uzun bir detay ekranında elle arıyordu. Kalıp `yorumlar`
+          çapasıyla aynı: boş bir div, KartBasligi'nden önce.
+        */}
+        <div id="ekler" className="scroll-mt-6" />
         <KartBasligi
           baslik="Görseller ve belgeler"
           aciklama={

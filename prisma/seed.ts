@@ -278,6 +278,18 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\n{{isteyenAdSoyad}} sizinle iletişim kurmak istedi ve isteği onaylandı. Yazışma sayfanızdan görebilirsiniz.\n\nYazışmalarınız gizli değildir; danışman öğretmeniniz ve il koordinatörünüz okuyabilir.\n\nGençTek",
   },
   {
+    kod: "ONAY_BEKLEYEN_MENTORLUK",
+    konu: "Onay bekleyen mentörlük başvurusu: {{basvuranAdSoyad}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{basvuranAdSoyad}} mentörlük başvurusu yaptı ve onayınızı bekliyor.\n\nBaşvurduğu alanlar: {{kapsam}}\n\nBaşvuruyu Yönetim Paneli'ndeki Mentörlük kartından inceleyip onaylayabilir ya da gerekçesiyle reddedebilirsiniz.\n\nGençTek",
+  },
+  {
+    kod: "MENTORLUK_KARARI",
+    konu: "Mentörlük başvurunuz {{sonuc}}",
+    govdeSablonu:
+      "Merhaba,\n\nMentörlük başvurunuz {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa menünüzde \"Mentörlüğüm\" sekmesi açıldı; panodaki ilanlara oradan cevap yazabilirsiniz.\n\nGençTek",
+  },
+  {
     kod: "FAALIYET_ONAY_SONUCU",
     konu: "{{faaliyetAdi}} etkinliğiniz {{sonuc}}",
     govdeSablonu:

@@ -3,12 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import {
+  BILDIRIM_KODLARI,
+  bildirimGonder,
+  projeYoneticilerineBildir,
+} from "@/lib/bildirim/gonder";
 import { prisma } from "@/lib/db";
 import {
   mentorlukBasvurusuKaydet,
   mentorlukKapsamFiltresi,
 } from "@/lib/mentor/veri";
 import {
+  mentorKapsamiYaz,
   mentorlukKabulEdilirMi,
   mentorlukKarariGecerliMi,
 } from "@/lib/mentor/kurallar";
@@ -62,7 +68,9 @@ export async function mentorlukBasvurEylemi(veri: FormData): Promise<void> {
    */
   const gruplar = await prisma.calismaGrubu.findMany({
     where: { aktif: true },
-    select: { id: true },
+    // Ad da okunuyor: onay bildirimi "hangi alanlarda mentörlük" diye yazıyor
+    // ve grup kimliği merkeze hiçbir şey anlatmazdı.
+    select: { id: true, ad: true },
   });
 
   const karar = mentorlukKabulEdilirMi({
@@ -78,6 +86,28 @@ export async function mentorlukBasvurEylemi(veri: FormData): Promise<void> {
     kullaniciId: kullanici.id,
     grupIdleri: karar.grupIdleri,
     konular: karar.konular,
+  });
+
+  /*
+   * ONAY KUYRUĞU ARTIK SESSİZ DEĞİL (13 Ağustos 2026 · inceleme bulgusu).
+   *
+   * Kararı yalnızca merkez veriyor (bkz. mentorlukOnaylayabilirMi), uyarı da
+   * yalnızca oraya gidiyor. Bildirim KAYITTAN SONRA gönderiliyor: gönderim
+   * sırasında oluşacak bir sorun başvurunun kendisini düşürmemeli.
+   */
+  const seciliAdlar = gruplar
+    .filter((grup) => karar.grupIdleri.includes(grup.id))
+    .map((grup) => grup.ad);
+
+  await projeYoneticilerineBildir(BILDIRIM_KODLARI.ONAY_BEKLEYEN_MENTORLUK, {
+    basvuranAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+    /*
+     * Kapsam metni ekrandakiyle AYNI yardımcıdan geliyor (mentorKapsamiYaz):
+     * bildirimde ayrı bir biçim kurulsaydı, merkez aynı başvuruyu iki farklı
+     * cümleyle okurdu. Grup da konu da boşsa kural katmanı başvuruyu zaten
+     * kabul etmiyor; yine de boş dizge gitmesin diye "—" yazılıyor.
+     */
+    kapsam: mentorKapsamiYaz(seciliAdlar, karar.konular) || "—",
   });
 
   await erisimLogla({
@@ -180,6 +210,27 @@ export async function mentorlukKararEylemi(veri: FormData): Promise<void> {
       kararVerenKullaniciId: kullanici.id,
       kararTarihi: new Date(),
       retGerekcesi: karar.retGerekcesi,
+    },
+  });
+
+  /*
+   * KARAR BAŞVURANA DUYURULUR (13 Ağustos 2026 · inceleme bulgusu). Emsali
+   * BAGLANTI_ISTEGI_KARARI: onay da ret de iki uçta bilinir.
+   *
+   * Panel'deki "Mentörlüklerim" kartı durumu zaten yazıyor ama kişinin karardan
+   * haberdar olması panele uğramasına bağlıydı; onayla açılan "Mentörlüğüm"
+   * sekmesi bu yüzden fark edilmeden kalabiliyordu.
+   *
+   * RET GEREKÇESİ METNE GİRER: gerekçesiz ret, kişiye yeniden başvurup
+   * başvurmayacağına karar verecek hiçbir bilgi bırakmıyor. Onayda gerekçe
+   * alanı boştur (bkz. mentorlukKarariGecerliMi), yer tutucu "—" ile dolar.
+   */
+  await bildirimGonder({
+    kullaniciId: hedefId,
+    kod: BILDIRIM_KODLARI.MENTORLUK_KARARI,
+    degiskenler: {
+      sonuc: durum === "ONAYLANDI" ? "onaylandı" : "reddedildi",
+      gerekce: karar.retGerekcesi ?? "—",
     },
   });
 

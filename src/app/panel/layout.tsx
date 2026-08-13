@@ -100,14 +100,21 @@ export default async function PanelDuzeni({
    * buydu"); eksik olan yalnızca menüdeki satırdı, yani sayfa vardı ama kapısı
    * yoktu. Ürün ekleme de bu rollerde çalışıyor — kayıt formu Panel'de.
    *
-   * Bağlantılarım hâlâ BASILMIYOR. Erken dönüş kullanılıyor çünkü kalan
-   * blokların hepsi görev rollerine bakıyor ve dış kullanıcıda zaten hiçbiri
-   * açılmıyor; tek tek "dış kullanıcı değilse" koşulu eklemek aynı kararı beş
-   * yerde tekrar ederdi.
+   * BAĞLANTILARIM ve AKIŞ EKLENDİ (13 Ağustos 2026 · inceleme bulgusu).
+   * İkisi de Market'le aynı durumdaydı: sayfa açıktı, kapısı yoktu.
    *
-   * SAYFA SİLİNMEDİ ve YETKİ DARALMADI: `/panel/yazismalar` adresle çalışmaya
-   * devam ediyor, onaylı yazışmalar duruyor. Kaldırılan şey yalnızca menüdeki
-   * satır — istek sekme listesini sayıyor, yetki tablosunu değil.
+   *   · Bağlantılarım — bu roller panodan bağlantı isteği GÖNDEREBİLİYOR
+   *     (bkz. panodaEslesmeArayabilirMi) ve istek onaylanınca yazışma
+   *     açılıyor. Sekme basılmadığı için mezun, onaylanan bağlantısının
+   *     mesajını okuyacak hiçbir yol bulamıyordu: bildirimin "git" düğmesi de
+   *     yok (BildirimHedefTipi yalnızca FAALIYET ve EKIP). Panel'deki kutu ise
+   *     ona "onaylanan bağlantılar üzerinden yazışabilirsiniz" diyordu.
+   *   · Akış — sayfanın ve eylemlerinin hiçbirinde rol kapısı yok
+   *     (bkz. akis/eylemler.ts): dış kullanıcı gönderi ve yorum yazabiliyor.
+   *     Menüde karşılığı olmaması, ekranı kapatmıyor yalnızca gizliyordu.
+   *
+   * YETKİ DEĞİŞMEDİ, yalnızca kapı açıldı: iki sayfa da baştan beri bu
+   * rollere açıktı ve kapsam filtreleri yerinde duruyor.
    */
   /*
    * MENTÖRLÜĞÜM SEKMESİ — YALNIZCA ONAYLI MENTÖRDE (13 Ağustos 2026 · istek:
@@ -127,6 +134,11 @@ export default async function PanelDuzeni({
 
   if (disKullaniciMi(kullanici)) {
     baglantilar.push({ yol: "/panel/etkinlikler", etiket: "Etkinlikler" });
+    // Sıra iç kullanıcı menüsüyle aynı: aynı sekmenin iki rolde farklı yerde
+    // durması, ekranı birine anlatırken "sende kaçıncı sırada?" sorusunu
+    // doğururdu.
+    baglantilar.push({ yol: "/panel/yazismalar", etiket: "Bağlantılarım" });
+    baglantilar.push({ yol: "/panel/akis", etiket: "Akış" });
     baglantilar.push({ yol: "/panel/talepler", etiket: "Pano" });
     baglantilar.push(...mentorSekmesi);
     baglantilar.push({ yol: "/panel/urunler", etiket: "Market" });

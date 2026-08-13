@@ -64,6 +64,51 @@ describe("şablon tanımları", () => {
   });
 });
 
+/**
+ * Mentörlük bildirimleri (13 Ağustos 2026 · inceleme bulgusu: başvuru da karar
+ * da sessizdi). Metinler hem seed'de hem migration SQL'inde yazılı; yer tutucu
+ * hatası ancak bildirim gönderildiğinde, kullanıcının gözüne ham süslü parantez
+ * olarak görünürdü. Bu yüzden ikisi de buraya kopyalanıp sabitlendi.
+ */
+describe("mentörlük bildirimleri", () => {
+  it("başvuru bildirimi kimin ne için başvurduğunu taşır", () => {
+    const tanim = sablonTanimiGetir(BILDIRIM_KODLARI.ONAY_BEKLEYEN_MENTORLUK);
+    expect(tanim?.degiskenler).toEqual(
+      expect.arrayContaining(["basvuranAdSoyad", "kapsam"]),
+    );
+
+    const degiskenler = [...(tanim?.degiskenler ?? [])];
+    const govde =
+      "Merhaba,\n\n{{basvuranAdSoyad}} mentörlük başvurusu yaptı ve onayınızı bekliyor.\n\nBaşvurduğu alanlar: {{kapsam}}\n\nBaşvuruyu Yönetim Paneli'ndeki Mentörlük kartından inceleyip onaylayabilir ya da gerekçesiyle reddedebilirsiniz.\n\nGençTek";
+    expect(sablonMetniGecerliMi(govde, degiskenler).olurMu).toBe(true);
+    expect(
+      sablonMetniGecerliMi(
+        "Onay bekleyen mentörlük başvurusu: {{basvuranAdSoyad}}",
+        degiskenler,
+      ).olurMu,
+    ).toBe(true);
+  });
+
+  /*
+   * Ret gerekçesi metne giriyor: gerekçesiz ret, kişiye yeniden başvurup
+   * başvurmayacağına karar verecek hiçbir bilgi bırakmaz.
+   */
+  it("karar bildirimi sonucu ve gerekçeyi taşır", () => {
+    const tanim = sablonTanimiGetir(BILDIRIM_KODLARI.MENTORLUK_KARARI);
+    expect(tanim?.degiskenler).toEqual(
+      expect.arrayContaining(["sonuc", "gerekce"]),
+    );
+
+    const degiskenler = [...(tanim?.degiskenler ?? [])];
+    const govde =
+      'Merhaba,\n\nMentörlük başvurunuz {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa menünüzde "Mentörlüğüm" sekmesi açıldı; panodaki ilanlara oradan cevap yazabilirsiniz.\n\nGençTek';
+    expect(sablonMetniGecerliMi(govde, degiskenler).olurMu).toBe(true);
+    expect(
+      sablonMetniGecerliMi("Mentörlük başvurunuz {{sonuc}}", degiskenler).olurMu,
+    ).toBe(true);
+  });
+});
+
 describe("şablon metni doğrulama", () => {
   it("boş metin kabul edilmez", () => {
     expect(sablonMetniGecerliMi("   ", ["ad"]).olurMu).toBe(false);

@@ -1,4 +1,5 @@
 import {
+  etkinligeKalanYaz,
   kalanGun,
   kalanGunYaz,
   seritteGosterilecekler,
@@ -135,5 +136,35 @@ describe("kalan gün", () => {
 
   it("birden fazla gün kaldıysa sayı yazılır", () => {
     expect(kalanGunYaz(new Date(2026, 3, 20), SIMDI)).toBe("5 gün kaldı");
+  });
+});
+
+/**
+ * "Yaklaşan etkinliğim" kartının sayacı. Dili `kalanGunYaz`dan AYRI: orası
+ * başvuru penceresini sayıyor ("son gün"), burası kişinin gideceği günü.
+ */
+describe("etkinliğe kalan", () => {
+  it("aynı gün içindeki etkinlik saatten bağımsız 'bugün' der", () => {
+    // Sabah 09.00'da başlamış etkinlik, öğleden sonra da bugündür.
+    expect(etkinligeKalanYaz(new Date(2026, 3, 15, 9, 0), SIMDI)).toBe("bugün");
+    expect(etkinligeKalanYaz(new Date(2026, 3, 15, 23, 59), SIMDI)).toBe(
+      "bugün",
+    );
+  });
+
+  it("ertesi gün 'yarın' der", () => {
+    expect(etkinligeKalanYaz(new Date(2026, 3, 16, 0, 1), SIMDI)).toBe("yarın");
+  });
+
+  it("birden fazla gün kaldıysa sayar", () => {
+    expect(etkinligeKalanYaz(new Date(2026, 3, 20), SIMDI)).toBe("5 gün kaldı");
+  });
+
+  /*
+   * Çağıran geçmişi sormuyor ama negatif bir sayacın ekrana düşmesi kartın
+   * anlamını tümden bozardı; sınır burada kapatılıyor.
+   */
+  it("geçmiş tarihte negatif sayaç basmaz", () => {
+    expect(etkinligeKalanYaz(new Date(2026, 3, 10), SIMDI)).toBe("bugün");
   });
 });
