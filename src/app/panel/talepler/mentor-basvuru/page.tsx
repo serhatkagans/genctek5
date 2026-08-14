@@ -6,7 +6,7 @@ import { BilgiKutusu, Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { mentorluguGetir } from "@/lib/mentor/veri";
-import { mentorlukBasvurabilirMi } from "@/lib/yetki/izinler";
+import { mentorlukBasvurabilirMi, ogrenciMi } from "@/lib/yetki/izinler";
 import {
   mentorlukBasvurEylemi,
   mentorluguBirakEylemi,
@@ -25,9 +25,10 @@ export const dynamic = "force-dynamic";
  * ÇAPA `mentorlugum` KALDI: eylemlerin dönüş adresi, panelden gelen kart ve
  * e-postalardaki bağlantılar bu çapayı taşıyor (bkz. mentorluk/eylemler.ts).
  *
- * Öğrenci hariç herkes başvurabilir (bkz. mentorlukBasvurabilirMi): mentörlük,
- * 18 yaş altı bir kullanıcıyla yazışma hakkı doğurur ve o hakkın karşı tarafı
- * yetişkin olmalıdır.
+ * ROLÜ OLAN HERKES BAŞVURABİLİR — 14 Ağustos 2026'dan beri ÖĞRENCİ DE
+ * (istekler: "öğrenci de mentör olarak başvurabilsin", "ama onay olsun onun
+ * için"). Kapı onaydır: başvuru bekleyen olarak açılır, kararı yalnızca proje
+ * yöneticisi verir. Gerekçesi `mentorlukBasvurabilirMi` başlığında.
  */
 
 const DURUM_MESAJLARI: Record<string, string> = {
@@ -77,6 +78,22 @@ export default async function MentorBasvuruSayfasi({
         <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>
       )}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
+
+      {/*
+        ÖĞRENCİYE NE OLDUĞU AÇIKÇA YAZILIYOR (14 Ağustos 2026). Öğrenci mentör
+        olduğunda kazandığı şey panodaki ilanlara AÇIKTA cevap yazabilmek;
+        birebir yazışma yine bağlantı isteği ve danışman onayından geçiyor.
+        Bu cümle olmasaydı "mentör oldum, artık herkesle konuşabilirim"
+        beklentisi doğardı ve o beklenti karşılanamaz.
+      */}
+      {ogrenciMi(kullanici) && (
+        <BilgiKutusu cesit="bilgi">
+          Öğrenci mentörlüğü <strong>akran desteğidir</strong>: onaylanırsanız
+          panodaki destek ve mentör taleplerine cevap yazabilirsiniz ve
+          cevabınızı panoyu gören herkes okur. Birebir yazışma bundan ayrıdır —
+          o yine bağlantı isteği ve danışman öğretmeninizin onayıyla açılır.
+        </BilgiKutusu>
+      )}
 
       <Kart>
         <span id="mentorlugum" className="block scroll-mt-24" />

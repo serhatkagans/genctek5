@@ -89,17 +89,36 @@ export function disBasvuruYonetebilirMi(kullanici: OturumKullanicisi): boolean {
 /**
  * Mentörlük başvurusu YAPABİLİR mi? (7 Ağustos 2026)
  *
- * ÖĞRENCİ DIŞINDA herkes: öğretmen, il koordinatörü, proje yöneticisi, mezun
- * ve paydaş temsilcisi. Dışarıdan gelenler bunu başvuru formundan istiyor;
- * içerideki kullanıcılar Panel'den başvuruyor.
+ * ROLÜ OLAN HERKES: öğrenci, öğretmen, il koordinatörü, proje yöneticisi,
+ * mezun ve paydaş temsilcisi. Dışarıdan gelenler bunu başvuru formundan
+ * istiyor; içerideki kullanıcılar panodaki "Mentör olarak başvur" ekranından.
  *
- * ÖĞRENCİ HARİÇ ve bu bilinçli: mentörlük, 18 yaş altı bir kullanıcıyla
- * birebir yazışma hakkı doğurur ve o hakkın karşı tarafı yetişkin olmalıdır.
- * Akran desteği için "akran eğitimi" kaydı ve panodaki ekip arkadaşı ilanı
- * zaten var.
+ * ÖĞRENCİ 14 AĞUSTOS 2026'DA GİRDİ (istekler: "öğrenci de mentör olarak
+ * başvurabilsin", "ama onay olsun onun için").
+ *
+ * ÖNCEKİ KURAL ve neden değişti: öğrenci hariç tutuluyordu çünkü mentörlük
+ * "18 yaş altı bir kullanıcıyla birebir yazışma hakkı doğurur ve o hakkın
+ * karşı tarafı yetişkin olmalıdır" deniyordu. Bu cümlenin ilk yarısı YANLIŞTI:
+ * mentörlük tek başına yazışma hakkı doğurmuyor —
+ *
+ *   · mentörün ilana yazdığı CEVAP açıktır, panoda herkes okur
+ *     (bkz. mentorlugum/eylemler.ts · mentör sayfası),
+ *   · birebir yazışma yine BAĞLANTI İSTEĞİNDEN ve danışman/koordinatör
+ *     onayından geçer (bkz. baglantiIstegiGonderilebilirMi ve
+ *     baglantiKarariFiltresi). Mentör olmak bu kapıyı açmıyor.
+ *
+ * Yani öğrenci mentör olduğunda kazandığı şey, panodaki ilanlara açıkta cevap
+ * yazabilmek — akran desteğinin ta kendisi ve bu sistemin kurulma sebebi.
+ *
+ * KAPI ONAYDIR: başvuru `BEKLIYOR` açılır ve kararı YALNIZCA proje yöneticisi
+ * verir (bkz. mentorlukOnaylayabilirMi). Kural "her öğrenci mentördür" değil,
+ * "merkezin uygun gördüğü öğrenci mentör olabilir".
+ *
+ * ROLSÜZ KULLANICI DIŞARIDA KALMAYA DEVAM EDİYOR: rolü olmayan kayıt
+ * (ör. görev almamış öğretmen) mentör havuzuna sıfattan yoksun düşerdi.
  */
 export function mentorlukBasvurabilirMi(kullanici: OturumKullanicisi): boolean {
-  return !ogrenciMi(kullanici) && kullanici.roller.length > 0;
+  return kullanici.roller.length > 0;
 }
 
 /**

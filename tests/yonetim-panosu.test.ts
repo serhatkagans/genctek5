@@ -431,4 +431,17 @@ describe("mentörlük onay yetkisi", () => {
   it("koordinatör mentörlüğe başvurabilir", () => {
     expect(mentorlukBasvurabilirMi(koordinatorYap())).toBe(true);
   });
+
+  /*
+   * ÖĞRENCİ DE BAŞVURABİLİR (14 Ağustos 2026 · istekler: "öğrenci de mentör
+   * olarak başvurabilsin", "ama onay olsun onun için").
+   *
+   * Kapı BAŞVURUDA değil ONAYDA: kararı yalnızca proje yöneticisi veriyor ve
+   * bu ayrım testin iki satırında birden duruyor — öğrenci başvurabilir ama
+   * kendi başvurusunu (ya da başkasınınkini) onaylayamaz.
+   */
+  it("öğrenci mentörlüğe başvurabilir ama onaylayamaz", () => {
+    expect(mentorlukBasvurabilirMi(ogrenciYap())).toBe(true);
+    expect(mentorlukOnaylayabilirMi(ogrenciYap())).toBe(false);
+  });
 });

@@ -161,6 +161,22 @@ export default async function MentorlukKuyruguSayfasi({
         okuyabilir.
       </BilgiKutusu>
 
+      {/*
+        ÖĞRENCİ BAŞVURULARI (14 Ağustos 2026 · istekler: "öğrenci de mentör
+        olarak başvurabilsin", "ama onay olsun onun için").
+
+        Kuyruğa öğrenci de düşmeye başladı ve karar verecek kişi bunun ne
+        demek olduğunu satırda görmeli: sıfat sütununda "Öğrenci" yazıyor
+        (bkz. mentorSifati) ama ne kazandığı yazmıyordu. Kutu bir kez yazıyor,
+        her satırda tekrarlanmıyor.
+      */}
+      <BilgiKutusu cesit="uyari">
+        Kuyruğa <strong>öğrenci başvuruları</strong> da düşer: onaylanan öğrenci
+        akran mentörü olur, yani panodaki ilanlara açıkta cevap yazar. Birebir
+        yazışma bundan ayrıdır ve yine bağlantı isteği ile danışman/koordinatör
+        onayından geçer — mentörlük o kapıyı açmaz.
+      </BilgiKutusu>
+
       <Kart>
         <KartBasligi
           baslik="Kararınızı bekleyenler"
