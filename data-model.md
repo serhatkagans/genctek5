@@ -462,6 +462,14 @@ Tekillik **grup başınadır**, kişi başına değil: bir öğrenci birden çok
 
 `TalepTuru` enum'una `MENTORE_SOR` eklendi. `SPONSOR` **kaldırılmadı**: açılmış ilanları türsüz bırakmamak için duruyor. `TEKNIK_DESTEK` ve `DUYURU` yalnızca **ekran etiketi** olarak yeniden adlandırıldı ("Destek talebi", "Genel") — enum değerleri korundu, veri taşınmadı.
 
+### Pano ilanının onayı ve "Genel" kategorisi (14 Ağustos 2026)
+
+`talep` tablosuna `onay_durumu` (`OnayDurumu`, varsayılan **`ONAY_GEREKMEZ`**), `onaylayan_kullanici_id`, `onay_tarihi` ve `ret_gerekcesi` eklendi. Varsayılan bilinçli: `BEKLIYOR` olsaydı migration, panoda duran her ilanı görünmez yapar ve sahiplerinin beklediği bağlantıyı sessizce keserdi. `BEKLIYOR` yalnızca **öğrencinin** açtığı yeni ilana yazılır (`panoIlaniOnayGerekiyorMu`); panoda görünen durumlar `ONAY_GEREKMEZ` ve `ONAYLANDI`'dır (`PANODA_GORUNEN_ONAY_DURUMLARI`). Ayrı bir "onay kaydı" tablosu açılmadı: onay ilanın bir **durumudur** ve ayrı tablo, panonun asıl sorusunu ("şu an görünen ilanlar") her seferinde bir birleştirmeye bağlardı. Emsali `faaliyet.onay_durumu`.
+
+`TalepTuru` enum'una **`GENEL`** eklendi (istek: kategoriler "teknik destek talebi, duyuru / tanıtım desteği, ekip arkadaşı arama ve genel"). `DUYURU`'nun etiketini "Genel"e geri çevirmek yetmezdi — istek ikisini aynı listede sayıyor, yani ayrı iki kategori; etiketi geri almak açılmış duyuru ilanlarını sessizce genel kutusuna taşırdı. Hiçbir kayıt taşınmadı.
+
+Proje yöneticisinin ilan **silmesi gerçek `DELETE`'tir**: `talep_cevabi` CASCADE ile gider, `baglanti_istegi.talep_id` ise ON DELETE SET NULL olduğu için istek ve üzerinden açılmış yazışma kayıt olarak kalır.
+
 ---
 
 ## 8. Log ve bildirim

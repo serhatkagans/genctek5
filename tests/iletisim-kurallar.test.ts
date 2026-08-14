@@ -4,6 +4,7 @@ import {
   istekKarariniCoz,
   mesajMetniniCoz,
   mesajYazilabilirMi,
+  PANO_KATEGORILERI,
   PANODAN_ACILABILIR_TURLER,
   SUZGEC_TURLERI,
   TALEP_AZAMI_GUN,
@@ -25,22 +26,41 @@ const SIMDI = new Date("2026-07-31T12:00:00+03:00");
 const gun = (n: number) => new Date(SIMDI.getTime() + n * 86_400_000);
 
 describe("talepAktifMi", () => {
+  /* Onaydan hiç geçmemiş ilan (öğrenci dışındakiler ve eski kayıtlar). */
+  const acik = {
+    kapatildiMi: false,
+    sonGecerlilik: gun(5),
+    onayDurumu: "ONAY_GEREKMEZ" as const,
+    simdi: SIMDI,
+  };
+
   it("kapatılmamış ve süresi dolmamış ilan aktiftir", () => {
-    expect(
-      talepAktifMi({ kapatildiMi: false, sonGecerlilik: gun(5), simdi: SIMDI }),
-    ).toBe(true);
+    expect(talepAktifMi(acik)).toBe(true);
   });
 
   it("kapatılan ilan görünmez", () => {
-    expect(
-      talepAktifMi({ kapatildiMi: true, sonGecerlilik: gun(5), simdi: SIMDI }),
-    ).toBe(false);
+    expect(talepAktifMi({ ...acik, kapatildiMi: true })).toBe(false);
   });
 
   it("süresi dolan ilan görünmez", () => {
-    expect(
-      talepAktifMi({ kapatildiMi: false, sonGecerlilik: gun(-1), simdi: SIMDI }),
-    ).toBe(false);
+    expect(talepAktifMi({ ...acik, sonGecerlilik: gun(-1) })).toBe(false);
+  });
+
+  /*
+   * ONAY KAPISI (14 Ağustos 2026): öğrenci ilanı proje yöneticisi onaylayana
+   * kadar panoda görünmez, üstüne cevap yazılamaz ve bağlantı isteği
+   * gönderilemez — üçü de bu yardımcıdan geçiyor.
+   */
+  it("onay bekleyen ilan görünmez", () => {
+    expect(talepAktifMi({ ...acik, onayDurumu: "BEKLIYOR" })).toBe(false);
+  });
+
+  it("reddedilen ilan görünmez", () => {
+    expect(talepAktifMi({ ...acik, onayDurumu: "REDDEDILDI" })).toBe(false);
+  });
+
+  it("onaylanan ilan görünür", () => {
+    expect(talepAktifMi({ ...acik, onayDurumu: "ONAYLANDI" })).toBe(true);
   });
 });
 
@@ -116,32 +136,52 @@ describe("talebiCoz", () => {
    * talebi aç diğeri mentör talebi aç". Tür seçimi ekrandan kalktı; gizli form
    * alanı kurcalanarak eski türlerin geri gelmemesi bu kapıya bağlı.
    */
+  /*
+   * 14 AĞUSTOS 2026 · istek: "talep oluştururken kategori olsun … teknik destek
+   * talebi, duyuru / tanıtım desteği, ekip arkadaşı arama ve genel". Duyuru ve
+   * ekip arkadaşı yeniden açılabilir oldu; kapatılan tek tür SPONSOR.
+   */
   it("panodan açılamayan türü reddeder", () => {
-    for (const tur of ["SPONSOR", "EKIP_ARKADASI", "DUYURU"]) {
-      const sonuc = talebiCoz({ ...gecerli, tur }, SIMDI);
-      expect(sonuc.olurMu).toBe(false);
-      if (!sonuc.olurMu) expect(sonuc.neden).toContain("yalnızca destek");
-    }
+    const sonuc = talebiCoz({ ...gecerli, tur: "SPONSOR" }, SIMDI);
+    expect(sonuc.olurMu).toBe(false);
+    if (!sonuc.olurMu) expect(sonuc.neden).toContain("kategoride ilan açılamaz");
   });
 
-  it("panodan açılabilen türler destek ve mentör talebidir", () => {
+  it("düzenlemede ilanın kendi türü izinli sayılabilir", () => {
+    // Artık açılamayan türdeki eski bir ilan düzenlenebilmeli; yoksa tek bir
+    // yazım hatasını düzeltmek türü değiştirmeye zorlardı.
+    const sonuc = talebiCoz({ ...gecerli, tur: "SPONSOR" }, SIMDI, [
+      ...PANODAN_ACILABILIR_TURLER,
+      "SPONSOR",
+    ]);
+    expect(sonuc.olurMu).toBe(true);
+  });
+
+  it("panodan açılabilen türler istekteki kategoriler ve mentör talebidir", () => {
     expect([...PANODAN_ACILABILIR_TURLER].sort()).toEqual([
+      "DUYURU",
+      "EKIP_ARKADASI",
+      "GENEL",
       "MENTORE_SOR",
       "TEKNIK_DESTEK",
     ]);
   });
 
-  it("beş türü kapsar", () => {
+  it("altı türü kapsar", () => {
     /*
      * MENTORE_SOR 7 Ağustos 2026'da eklendi. TEKNIK_DESTEK'ten ayrı: o bir
      * SORUNU çözdürmek için açılır, bu bir YOL sorar.
      *
-     * SPONSOR istekteki dörtlüde yok ama KAPATILMADI: açılmış ilanları
+     * GENEL 14 Ağustos 2026'da eklendi: istek "duyuru / tanıtım desteği" ile
+     * "genel"i aynı listede sayıyor, yani ikisi ayrı kategori.
+     *
+     * SPONSOR istekteki listede yok ama KAPATILMADI: açılmış ilanları
      * türsüz bırakmamak için listede duruyor.
      */
     expect([...TALEP_TURLERI].sort()).toEqual([
       "DUYURU",
       "EKIP_ARKADASI",
+      "GENEL",
       "MENTORE_SOR",
       "SPONSOR",
       "TEKNIK_DESTEK",
@@ -168,7 +208,15 @@ describe("talebiCoz", () => {
   it("süzgeçte sponsor ve mentöre sor yoktur, ilanları durmaya devam eder", () => {
     expect(SUZGEC_TURLERI).not.toContain("SPONSOR");
     expect(SUZGEC_TURLERI).not.toContain("MENTORE_SOR");
-    expect(SUZGEC_TURLERI).toEqual(["TEKNIK_DESTEK", "DUYURU", "EKIP_ARKADASI"]);
+    /* 14 Ağustos 2026'da istekteki dörtlüye oturdu; kategori seçim listesiyle
+       aynı küme (bkz. PANO_KATEGORILERI). */
+    expect(SUZGEC_TURLERI).toEqual([
+      "TEKNIK_DESTEK",
+      "DUYURU",
+      "EKIP_ARKADASI",
+      "GENEL",
+    ]);
+    expect(SUZGEC_TURLERI).toEqual(PANO_KATEGORILERI);
     expect(TALEP_TURLERI).toContain("MENTORE_SOR");
     expect(talepTuruGecerliMi("MENTORE_SOR")).toBe(true);
   });

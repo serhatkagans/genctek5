@@ -14,6 +14,7 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
   GIZLILIK_UYARISI,
+  PANODA_GORUNEN_ONAY_DURUMLARI,
   TALEP_TURU_ETIKETLERI,
 } from "@/lib/iletisim/kurallar";
 import { mentorKapsamiYaz } from "@/lib/mentor/kurallar";
@@ -242,6 +243,10 @@ export default async function MentorSayfasi({
       where: {
         kapatildiMi: false,
         sonGecerlilik: { gte: simdi },
+        // Onay bekleyen öğrenci ilanı buraya da düşmez (14 Ağustos 2026):
+        // mentörün panoda görünmeyen bir ilana cevap yazması, onayı fiilen
+        // atlatırdı — cevap ilanın altında yayımlanıyor.
+        onayDurumu: { in: PANODA_GORUNEN_ONAY_DURUMLARI },
         tur: "MENTORE_SOR",
       },
       orderBy: { olusturmaTarihi: "asc" },
@@ -260,6 +265,7 @@ export default async function MentorSayfasi({
       where: {
         kapatildiMi: false,
         sonGecerlilik: { gte: simdi },
+        onayDurumu: { in: PANODA_GORUNEN_ONAY_DURUMLARI },
         tur: "TEKNIK_DESTEK",
       },
       orderBy: { olusturmaTarihi: "asc" },
@@ -315,7 +321,7 @@ export default async function MentorSayfasi({
         <p className="text-metin-yumusak">
           Panodaki mentör havuzunda görünüyorsunuz. Alanlarınızı{" "}
           <Link
-            href="/panel/talepler#mentorlugum"
+            href="/panel/talepler/mentor-basvuru#mentorlugum"
             className="font-medium text-vurgu-metin underline underline-offset-2"
           >
             Pano&apos;daki başvuru bölümünden

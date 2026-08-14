@@ -31,7 +31,16 @@ import type { OturumKullanicisi } from "@/lib/yetki/tipler";
  * içeriğin yazarı ya da gözetim yetkisi olan. Silme yoktur.
  */
 
-const YOL = "/panel/akis";
+/*
+ * DÖNÜŞ ADRESİ "BAĞLANTILARIM" (14 Ağustos 2026 · istek: "akış bağlantılarım
+ * içine gelecek"). Akış artık o sayfanın içinde bir bölüm; `/panel/akis` yalnızca
+ * yönlendirme. Eylemler eski adrese dönseydi kullanıcı her paylaşımdan sonra
+ * fazladan bir yönlendirme atlardı ve `?durum=` iletisi yolda kaybolurdu.
+ *
+ * ÇAPA KORUNDU (`#gonderi-…`): yorum yazan kişi listenin başına değil, yorum
+ * yazdığı gönderiye dönüyor.
+ */
+const YOL = "/panel/yazismalar";
 
 function hataylaDon(yol: string, mesaj: string): never {
   redirect(`${yol}?hata=${encodeURIComponent(mesaj)}`);

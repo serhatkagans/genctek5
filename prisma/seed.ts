@@ -290,6 +290,18 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\nMentörlük başvurunuz {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa menünüzde \"Mentörlüğüm\" sekmesi açıldı; panodaki ilanlara oradan cevap yazabilirsiniz.\n\nGençTek",
   },
   {
+    kod: "ONAY_BEKLEYEN_PANO_ILANI",
+    konu: "Onay bekleyen pano ilanı: {{acanAdSoyad}}",
+    govdeSablonu:
+      'Merhaba,\n\n{{acanAdSoyad}} panoya bir ilan açtı ve onayınızı bekliyor.\n\nİlan türü: {{tur}}\nBaşlık: {{talepBasligi}}\n\nİlanı Yönetim Paneli\'ndeki "Pano ilanları" kartından inceleyip onaylayabilir ya da gerekçesiyle reddedebilirsiniz. Onaylanana kadar ilan panoda görünmez.\n\nGençTek',
+  },
+  {
+    kod: "PANO_ILANI_KARARI",
+    konu: "Pano ilanınız {{sonuc}}",
+    govdeSablonu:
+      'Merhaba,\n\n"{{talepBasligi}}" başlıklı pano ilanınız {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa ilanınız panoda yayımlandı ve diğer kullanıcılar bağlantı isteği gönderebilir. Reddedildiyse gerekçeyi dikkate alarak yeni bir ilan açabilirsiniz.\n\nGençTek',
+  },
+  {
     kod: "FAALIYET_ONAY_SONUCU",
     konu: "{{faaliyetAdi}} etkinliğiniz {{sonuc}}",
     govdeSablonu:

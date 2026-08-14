@@ -5,6 +5,7 @@ import {
   FileText,
   GraduationCap,
   Handshake,
+  LifeBuoy,
   MapPin,
   Megaphone,
   Search,
@@ -43,9 +44,12 @@ import {
 import {
   ilKoordinatoruMu,
   koordinatorIlKodu,
+  mentorlukBasvurabilirMi,
   mentorlukOnaylayabilirMi,
   ogrenciEnvanteriGorebilirMi,
   ogretmenEnvanteriGorebilirMi,
+  panodaIlanAcabilirMi,
+  panoIlaniOnaylayabilirMi,
   paydasGorebilirMi,
   projeYoneticisiMi,
   rolEnvanteriGorebilirMi,
@@ -209,6 +213,63 @@ export default async function YonetimSayfasi({
             />
           )}
           {/*
+            PANO İLANLARI (14 Ağustos 2026 · istek: "panodaki öğrenci ilanları
+            şimdilik proje yöneticilerine düşsün oradan onay versin").
+
+            Kartın ikizi panonun kendi ekranında da var: merkez ilanları zaten
+            orada okuyor ve karar oradan bir tık uzakta olmalı. Buradaki kopya,
+            mentörlük kuyruğuyla aynı yerde durması içindir — merkezin onay
+            işleri tek panoda toplanıyor.
+          */}
+          {panoIlaniOnaylayabilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="Pano ilanları"
+              aciklama="Onay bekleyen öğrenci ilanları, ilan düzenleme ve silme"
+              Ikon={Megaphone}
+              yol="/panel/talepler/onaylar"
+            />
+          )}
+          {/*
+            PANODA İLAN AÇMA VE MENTÖRLÜK BAŞVURUSU (14 Ağustos 2026 · istek:
+            "yönetici içinde destek talebi ve mentör talebi aç olsun, kart
+            olarak gelsin, mentör olarak başvurda görünsün").
+
+            Kartların ikizi panoda duruyor; buradaki kopyalar, merkezin günlük
+            işini tek ekrandan yürütmesi içindir — onay kuyruğunun yanında
+            "kendim de ilan açayım" kapısı olmayınca panoya gidip geri dönmek
+            gerekiyordu.
+
+            YETKİ KARTIN KENDİSİNDE SORULUYOR, yönetim panosunu görebilmekte
+            değil: ilan açma 14 Ağustos'ta merkeze açıldı
+            (`panodaIlanAcabilirMi`) ve mentörlük başvurusu öğrenci dışında
+            herkese açık (`mentorlukBasvurabilirMi`). İkisi de panoya
+            ileride girecek başka bir rol için sessizce açılmasın.
+          */}
+          {panodaIlanAcabilirMi(kullanici) && (
+            <>
+              <KisayolKarti
+                baslik="Destek / duyuru talebi aç"
+                aciklama="Teknik destek, duyuru, ekip arkadaşı arama ya da genel ilan"
+                Ikon={LifeBuoy}
+                yol="/panel/talepler/yeni"
+              />
+              <KisayolKarti
+                baslik="Mentör talebi aç"
+                aciklama="Yol gösterecek bir mentöre sorun; havuzdaki mentörler görür"
+                Ikon={GraduationCap}
+                yol="/panel/talepler/mentor-talebi"
+              />
+            </>
+          )}
+          {mentorlukBasvurabilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="Mentör olarak başvur"
+              aciklama="Bildiğiniz konularda öğrencilere yol gösterin; başvurunuz onaydan geçer"
+              Ikon={Handshake}
+              yol="/panel/talepler/mentor-basvuru"
+            />
+          )}
+          {/*
             EKİPLERİM (13 Ağustos 2026 · istek: "il koordinatörü ekipler
             kurabilsin … bunu da yönetim paneline kart olarak ekleyelim, ismi
             ekiplerim olsun").
@@ -266,9 +327,12 @@ export default async function YonetimSayfasi({
           {/*
             MERKEZİN ÜÇ EKRANI (11 Ağustos 2026). Panonun kuruluş gerekçesi
             "yönetim ekranlarının girişi burada olsun"du ama merkeze özel bu üç
-            sekme üst menüde kalmıştı; menüde de duruyorlar, çünkü ikisi de
-            günlük iş ve sekmeden kaldırmak istenmedi. Panoya inmelerinin
-            sebebi, merkezin yönetim işini tek ekrandan görebilmesi.
+            sekme bir süre üst menüde de kaldı.
+
+            SEKMELERİ 14 AĞUSTOS 2026'DA KALKTI (istek: "yönetim panelinde
+            erişim kayıtları ve mesaj gönder ve sistem ayarları kart olarak var
+            menüden kaldır"). Aynı üç ekranın iki kapısı vardı; kapı artık
+            burası. Sayfalar ve yetkileri değişmedi.
           */}
           {rolEnvanteriGorebilirMi(kullanici) && (
             <>

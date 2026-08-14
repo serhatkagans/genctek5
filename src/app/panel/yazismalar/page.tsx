@@ -23,6 +23,7 @@ import {
   yazismaKapsamFiltresi,
 } from "@/lib/yetki/kapsam";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
+import { AkisBolumu } from "../akis/AkisBolumu";
 import { baglantiKarariEylemi } from "./baglanti-eylemleri";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +60,17 @@ export const dynamic = "force-dynamic";
 const DURUM_MESAJLARI: Record<string, string> = {
   onaylandi: "Bağlantı onaylandı ve yazışma açıldı. İki tarafa da bildirildi.",
   reddedildi: "Bağlantı reddedildi; isteği yapana gerekçesiyle bildirildi.",
+  /*
+   * AKIŞ İLETİLERİ BURAYA TAŞINDI (14 Ağustos 2026 · istek: "akış
+   * bağlantılarım içine gelecek"): akış eylemleri artık bu sayfaya dönüyor
+   * (bkz. akis/eylemler.ts). Kendi haritalarında bırakılsalardı paylaşımını
+   * yapan kişi hiçbir onay iletisi görmezdi.
+   */
+  paylasildi: "Gönderiniz yayımlandı.",
+  gizlendi: "İçerik kaldırıldı. Silinmedi; yetkililer görmeye devam eder.",
+  "hakkinda-kaydedildi": "Hakkımda metniniz kaydedildi.",
+  "istek-gonderildi":
+    "Bağlantı isteğiniz danışman öğretmeninizin onayına gönderildi. Onaylanana kadar karşı tarafa iletilmez.",
 };
 
 const ONAY_ETIKETLERI: Record<string, string> = {
@@ -672,6 +684,21 @@ export default async function BaglantilarimSayfasi({
             </KatlanabilirKart>
           );
         })()}
+
+      {/*
+        AKIŞ (14 Ağustos 2026 · istek: "akış bağlantılarım içine gelecek").
+
+        YERİ BURASI: davetler ve bağlantı listesinden SONRA, arşivden ÖNCE.
+        Sayfanın üst yarısı "kiminle bağlıyım" sorusunu bitiriyor; akış ondan
+        sonra başlıyor ve kendi başlığı, kendi uyarısıyla ayrı bir alan olduğunu
+        söylüyor (yazışma özeldir, akış yayındır — bu ayrım sekme kalksa da
+        korunmak zorunda).
+
+        Bölüm KENDİ SORGULARINI yapıyor (bkz. AkisBolumu): sayfanın bağlantı
+        sorguları ile akışınkiler farklı tablolara bakıyor ve tek bir
+        Promise.all'a toplansalardı iki ekranın verisi birbirine düğümlenirdi.
+      */}
+      <AkisBolumu kullanici={kullanici} />
 
       {/*
         Karara bağlananlar KATLI GELİR: bu bir arşiv, günlük iş değil. Eski

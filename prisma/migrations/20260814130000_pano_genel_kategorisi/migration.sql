@@ -1,0 +1,16 @@
+-- Panoya "Genel" kategorisi (14 Ağustos 2026).
+--
+-- İSTEK:
+--   "talep oluştururken kategori olsun, panodaki arama kutusundaki kategoriler
+--    olsun, teknik destek talebi, duyuru / tanıtım desteği, ekip arkadaşı arama
+--    ve genel şeklinde kategoriler olsun"
+--
+-- NEDEN YENİ DEĞER, ETİKET DEĞİŞİKLİĞİ DEĞİL: 'DUYURU'nun ekran etiketi bir
+-- zamanlar "Genel"di ve 11 Ağustos 2026'da "Duyuru / tanıtım desteği" oldu.
+-- İstek ikisini AYNI listede sayıyor, yani artık iki ayrı kategori. Etiketi
+-- geri almak, açılmış duyuru ilanlarını sessizce genel kutusuna taşırdı.
+--
+-- ADD VALUE IF NOT EXISTS: migration yeniden çalıştırılabilir kalsın. Değer
+-- yalnızca EKLENİYOR; hiçbir kayıt taşınmıyor, mevcut ilanlar türlerini
+-- koruyor.
+ALTER TYPE "TalepTuru" ADD VALUE IF NOT EXISTS 'GENEL';

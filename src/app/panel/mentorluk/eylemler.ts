@@ -45,10 +45,17 @@ const KUYRUK = "/panel/mentorluk";
  * ÇAPA `mentorlugum` DEĞİŞMEDİ: e-postalardaki ve panel kartındaki bağlantılar
  * onu taşıyor.
  */
-const PANO = "/panel/talepler";
+/*
+ * BAŞVURU KENDİ SAYFASINA AYRILDI (14 Ağustos 2026 · istek: "panoda kart olsun,
+ * kartlarda … bide mentör olmak için başvur, en üstte kart olsun o sayfaya
+ * gitsin"). Pano artık formları barındırmıyor, kartlarla onlara gönderiyor;
+ * dönüş adresi de o sayfa. Çapa `mentorlugum` yine değişmedi.
+ */
+const PANO = "/panel/talepler/mentor-basvuru";
 
 function basvuruyaDon(sorgu: string): never {
   revalidatePath(PANO);
+  revalidatePath("/panel/talepler");
   // Panel'deki "Mentörlüklerim" kartı ile profildeki durum da tazelenmeli.
   revalidatePath(PANEL);
   revalidatePath("/panel/profil");

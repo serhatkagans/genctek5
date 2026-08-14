@@ -137,8 +137,9 @@ export default async function PanelDuzeni({
     // Sıra iç kullanıcı menüsüyle aynı: aynı sekmenin iki rolde farklı yerde
     // durması, ekranı birine anlatırken "sende kaçıncı sırada?" sorusunu
     // doğururdu.
+    // Akış 14 Ağustos 2026'da Bağlantılarım'ın içine girdi; ayrı sekmesi yok
+    // (bkz. aşağıdaki not ve akis/AkisBolumu.tsx).
     baglantilar.push({ yol: "/panel/yazismalar", etiket: "Bağlantılarım" });
-    baglantilar.push({ yol: "/panel/akis", etiket: "Akış" });
     baglantilar.push({ yol: "/panel/talepler", etiket: "Pano" });
     baglantilar.push(...mentorSekmesi);
     baglantilar.push({ yol: "/panel/urunler", etiket: "Market" });
@@ -227,16 +228,14 @@ export default async function PanelDuzeni({
   baglantilar.push({ yol: "/panel/yazismalar", etiket: "Bağlantılarım" });
 
   /*
-   * "AKIŞ" — LinkedIn tarzı paylaşım alanı (12 Ağustos 2026 · istek: "kullanıcı
-   * linkedin gibi mesaj yazabilsin, o alanda kendini tanıtabilsin diğer kişiler
-   * altına mesaj yazabilsin, kariyeri hakkında paylaşım yapabilsin").
+   * "AKIŞ" SEKMESİ KALKTI (14 Ağustos 2026 · istek: "akış bağlantılarım içine
+   * gelecek"). 12 Ağustos'ta ayrı sekme yapılmıştı; gerekçesi "öğrenci kime
+   * yazdığını ekrandan ayırt edebilmeli" idi ve o gerekçe bir SEKME değil bir
+   * AYRIM istiyor: akış artık Bağlantılarım sayfasının içinde, kendi başlığı ve
+   * kendi kalıcı uyarısıyla ayrı bir bölüm (bkz. akis/AkisBolumu.tsx).
    *
-   * BAĞLANTILARIM'IN HEMEN ARDINDA ve ondan AYRI bir sekme: ikisi farklı
-   * şeyler. Bağlantılarım özeldir (iki kişi, danışman onaylı); Akış yayındır
-   * (herkes okur, onay yok). Aynı sekmenin içine konsalardı, öğrenci "kime
-   * yazdığını" ekrandan ayırt edemezdi — bu sistemde en pahalı karışıklık odur.
+   * `/panel/akis` adresi duruyor ve `#akis` çapasına yönlendiriyor.
    */
-  baglantilar.push({ yol: "/panel/akis", etiket: "Akış" });
 
   /*
    * "İLETİŞİM ONAYLARI" ARTIK AYRI EKRAN DEĞİL (12 Ağustos 2026 · istek:
@@ -258,8 +257,13 @@ export default async function PanelDuzeni({
    * Sekme daha önce merkez personelinde basılmıyordu çünkü görme ile ilan açma
    * tek izinden geçiyordu ve merkez ilan açmıyor. Sonuç, sistemin en canlı
    * kullanıcı alanının onu yönetenden gizlenmesiydi. İkisi ayrıldı: merkez
-   * panoyu okuyor, ilan açma ve bağlantı isteği ona hâlâ kapalı
-   * (bkz. panodaEslesmeArayabilirMi).
+   * panoyu okumaya başladı.
+   *
+   * 14 AĞUSTOS 2026'DA İLAN AÇMA DA AÇILDI (istekler: "proje yöneticisi panodan
+   * destek talebi açabilsin", "mentör talebi açabilsin proje yöneticisi") —
+   * bkz. panodaIlanAcabilirMi. Merkeze kapalı kalan tek şey BAĞLANTI İSTEĞİ
+   * (panodaEslesmeArayabilirMi): ilan açık bir metindir, bağlantı isteği kişiye
+   * yönelen ve onaydan geçen bir temastır.
    *
    * PANO EKOSİSTEM DIŞINA AÇILMAZ (S21 · 6 Ağustos 2026): ilanları yalnızca
    * sisteme girmiş kullanıcılar görür. Sponsor ilanı da bu kuralın içindedir —
@@ -331,29 +335,20 @@ export default async function PanelDuzeni({
    *
    * İkisinin de sayfası ve yetkisi yerinde; değişen yalnızca kapı.
    */
-  if (rolEnvanteriGorebilirMi(kullanici)) {
-    baglantilar.push(
-      // Erişim kayıtları KVKK denetiminin dayanağıdır; yalnızca merkez okur.
-      { yol: "/panel/erisim-loglari", etiket: "Erişim Kayıtları" },
-      /*
-       * Toplu duyuru, bildirim şablonlarıyla aynı sorumluluk düzeyinde: ikisi
-       * de tüm kullanıcılara giden metni belirler.
-       *
-       * SEKME ADI "MESAJ GÖNDER" (11 Ağustos 2026 · istek: "duyurular menüsü,
-       * mesaj gönder olsun"). Ekranın yaptığı iş bir eylem — seçilen kitleye
-       * bildirim yollamak; "Duyurular" ise okunacak bir liste varmış gibi
-       * duruyordu. Adres değişmedi.
-       */
-      { yol: "/panel/duyurular", etiket: "Mesaj Gönder" },
-      /*
-       * SEKME ADI "SİSTEM AYARLARI" (11 Ağustos 2026 · istek: "eski yönetim
-       * sayfası sistem ayarları olacak"). "Yönetim" adı, yönetim panosu
-       * geldikten sonra iki farklı şeyi işaret ediyordu; bu ekran ise çalışma
-       * grupları, etkinlik programları ve sistem ayarlarının bulunduğu yer.
-       */
-      { yol: "/panel/ayarlar", etiket: "Sistem Ayarları" },
-    );
-  }
+  /*
+   * ERİŞİM KAYITLARI · MESAJ GÖNDER · SİSTEM AYARLARI SEKMELERİ KALKTI
+   * (14 Ağustos 2026 · istek: "yönetim panelinde erişim kayıtları ve mesaj
+   * gönder ve sistem ayarları kart olarak var menüden kaldır").
+   *
+   * Üçü 11 Ağustos'ta Yönetim Paneli'ne kart olarak inmişti ama sekmeleri de
+   * bırakılmıştı ("ikisi de günlük iş"); sonuç, merkezin menüsünde aynı üç
+   * ekranın iki ayrı kapısıydı. Kapı artık tek: Yönetim Paneli
+   * (bkz. app/panel/yonetim/page.tsx).
+   *
+   * SAYFALAR VE YETKİLER DEĞİŞMEDİ — her biri kendi `rolEnvanteriGorebilirMi`
+   * / `sistemAyarlariniYonetebilirMi` kontrolünü kendi içinde yapmaya devam
+   * ediyor; kaldırılan yalnızca menü satırı.
+   */
 
   /*
    * KVKK/belge sekmesi MENÜDE YOK (5 Ağustos 2026). Belgeler artık profilin en

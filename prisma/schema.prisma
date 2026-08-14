@@ -437,6 +437,7 @@ model Kullanici {
   onayladigiIlDisiBasvurular  Basvuru[]        @relation("BasvuruKaynakIlOnaylayan")
   yazdigiRaporlar             FaaliyetRaporu[] @relation("RaporYazan")
   actigiTalepler              Talep[]          @relation("TalepAcan")
+  kararVerdigiTalepler        Talep[]          @relation("TalepOnaylayan")
   gonderdigiBaglantiIstekleri BaglantiIstegi[] @relation("BaglantiIsteyen")
   aldigiBaglantiIstekleri     BaglantiIstegi[] @relation("BaglantiHedefi")
   kararVerdigiBaglantilar     BaglantiIstegi[] @relation("BaglantiKararVeren")
@@ -1705,8 +1706,16 @@ enum TalepTuru {
   EKIP_ARKADASI
   TEKNIK_DESTEK
   SPONSOR
-  /// Tanıtım / yaygınlaştırma duyurusu. Ekranda "Genel" yazar.
+  /// Tanıtım / yaygınlaştırma duyurusu. Ekranda "Duyuru / tanıtım desteği"
+  /// yazar (11 Ağustos 2026'ya kadar "Genel" yazıyordu).
   DUYURU
+  /// Yukarıdakilerin hiçbirine girmeyen ilan (14 Ağustos 2026 · istek:
+  /// "kategoriler … ve genel şeklinde kategoriler olsun").
+  ///
+  /// DUYURU'YU YENİDEN ADLANDIRMAK YETMEZDİ: istek "duyuru / tanıtım desteği"
+  /// ile "genel"i aynı listede sayıyor, yani ikisi ayrı kategori. Etiketi geri
+  /// almak, açılmış duyuru ilanlarını sessizce genel kutusuna taşırdı.
+  GENEL
   /// Deneyimli birine danışma isteği (7 Ağustos 2026).
   ///
   /// TEKNIK_DESTEK'ten ayrı: o bir SORUNU çözdürmek için açılır ("kodum
@@ -1728,9 +1737,27 @@ model Talep {
   /// SİLİNMEZ — kimin ne aradığı geçmiş kaydıdır.
   sonGecerlilik   DateTime   @map("son_gecerlilik") @db.Timestamptz(6)
   kapatildiMi     Boolean    @default(false) @map("kapatildi_mi")
+  /// ÖĞRENCİ İLANI ÖNCE ONAYA DÜŞER (14 Ağustos 2026 · istek: "panodaki
+  /// öğrenci ilanları şimdilik proje yöneticilerine düşsün oradan onay
+  /// versin"). Kararı proje yöneticisi verir; onaylanana kadar ilan panoda
+  /// GÖRÜNMEZ, yalnızca sahibi "Açık ilanlarım" listesinde durumuyla görür.
+  ///
+  /// VARSAYILAN `ONAY_GEREKMEZ` ve bu, geçmiş kayıtları koruyan tercihtir:
+  /// sütun eklendiğinde panoda duran her ilan görünür kalır. Öğrenci dışındaki
+  /// açanlar (öğretmen, mezun, paydaş temsilcisi) da bu değerle yazılır —
+  /// istek yalnızca ÖĞRENCİ ilanları için onay istiyor. `BEKLIYOR` yalnızca
+  /// öğrencinin açtığı yeni ilana konur (bkz. panoIlaniOnayGerekiyorMu).
+  onayDurumu           OnayDurumu @default(ONAY_GEREKMEZ) @map("onay_durumu")
+  onaylayanKullaniciId Int?       @map("onaylayan_kullanici_id")
+  onayTarihi           DateTime?  @map("onay_tarihi") @db.Timestamptz(6)
+  /// Ret gerekçesi zorunludur: öğrenci ilanının neden yayımlanmadığını
+  /// görmeden yeniden yazıp yazmayacağına karar veremez (emsali
+  /// baglanti_istegi.ret_gerekcesi).
+  retGerekcesi         String?    @map("ret_gerekcesi") @db.Text
   olusturmaTarihi DateTime   @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   acan         Kullanici        @relation("TalepAcan", fields: [acanKullaniciId], references: [id])
+  onaylayan    Kullanici?       @relation("TalepOnaylayan", fields: [onaylayanKullaniciId], references: [id])
   calismaGrubu CalismaGrubu?    @relation(fields: [calismaGrubuId], references: [id])
   istekler     BaglantiIstegi[]
   cevaplar     TalepCevabi[]
@@ -1739,6 +1766,8 @@ model Talep {
   @@index([calismaGrubuId])
   @@index([kapatildiMi, sonGecerlilik])
   @@index([tur])
+  /// Onay kuyruğu "bekleyenler en eski üstte" diye okunuyor.
+  @@index([onayDurumu, olusturmaTarihi])
   @@map("talep")
 }
 

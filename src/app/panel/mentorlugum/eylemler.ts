@@ -70,6 +70,7 @@ export async function talebeCevapYazEylemi(veri: FormData): Promise<void> {
       acanKullaniciId: true,
       kapatildiMi: true,
       sonGecerlilik: true,
+      onayDurumu: true,
     },
   });
   if (!talep) throw new BulunamadiHatasi();
@@ -77,6 +78,9 @@ export async function talebeCevapYazEylemi(veri: FormData): Promise<void> {
     !talepAktifMi({
       kapatildiMi: talep.kapatildiMi,
       sonGecerlilik: talep.sonGecerlilik,
+      // Onay bekleyen ilana cevap yazmak, cevabı panoda görünmeyen bir metnin
+      // altına bırakmak olurdu (onay kapısı: 14 Ağustos 2026).
+      onayDurumu: talep.onayDurumu,
       simdi: new Date(),
     })
   ) {

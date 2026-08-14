@@ -38,7 +38,10 @@
 | Rol/atama envanterini görüntüleme | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 | Etkinlik takvimini görüntüleme | ✓ | ✓ | ✓ | ✓ | Ulusal + kendi ili | Ulusal + kendi ili |
 | Talep panosunu görme | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Panoda ilan açma | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
+| Panoda ilan açma | ✓ (onaya tabi) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Pano ilanını onaylama / reddetme | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Pano ilanını düzenleme | Kendi ilanı | Kendi ilanı | Kendi ilanı | Her ilan | Kendi ilanı | Kendi ilanı |
+| Pano ilanını silme | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 | Bağlantı isteği gönderme (onaya tabi) | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
 | Panodaki ilana cevap yazma | ✗ | Onaylı mentörse | Onaylı mentörse | Onaylı mentörse | Onaylı mentörse | Onaylı mentörse |
 | YEĞİTEK Okul Sorumlusu işareti koyma | ✗ | ✓ (kendi işareti) | ✗ | ✗ | ✗ | ✗ |
@@ -48,6 +51,12 @@
 | EBA dışı giriş başvurusunu onaylama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 
 **Panoda görme ile ilan açma ayrı satırlardır** (13 Ağustos 2026 · istek: "proje yöneticisinin pano sayfası görünmüyor, diğer kullanıcılarda var"). Tek satırdılar ve merkez personeli ilan açmadığı için pano onun menüsünde hiç görünmüyordu; sonuç, sistemin en canlı kullanıcı alanının onu yönetenden gizlenmesiydi. Merkez artık panoyu **okuyor** — hangi konularda destek ve mentör arandığı yönetimsel bir bilgidir — ama ilan açmıyor ve ilanlara bağlantı isteği göndermiyor: YEĞİTEK'in takım arkadaşı araması diye bir durum yok, duyuru kanalı ayrı (`panodaEslesmeArayabilirMi`). Aynı ayrım "Bağlantı isteği gönderme" satırında da geçerlidir.
+
+**Merkez 14 Ağustos 2026'da panoda ilan da açmaya başladı** (istekler: "proje yöneticisi panodan destek talebi açabilsin", "mentör talebi açabilsin proje yöneticisi") — `panodaIlanAcabilirMi`. Bir üstteki paragrafın "merkez ilan açmaz" gerekçesi bu tarihte geçersizleşti; **kapalı kalan tek şey bağlantı isteğidir** (`panodaEslesmeArayabilirMi`), çünkü ilan herkesin okuduğu açık bir metin, bağlantı isteği ise kişiye yönelen ve onaydan geçen bir temastır.
+
+**Öğrencinin açtığı ilan proje yöneticisinin onayına düşer** (14 Ağustos 2026 · istek: "panodaki öğrenci ilanları şimdilik proje yöneticilerine düşsün oradan onay versin"). Onaylanana kadar ilan panoda **görünmez**, mentör sayfasında listelenmez ve üzerine bağlantı isteği gönderilemez; sahibi ilanını "Açık ilanlarım" bölümünde durumuyla görür. Öğrenci dışındakilerin ilanı eskisi gibi anında yayımlanır (`panoIlaniOnayGerekiyorMu`). Kararı **yalnızca merkez** verir — pano kapsam filtresizdir, ilanlar ülke genelinde görünür, dolayısıyla "hangi ilin koordinatörü hangi ilanı onaylar" sorusunun cevabı yoktur. Ret gerekçesi zorunludur ve ilan sahibine bildirimle gider. Sahibi onaylanmış ilanını düzenlerse ilan **yeniden onaya düşer**; yoksa onay kapısı, onaydan sonra metni değiştirmekle atlatılabilirdi.
+
+**Silme yalnızca merkezdedir, sahibi ilanını KAPATIR** (14 Ağustos 2026 · istek: "proje yöneticisi ilanları silebilsin"). Panonun "silme yoktur" kuralına bilinçli istisna: panoya yazılmış ve durması gerekmeyen bir metni (kişisel veri, hakaret, yanlışlıkla açılmış ilan) kaldıracak bir kapı yoksa tek çare veritabanına elle girmektir. Silinen ilanın mentör cevapları da gider; bağlantı istekleri kayıt olarak kalır, ilanla bağları kopar. Silme erişim loguna ilan başlığıyla yazılır.
 
 **Panodaki ilana cevabı yalnızca ONAYLI MENTÖR yazar** (13 Ağustos 2026 · istek: "mentörlerin kendi sayfası olsun … talepleri inceleyip cevap yazacak"). Mentörlük bir rol değil, merkezin onayladığı bir kayıttır; matristeki hücreler bu yüzden role değil o kayda bakar. Cevap AÇIKTIR — ilanın altında herkes okur. Birebir yazışma kapısı değişmedi: o hâlâ bağlantı isteği ve danışman/koordinatör onayından geçiyor. Cevabı gizleme yetkisi yazarında ve gözetim rollerindedir (danışman, koordinatör, merkez).
 

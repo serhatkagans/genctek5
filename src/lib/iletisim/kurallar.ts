@@ -19,13 +19,41 @@ const TALEP_ICERIK_MAKS = 2000;
 const ISTEK_MESAJ_MAKS = 1000;
 const MESAJ_MAKS = 2000;
 
-/** İlanın panoda görünür olması için: kapatılmamış ve süresi dolmamış. */
+/**
+ * PANODA GÖRÜNEN ONAY DURUMLARI (14 Ağustos 2026 · istek: "panodaki öğrenci
+ * ilanları şimdilik proje yöneticilerine düşsün oradan onay versin").
+ *
+ * İKİ DEĞER, TEK ANLAM: `ONAY_GEREKMEZ` onaydan hiç geçmemiş ilandır (öğrenci
+ * dışındakilerin açtıkları ve sütun eklenmeden önce açılmış olanlar),
+ * `ONAYLANDI` ise geçmiş olandır. Panonun sorusu "onaylandı mı" değil "bugün
+ * görünüyor mu" ve cevabı bu ikisidir.
+ *
+ * Liste sorgularında `where: { onayDurumu: { in: PANODA_GORUNEN_ONAY_DURUMLARI } }`
+ * diye kullanılır; tek yerden okunuyor ki panoya bir ekran daha bakmaya
+ * başladığında (mentör sayfası, bağlantı isteği) filtre unutulmasın.
+ */
+export const PANODA_GORUNEN_ONAY_DURUMLARI: OnayDurumu[] = [
+  "ONAY_GEREKMEZ",
+  "ONAYLANDI",
+];
+
+/**
+ * İlanın panoda görünür olması için: kapatılmamış, süresi dolmamış ve onaydan
+ * düşmemiş.
+ *
+ * ONAY 14 AĞUSTOS 2026'DA EKLENDİ. Kapanmış ilanla onay bekleyen ilan aynı
+ * kapıdan geçiyor çünkü ikisinin de sonucu aynı: ilan panoda yok, üstünde
+ * işlem yapılamaz. Cevap yazma ve bağlantı isteği bu yardımcıya bakıyor —
+ * ayrı ayrı kontrol edilselerdi biri güncellenip diğeri unutulurdu.
+ */
 export function talepAktifMi(talep: {
   kapatildiMi: boolean;
   sonGecerlilik: Date;
+  onayDurumu: OnayDurumu;
   simdi: Date;
 }): boolean {
   if (talep.kapatildiMi) return false;
+  if (!PANODA_GORUNEN_ONAY_DURUMLARI.includes(talep.onayDurumu)) return false;
   return talep.sonGecerlilik >= talep.simdi;
 }
 
@@ -55,11 +83,21 @@ export function talepAktifMi(talep: {
  *
  * Sıra istekteki sırayla aynı; ekrandaki süzgeç ve seçim listesi bunu okur.
  */
+/*
+ * `GENEL` 14 AĞUSTOS 2026'DA EKLENDİ (istek: "kategoriler olsun, teknik destek
+ * talebi, duyuru / tanıtım desteği, ekip arkadaşı arama ve genel şeklinde").
+ *
+ * `DUYURU`YU YENİDEN "Genel" YAPMAK YETMEZDİ: o değerin etiketi bir zamanlar
+ * "Genel"di ve 11 Ağustos'ta "Duyuru / tanıtım desteği" oldu; istek ikisini
+ * AYNI ANDA listeliyor, yani artık iki ayrı kategori. Etiket değiştirmek,
+ * duyuru ilanlarını sessizce "genel" kutusuna taşımak olurdu.
+ */
 export const TALEP_TURLERI: TalepTuru[] = [
   "TEKNIK_DESTEK",
   "MENTORE_SOR",
   "DUYURU",
   "EKIP_ARKADASI",
+  "GENEL",
   "SPONSOR",
 ];
 
@@ -76,6 +114,7 @@ export const TALEP_TURU_ETIKETLERI: Record<TalepTuru, string> = {
   MENTORE_SOR: "Mentöre sor",
   DUYURU: "Duyuru / tanıtım desteği",
   EKIP_ARKADASI: "Ekip arkadaşı arama",
+  GENEL: "Genel",
   SPONSOR: "Sponsor",
 };
 
@@ -96,9 +135,40 @@ export const TALEP_TURU_BELIRTILMEMIS = "Tür belirtilmemiş";
  * yalnızca YENİSİ açılamıyor. Bu ayrım bilinçli — açılmış ilanları görünmez
  * yapmak, sahiplerinin beklediği bağlantıyı sessizce keserdi.
  */
+/*
+ * 14 AĞUSTOS 2026 · istek: "talep oluştururken kategori olsun … teknik destek
+ * talebi, duyuru / tanıtım desteği, ekip arkadaşı arama ve genel".
+ *
+ * TÜR SEÇİMİ GERİ GELDİ ama 10 Ağustos'taki hâline değil: o gün kalkan şey tek
+ * formda "hangi türü seçmeliyim" kararıydı ve o karar hâlâ yok — mentör talebi
+ * AYRI ekranda, türü sabit. Geri gelen, destek/duyuru formunun içindeki
+ * KATEGORİ listesi (bkz. PANO_KATEGORILERI).
+ */
 export const PANODAN_ACILABILIR_TURLER: TalepTuru[] = [
   "TEKNIK_DESTEK",
   "MENTORE_SOR",
+  "DUYURU",
+  "EKIP_ARKADASI",
+  "GENEL",
+];
+
+/**
+ * Destek/duyuru formundaki KATEGORİ listesi (14 Ağustos 2026).
+ *
+ * `MENTORE_SOR` burada YOK: mentör talebinin kendi ekranı ve kendi mentör
+ * havuzu var, kategori listesine konsaydı aynı ilan iki ayrı kapıdan
+ * açılabilirdi. `SPONSOR` da yok — 11 Ağustos'ta kaldırılmıştı, açılmış
+ * ilanları listede durmaya devam ediyor.
+ *
+ * SÜZGEÇ LİSTESİYLE AYNI DÖRTLÜ (bkz. SUZGEC_TURLERI): istek ikisini tek
+ * cümlede söylüyor ("pano daki arama kutusundaki kategoriler olsun"), yani
+ * kullanıcı ne açabiliyorsa ona göre süzebiliyor.
+ */
+export const PANO_KATEGORILERI: TalepTuru[] = [
+  "TEKNIK_DESTEK",
+  "DUYURU",
+  "EKIP_ARKADASI",
+  "GENEL",
 ];
 
 /**
@@ -121,6 +191,13 @@ export const PANODAN_ACILABILIR_TURLER: TalepTuru[] = [
  * kısmında … mentöre sor kalksın"). Sponsorla aynı ilke: tür ENUM'da duruyor,
  * ilanı açılmaya devam ediyor ve panoda rozetiyle listeleniyor — kaybolan tek
  * şey o türe göre süzme seçeneği.
+ */
+/*
+ * 14 Ağustos 2026'DA LİSTE İSTENEN DÖRTLÜYE OTURDU: enum'a `GENEL` eklenince
+ * bu iki çıkarmadan geriye tam olarak istekteki kategoriler kalıyor (teknik
+ * destek talebi, duyuru / tanıtım desteği, ekip arkadaşı arama, genel). Süzgeç
+ * yine ÇIKARARAK kuruluyor, elle sayarak değil: enum'a yeni bir tür
+ * eklendiğinde süzgeçte kendiliğinden görünmesi doğru varsayılan.
  */
 const SUZGECTEN_CIKARILANLAR: TalepTuru[] = ["SPONSOR", "MENTORE_SOR"];
 
@@ -152,7 +229,20 @@ export type TalepKarari =
 /** Panoya ilan açarken en fazla ileri gidilebilecek gün sayısı. */
 export const TALEP_AZAMI_GUN = 180;
 
-export function talebiCoz(girdi: TalepGirdisi, simdi: Date): TalepKarari {
+/**
+ * İlan girdisini çözer; yeni ilanda da DÜZENLEMEDE de aynı kapı.
+ *
+ * `izinliTurler` VARSAYILANDAN AYRILABİLİYOR (14 Ağustos 2026 · düzenleme
+ * yetkisi): açılmış eski bir ilan artık açılamayan bir türde olabilir (sponsor,
+ * mentöre sor). Düzenleme o ilanın KENDİ türünü listeye ekleyerek çağırıyor —
+ * aksi hâlde tek bir yazım hatasını düzeltmek, ilanın türünü değiştirmeye
+ * zorlardı.
+ */
+export function talebiCoz(
+  girdi: TalepGirdisi,
+  simdi: Date,
+  izinliTurler: TalepTuru[] = PANODAN_ACILABILIR_TURLER,
+): TalepKarari {
   const baslik = girdi.baslik.trim();
   const icerik = girdi.icerik.trim();
 
@@ -168,12 +258,16 @@ export function talebiCoz(girdi: TalepGirdisi, simdi: Date): TalepKarari {
     return { olurMu: false, neden: "Talep türü anlaşılamadı." };
   }
   const tur: TalepTuru = ham;
-  // Ekranda seçim yok; tür gizli alandan geliyor ve kapı burada duruyor
-  // (bkz. PANODAN_ACILABILIR_TURLER).
-  if (!PANODAN_ACILABILIR_TURLER.includes(tur)) {
+  /*
+   * Kategori ekrandaki seçim listesinden geliyor (destek/duyuru formu) ya da
+   * gizli alandan (mentör talebi). İkisi de kurcalanabilir alanlardır; kapı bu
+   * yüzden sunucuda duruyor — ekrandan kaldırılmış bir seçeneğin istekle geri
+   * gelebilmesi, kaldırılmamış olması demektir.
+   */
+  if (!izinliTurler.includes(tur)) {
     return {
       olurMu: false,
-      neden: "Panodan yalnızca destek talebi ve mentör talebi açılabilir.",
+      neden: "Bu kategoride ilan açılamaz.",
     };
   }
 
@@ -282,6 +376,29 @@ export function istekKarariniCoz(karar: IstekKarari): IstekSonucu {
   }
   return { olurMu: true, durum: "REDDEDILDI", gerekce };
 }
+
+/**
+ * PANO İLANININ ONAY/RET KARARI (14 Ağustos 2026).
+ *
+ * `istekKarariniCoz` ile AYNI KURAL, yeni bir kopya değil: onayda gerekçe
+ * isteğe bağlı, redde zorunlu. İki ayrı işlev yazılsaydı, "ret gerekçesi
+ * zorunlu mudur" sorusunun sistemde iki cevabı olurdu ve biri zamanla
+ * yumuşardı. Ad ayrı çünkü çağıran ekran bağlantı isteğine değil ilana bakıyor.
+ */
+export const ilanKarariniCoz = istekKarariniCoz;
+
+/**
+ * İlan sahibinin "Açık ilanlarım" listesinde okuduğu durum etiketi.
+ *
+ * `ONAY_GEREKMEZ` ETİKETSİZDİR (null): onaydan hiç geçmemiş ilan yayımdadır ve
+ * ona "onay gerekmez" rozeti basmak, olmayan bir süreci varmış gibi gösterirdi.
+ */
+export const PANO_ILANI_DURUM_ETIKETLERI: Record<OnayDurumu, string | null> = {
+  ONAY_GEREKMEZ: null,
+  BEKLIYOR: "Onay bekliyor",
+  ONAYLANDI: "Onaylandı",
+  REDDEDILDI: "Reddedildi",
+};
 
 /** Yazışmaya mesaj yazılabilir mi? */
 export function mesajYazilabilirMi(girdi: {

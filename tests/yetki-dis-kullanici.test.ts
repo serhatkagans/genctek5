@@ -7,6 +7,11 @@ import {
   mezunMu,
   ogretmenEnvanteriGorebilirMi,
   panodaEslesmeArayabilirMi,
+  panodaIlanAcabilirMi,
+  panoIlaniDuzenleyebilirMi,
+  panoIlaniOnaylayabilirMi,
+  panoIlaniOnayGerekiyorMu,
+  panoIlaniSilebilirMi,
   paydasEkleyebilirMi,
   paydasGorebilirMi,
   paydasTemsilcisiMi,
@@ -82,10 +87,16 @@ describe("başvuru ve talep panosu", () => {
     expect(talepPanosuGorebilirMi(paydasTemsilcisiYap())).toBe(true);
   });
 
-  it("panoyu proje yöneticisi de GÖRÜR ama ilan açamaz", () => {
-    // 13 Ağustos 2026: görme ile ilan açma ayrıldı. Merkez, sistemin en canlı
-    // kullanıcı alanını okuyabilmeli; ilan asan taraf ise o değil.
+  it("panoyu proje yöneticisi GÖRÜR ve ilan açar ama bağlantı isteği gönderemez", () => {
+    /*
+     * 13 Ağustos 2026: görme ile ilan açma ayrıldı.
+     * 14 Ağustos 2026: ilan açma da merkeze açıldı (istekler: "proje yöneticisi
+     * panodan destek talebi açabilsin", "mentör talebi açabilsin"). Bağlantı
+     * isteği ise hâlâ kapalı: ilan açık bir metindir, bağlantı isteği kişiye
+     * yönelen ve onaydan geçen bir temastır.
+     */
     expect(talepPanosuGorebilirMi(projeYoneticisiYap())).toBe(true);
+    expect(panodaIlanAcabilirMi(projeYoneticisiYap())).toBe(true);
     expect(panodaEslesmeArayabilirMi(projeYoneticisiYap())).toBe(false);
   });
 
@@ -94,6 +105,43 @@ describe("başvuru ve talep panosu", () => {
     expect(panodaEslesmeArayabilirMi(danismanYap())).toBe(true);
     expect(panodaEslesmeArayabilirMi(mezunYap())).toBe(true);
     expect(panodaEslesmeArayabilirMi(paydasTemsilcisiYap())).toBe(true);
+  });
+});
+
+/**
+ * PANO İLANI ONAYI (14 Ağustos 2026 · istek: "panodaki öğrenci ilanları
+ * şimdilik proje yöneticilerine düşsün oradan onay versin").
+ */
+describe("pano ilanı onayı, düzenlemesi ve silinmesi", () => {
+  it("yalnızca öğrencinin ilanı onaya düşer", () => {
+    expect(panoIlaniOnayGerekiyorMu(ogrenciYap())).toBe(true);
+    expect(panoIlaniOnayGerekiyorMu(danismanYap())).toBe(false);
+    expect(panoIlaniOnayGerekiyorMu(mezunYap())).toBe(false);
+    expect(panoIlaniOnayGerekiyorMu(paydasTemsilcisiYap())).toBe(false);
+    expect(panoIlaniOnayGerekiyorMu(projeYoneticisiYap())).toBe(false);
+  });
+
+  it("kararı yalnızca proje yöneticisi verir", () => {
+    // Pano kapsam filtresizdir; il koordinatörüne yetki verilseydi "hangi ilin
+    // koordinatörü hangi ilanı onaylar" sorusunun cevabı olmazdı.
+    expect(panoIlaniOnaylayabilirMi(projeYoneticisiYap())).toBe(true);
+    expect(panoIlaniOnaylayabilirMi(danismanYap())).toBe(false);
+    expect(panoIlaniOnaylayabilirMi(ogrenciYap())).toBe(false);
+  });
+
+  it("ilanı sahibi ve proje yöneticisi düzenler, başkası düzenleyemez", () => {
+    const sahip = ogrenciYap();
+    expect(panoIlaniDuzenleyebilirMi(sahip, sahip.id)).toBe(true);
+    expect(panoIlaniDuzenleyebilirMi(projeYoneticisiYap(), sahip.id)).toBe(true);
+    expect(panoIlaniDuzenleyebilirMi(danismanYap(), sahip.id)).toBe(false);
+    expect(panoIlaniDuzenleyebilirMi(mezunYap(), sahip.id)).toBe(false);
+  });
+
+  it("silme yalnızca proje yöneticisinde", () => {
+    // Sahibi silmez, KAPATIR: kimin ne aradığı geçmiş kaydıdır.
+    expect(panoIlaniSilebilirMi(projeYoneticisiYap())).toBe(true);
+    expect(panoIlaniSilebilirMi(ogrenciYap())).toBe(false);
+    expect(panoIlaniSilebilirMi(danismanYap())).toBe(false);
   });
 });
 

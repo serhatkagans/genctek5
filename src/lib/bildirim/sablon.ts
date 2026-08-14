@@ -147,6 +147,28 @@ export const BILDIRIM_KODLARI = {
    * "Mentörlüğüm" sekmesinin haftalarca fark edilmemesi demekti.
    */
   MENTORLUK_KARARI: "MENTORLUK_KARARI",
+  /**
+   * Öğrencinin açtığı pano ilanı onay bekliyor; PROJE YÖNETİCİLERİNE gider
+   * (14 Ağustos 2026).
+   *
+   * Uyarısız bir onay kuyruğu, günlerce bakılmayan kuyruktur ve buradaki
+   * bedeli öğrenci ödüyor: ilanı o süre boyunca panoda hiç görünmüyor. Emsali
+   * ONAY_BEKLEYEN_MENTORLUK — o da tam bu gerekçeyle eklenmişti.
+   *
+   * KOORDİNATÖRE GİTMEZ: kararı yalnızca merkez veriyor (bkz.
+   * panoIlaniOnaylayabilirMi) ve pano kapsam filtresiz olduğu için ilin
+   * koordinatörünün yapacağı bir şey yok.
+   */
+  ONAY_BEKLEYEN_PANO_ILANI: "ONAY_BEKLEYEN_PANO_ILANI",
+  /**
+   * Pano ilanı karara bağlandı; İLANI AÇANA gider (14 Ağustos 2026).
+   *
+   * Onay da ret de duyurulur (emsali BAGLANTI_ISTEGI_KARARI): onayda öğrenci
+   * ilanının yayımlandığını, rette gerekçesini öğrenir. Ret gerekçesi metne
+   * girer — gerekçesiz ret, öğrenciye ilanını düzeltip yeniden açması için
+   * hiçbir bilgi bırakmaz.
+   */
+  PANO_ILANI_KARARI: "PANO_ILANI_KARARI",
 } as const;
 
 export type BildirimKodu =
@@ -389,6 +411,20 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "Başvuruyu yapan kişiye gider. Onaylandıysa Mentörlüğüm sekmesi açılmıştır; reddedildiyse gerekçe yazılıdır.",
     degiskenler: ["sonuc", "gerekce"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_PANO_ILANI,
+    baslik: "Onay bekleyen pano ilanı",
+    aciklama:
+      "Öğrenci panoya ilan açtığında proje yöneticilerine gider. İlan, onaylanana kadar panoda görünmez. Kararı yalnızca merkez verir; il koordinatörüne kopya çıkmaz.",
+    degiskenler: ["acanAdSoyad", "talepBasligi", "tur"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.PANO_ILANI_KARARI,
+    baslik: "Pano ilanı sonucu",
+    aciklama:
+      "İlanı açan öğrenciye gider. Onaylandıysa ilan panoda yayımlanmıştır; reddedildiyse gerekçe yazılıdır.",
+    degiskenler: ["talepBasligi", "sonuc", "gerekce"],
   },
 ];
 

@@ -9,6 +9,7 @@ import {
   baglantiIstegiGonderilebilirMi,
   istekKarariniCoz,
   istekMesajiniCoz,
+  PANODA_GORUNEN_ONAY_DURUMLARI,
 } from "@/lib/iletisim/kurallar";
 import { panodaEslesmeArayabilirMi } from "@/lib/yetki/izinler";
 import { baglantiKarariFiltresi } from "@/lib/yetki/kapsam";
@@ -33,7 +34,13 @@ import type { OturumKullanicisi } from "@/lib/yetki/tipler";
  */
 
 const PANO = "/panel/talepler";
-const AKIS = "/panel/akis";
+/*
+ * Akıştan gönderilen isteğin dönüş adresi. 14 Ağustos 2026'da `/panel/akis`
+ * yerine Bağlantılarım oldu: akış artık o sayfanın içinde bir bölüm (istek:
+ * "akış bağlantılarım içine gelecek") ve eski adres yalnızca yönlendirme —
+ * oraya dönmek fazladan bir sıçrama ve kaybolan bir `?durum=` iletisi demekti.
+ */
+const AKIS = "/panel/yazismalar";
 
 /*
  * Karar sonrası dönülecek yer, 12 Ağustos 2026'da "Bağlantılarım"a taşındı:
@@ -184,10 +191,20 @@ export async function baglantiIstegiGonderEylemi(
   const mesajKarari = istekMesajiniCoz(String(veri.get("mesaj") ?? ""));
   if (!mesajKarari.olurMu) hataylaDon(PANO, mesajKarari.neden);
 
-  // İlan aktif olmalı: kapanmış ya da süresi dolmuş ilana istek gönderilmez.
+  /*
+   * İlan aktif olmalı: kapanmış, süresi dolmuş ya da ONAY BEKLEYEN ilana istek
+   * gönderilmez (onay kapısı 14 Ağustos 2026'da eklendi). Panoda görünmeyen bir
+   * ilana istek gidebilseydi, onay bekleyen ilan kimliğini elle yazan biri için
+   * fiilen yayımdaymış gibi çalışırdı.
+   */
   const simdi = new Date();
   const talep = await prisma.talep.findFirst({
-    where: { id: talepId, kapatildiMi: false, sonGecerlilik: { gte: simdi } },
+    where: {
+      id: talepId,
+      kapatildiMi: false,
+      sonGecerlilik: { gte: simdi },
+      onayDurumu: { in: PANODA_GORUNEN_ONAY_DURUMLARI },
+    },
     select: { id: true, baslik: true, acanKullaniciId: true },
   });
   if (!talep) {

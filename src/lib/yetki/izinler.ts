@@ -537,6 +537,103 @@ export function panodaEslesmeArayabilirMi(
 }
 
 /**
+ * Panoda İLAN AÇABİLİR mi? (14 Ağustos 2026 · istekler: "proje yöneticisi
+ * panodan destek talebi açabilsin", "mentör talebi açabilsin proje yöneticisi")
+ *
+ * `panodaEslesmeArayabilirMi`DEN AYRILDI. O işlev 13 Ağustos'a kadar iki işi
+ * birden yapıyordu: ilan açmak ve bağlantı isteği göndermek. Merkez ikisinden
+ * de dışarıdaydı, gerekçe de "YEĞİTEK'in takım arkadaşı araması diye bir durum
+ * yok"tu. İstek bu gerekçenin ilan tarafını geçersiz kıldı — merkez de panodan
+ * destek ve mentör talebi açıyor.
+ *
+ * BAĞLANTI İSTEĞİ TARAFI DEĞİŞMEDİ: merkez hâlâ ilanlara bağlantı isteği
+ * göndermiyor (bkz. panodaEslesmeArayabilirMi). İstek yalnızca ilan açmaktan
+ * söz ediyor ve ikisi aynı şey değil: ilan herkesin okuduğu açık bir metin,
+ * bağlantı isteği ise kişiye yönelen ve onaydan geçen bir temas.
+ *
+ * Rolü olan herkes açabilir; rolsüz kullanıcı panoyu yalnızca okur.
+ */
+export function panodaIlanAcabilirMi(kullanici: OturumKullanicisi): boolean {
+  return kullanici.roller.length > 0;
+}
+
+/**
+ * Pano ilanını DÜZENLEYEBİLİR mi? (14 Ağustos 2026 · istek: "açılan ilanlar
+ * düzenlenebilsin, açan kişi ve proje yöneticisi düzenleyebilsin")
+ *
+ * İKİ TARAF: ilanı açan kendi metnini düzeltir, proje yöneticisi ise onay
+ * yetkisinin doğal uzantısı olarak düzeltir — reddetmek yerine bir cümleyi
+ * düzeltip onaylamak, öğrenciyi ilanı baştan yazmaya göndermekten iyidir.
+ *
+ * İl koordinatörü ve danışman DIŞARIDA: pano kapsam filtresizdir (ilanlar ülke
+ * genelinde görünür), yani "hangi ilin koordinatörü hangi ilanı düzeltir"in
+ * cevabı yok. Şikâyet gerektiren içerik için yol moderasyon değil merkezdir.
+ */
+export function panoIlaniDuzenleyebilirMi(
+  kullanici: OturumKullanicisi,
+  acanKullaniciId: number,
+): boolean {
+  return kullanici.id === acanKullaniciId || projeYoneticisiMi(kullanici);
+}
+
+/**
+ * Pano ilanını SİLEBİLİR mi? (14 Ağustos 2026 · istek: "proje yöneticisi
+ * ilanları silebilsin")
+ *
+ * YALNIZCA PROJE YÖNETİCİSİ. İlan sahibi silemez, KAPATIR (bkz.
+ * talepKapatEylemi): kimin ne aradığı geçmiş kaydıdır ve kapanan ilan
+ * üzerinden kurulmuş bağlantılar anlamsızlaşmamalı.
+ *
+ * Merkezin silmesi ise bilinçli bir istisnadır: panoya yazılmış, durması
+ * gerekmeyen bir metni (kişisel veri, hakaret, yanlışlıkla açılmış ilan)
+ * kaldıracak bir kapı yoksa tek çare veritabanına elle girmektir.
+ */
+export function panoIlaniSilebilirMi(kullanici: OturumKullanicisi): boolean {
+  return projeYoneticisiMi(kullanici);
+}
+
+/**
+ * Açtığı pano ilanı ONAYA mı düşer? (14 Ağustos 2026 · istek: "panodaki
+ * öğrenci ilanları şimdilik proje yöneticilerine düşsün oradan onay versin")
+ *
+ * YALNIZCA ÖĞRENCİ. Öğretmenin, mezunun ve paydaş temsilcisinin ilanı doğrudan
+ * yayımlanmaya devam ediyor; istek açıkça "öğrenci ilanları" diyor ve kapıyı
+ * herkese kurmak, bugün sorunsuz işleyen bir akışa gereksiz bir bekleme
+ * eklerdi.
+ *
+ * KURALIN GEREKÇESİ, ilan açma yetkisininkiyle aynı yerden geliyor:
+ * kullanıcıların çoğu 18 yaş altı ve panoya yazılan metin ekosistemdeki
+ * herkesin okuduğu açık bir metindir. Onay, o metnin yayımlanmadan önce bir
+ * yetişkin tarafından okunmasıdır.
+ *
+ * "ŞİMDİLİK": istek geçici olduğunu söylüyor. Kapı bu yüzden tek bir işlevde
+ * duruyor — vazgeçildiğinde `false` dönmesi yeter, ilanların onay sütunu ve
+ * geçmişi yerinde kalır.
+ */
+export function panoIlaniOnayGerekiyorMu(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return ogrenciMi(kullanici);
+}
+
+/**
+ * Pano ilanını onaylayıp reddedebilir mi?
+ *
+ * YALNIZCA PROJE YÖNETİCİSİ — istekte yazdığı gibi ("proje yöneticilerine
+ * düşsün"). İl koordinatörü dışarıda: pano KAPSAM FİLTRESİZDİR, ilanlar ülke
+ * genelinde görünür (bkz. talepler/page.tsx) ve koordinatöre yetki verilseydi
+ * "hangi ilin koordinatörü hangi ilanı onaylar" sorusunun cevabı olmazdı;
+ * il sınırı konsaydı da pano kendi amacını baltalardı.
+ *
+ * Emsali `mentorlukOnaylayabilirMi`: merkezde toplanan ikinci onay kuyruğu bu.
+ */
+export function panoIlaniOnaylayabilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return projeYoneticisiMi(kullanici);
+}
+
+/**
  * Başkası ADINA başvuru yetkisi (analiz dokümanı 4.2: "Danışman öğretmen
  * öğrenci adına başvurabilir").
  *

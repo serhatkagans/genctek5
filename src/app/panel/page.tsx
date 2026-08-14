@@ -33,8 +33,6 @@ import {
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
 } from "@/components/ui";
-import { CalismaGrubuSecimi } from "@/components/CalismaGrubuSecimi";
-import { DanismanSecimi } from "@/components/DanismanSecimi";
 import { MesajSeridi } from "@/components/MesajSeridi";
 import {
   CvDuzenleme,
@@ -46,16 +44,10 @@ import {
   KayitYonetimi,
   ProfildeGorBaglantisi,
 } from "@/components/ProfilDuzenleme";
-import { RotamKarti } from "@/components/RotamKarti";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { bildirimBaglantisi } from "@/lib/bildirim/hedef";
 import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
 import { calismaGruplariniGetir } from "@/lib/ogrenci/calisma-grubu";
-import { calismaGrubuKaydetEylemi } from "./calisma-gruplari/eylemler";
-import {
-  danismaniBirakEylemi,
-  danismanSecEylemi,
-} from "./danisman-secim/eylemler";
 import {
   danismanlikEylemi,
   destekGruplariEylemi,
@@ -71,11 +63,6 @@ import {
   kazanimEkleEylemi,
   kazanimSilEylemi,
 } from "./profil/kazanim-eylemleri";
-import {
-  hedefDurumuEylemi,
-  hedefEkleEylemi,
-  hedefSilEylemi,
-} from "./profil/hedef-eylemleri";
 import { profilFotoSinirlariniGetir } from "@/lib/kullanici/profil-foto";
 import {
   MENTORLUK_DURUM_ETIKETLERI,
@@ -295,7 +282,6 @@ export default async function PanelSayfasi({
     belgeSinirlari,
     cvSinirlari,
     programlar,
-    hedefler,
   ] = await Promise.all([
     prisma.kullanici.findUniqueOrThrow({
       where: { id: kullanici.id },
@@ -373,21 +359,10 @@ export default async function PanelSayfasi({
       select: { id: true, ad: true, grup: true },
     }),
     /*
-     * "Rotam" hedefleri (D6). Sıralama KODDA yapılıyor
-     * (lib/hedef/kurallar.ts): kural "önce süren, sonra planlanan, en sonda
-     * tamamlanan" ve bunun testi saf fonksiyon üzerinden yazılabiliyor.
+     * "Rotam" hedefleri BURADA SORGULANMIYOR (14 Ağustos 2026 · istek: "rotam
+     * kalksın"): bölüm Panelim'den kalktı, veri de onunla birlikte. Hedefler
+     * profil ekranında okunmaya devam ediyor.
      */
-    prisma.kullaniciHedefi.findMany({
-      where: { kullaniciId: kullanici.id },
-      orderBy: { id: "asc" },
-      select: {
-        id: true,
-        baslik: true,
-        aciklama: true,
-        durum: true,
-        hedefTarihi: true,
-      },
-    }),
   ]);
 
   /*
@@ -833,19 +808,13 @@ export default async function PanelSayfasi({
         {ogrenciMi(kullanici) && (
           <>
             {/*
-              KARTLAR AYNI SAYFADAKİ BÖLÜME İNİYOR (12 Ağustos 2026 · istek:
-              "Çalışma grubu seçimim panelde hâlâ tıklanabilir değil").
+              KARTLAR SEÇİM SAYFALARINA GİDİYOR (14 Ağustos 2026 · istek:
+              "bunlar kart olarak var alttakiler kalksın").
 
-              Bu iki kartın hedefi başka bir EKRAN değil, sayfanın altındaki
-              katlanır bölüm — o yüzden `yol` verilmemişti ve kartlar ölü
-              duruyordu. Açıklama "aşağıdaki bölümden güncelleyebilirsiniz"
-              diyordu ama oraya inmenin yolunu vermiyordu; kullanıcı sayfayı
-              elle arıyordu.
-
-              Adres iki parça taşır: `#capa` bölüme kaydırır, `?bolum=` ise
-              katlanır kartı AÇIK basar (bkz. ui.tsx · KatlanabilirKart).
-              Yalnızca çapa verilseydi kapalı bir kartın başlığına inilir ve
-              kullanıcının bir de "Aç / kapat"a basması gerekirdi.
+              12 Ağustos 2026'da bu iki kart aynı sayfanın altındaki katlanır
+              bölüme iniyordu (`?bolum=…#capa`); o bölümler kalkınca hedef
+              seçimin kendi sayfası oldu. Sayfalar zaten duruyordu ve danışmanı
+              olmayan öğrencinin giriş kapısı hâlâ orası.
             */}
             <OlcumKarti
               baslik="Danışman öğretmenim"
@@ -858,14 +827,30 @@ export default async function PanelSayfasi({
               aciklama={
                 atama ? "Değiştirmek için tıklayın" : "Seçmek için tıklayın"
               }
-              yol="/panel?bolum=danismanim#danismanim"
+              yol="/panel/danisman-secim"
             />
             <OlcumKarti
               baslik="Çalışma grubu seçimim"
               Ikon={Layers}
               deger={String(grupSayisi)}
               aciklama="Güncellemek için tıklayın"
-              yol="/panel?bolum=calisma-gruplarim#calisma-gruplarim"
+              yol="/panel/calisma-gruplari"
+            />
+            {/*
+              ÖZDEĞERLENDİRME ENVANTERLERİ ARTIK KART (14 Ağustos 2026 · istek:
+              "öz değerlendirme envanteri kartlara gelecek, alttan kalkacak").
+
+              Alttaki katlanır bölüm zaten yalnızca bir cümle ve bir düğme
+              taşıyordu; envanterin kendisi `/panel/algoritmam` ekranında.
+              Katlanır bir kabuğun ardında duran tek düğme, kartın kendisinden
+              fazlasını yapmıyordu.
+            */}
+            <OlcumKarti
+              baslik="Özdeğerlendirme Envanterleri"
+              Ikon={Compass}
+              deger="Algoritmam"
+              aciklama="Sonuçlar yalnızca sana görünür"
+              yol="/panel/algoritmam"
             />
             <OlcumKarti
               baslik="Etkinlik başvurularım"
@@ -1130,7 +1115,7 @@ export default async function PanelSayfasi({
             yol={
               mentorlugum?.durum === "ONAYLANDI"
                 ? "/panel/mentorlugum"
-                : "/panel/talepler#mentorlugum"
+                : "/panel/talepler/mentor-basvuru#mentorlugum"
             }
           />
         ) : null}
@@ -1235,35 +1220,97 @@ export default async function PanelSayfasi({
       )}
 
       {/*
-        ÖĞRENCİNİN SEÇİMLERİ — eskiden iki ayrı sekmeydi, artık burada
-        (C1 · 5 Ağustos 2026).
+        EKOSİSTEM SAYILARI, DİĞER İKİ KART GRUBUNUN HEMEN ALTINDA (14 Ağustos
+        2026 · istek: "proje yöneticisini panel sayfasında 3 farklı başlıkta
+        kart grubu oluşturulmuş, bunların Ekosistem sayıları olanı alta kaymış
+        diğer iki kartın altına al bunu").
 
-        Bölümler KATLI geliyor: Panelim öğrencinin ilk gördüğü ekran ve asıl
-        işi (başvurusu açık etkinlikler, takvim) iki formun altında kalmamalı.
-        İstisna, kullanıcının GERÇEKTEN bir şey yapması gereken hâl: danışmanı
-        yoksa ya da hiç grup seçmemişse ilgili bölüm açık açılır.
+        Bölüm sayfanın en dibindeydi: proje yöneticisinin panelinde ölçüm
+        kartları ve "Dikkat gerektirenler" üstte, ekosistem sayıları ise yedi
+        katlanır düzenleme bölümünün ardındaydı. Üçü de aynı türden — okunmak
+        için basılmış kart ızgaraları — ve şimdi arka arkaya duruyorlar.
       */}
-      {danismanVerisi && (
-        <KatlanabilirKart
-          baslik="Danışman öğretmenim"
-          aciklama={
-            atama
-              ? `${atama.danisman.ad} ${atama.danisman.soyad}`
-              : "Henüz danışman atanmadı."
-          }
-          Ikon={UserCheck}
-          capa="danismanim"
-          baslangictaAcik={atama === null || acilacakBolum === "danismanim"}
-        >
-          <DanismanSecimi
-            veri={danismanVerisi}
-            secEylemi={danismanSecEylemi}
-            birakEylemi={danismaniBirakEylemi}
-            donusYolu="/panel"
-            kartlaSar={false}
-          />
-        </KatlanabilirKart>
+      {merkezIstatistik && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">
+            <BarChart3 size={18} className="text-vurgu-metin" aria-hidden />
+            Ekosistem sayıları
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                etiket: "Toplam öğrenci",
+                deger: merkezIstatistik.toplamOgrenci,
+                alt: "Aktif öğrenci rolü olan kayıtlar",
+              },
+              {
+                etiket: "Çalışma grubuna kayıtlı",
+                deger: merkezIstatistik.calismaGrubunaKayitliOgrenci,
+                // Seçim değil ÖĞRENCİ sayılır: bir öğrenci birden çok grup
+                // seçebiliyor, satır sayılsaydı sayı şişerdi.
+                alt: "En az bir grup seçmiş öğrenci",
+              },
+              {
+                etiket: "Okul temsilcisi",
+                deger: merkezIstatistik.okulTemsilcisi,
+                alt: "Bu eğitim-öğretim yılı",
+              },
+              {
+                etiket: "İl temsilcisi",
+                deger: merkezIstatistik.ilTemsilcisi,
+                alt: "Bu eğitim-öğretim yılı",
+              },
+              {
+                etiket: "İlçe temsilcisi",
+                deger: merkezIstatistik.ilceTemsilcisi,
+                alt: "Bu eğitim-öğretim yılı",
+              },
+              {
+                etiket: "Danışman öğretmen",
+                deger: merkezIstatistik.danismanOgretmen,
+                alt: "Görevi süren danışmanlar",
+              },
+              {
+                etiket: "İl koordinatörü",
+                deger: merkezIstatistik.ilKoordinatoru,
+                alt:
+                  merkezIstatistik.koordinatorsuzIl > 0
+                    ? `${merkezIstatistik.koordinatorsuzIl} il boş`
+                    : "Tüm iller dolu",
+              },
+            ].map((satir) => (
+              <div
+                key={satir.etiket}
+                className="rounded-kart border border-cizgi bg-kart p-4"
+              >
+                <p className="text-sm font-medium text-metin-yumusak">
+                  {satir.etiket}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-baslik">
+                  {satir.deger}
+                </p>
+                <p className="mt-0.5 text-sm text-metin-yumusak">{satir.alt}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
+
+      {/*
+        DANIŞMAN VE ÇALIŞMA GRUBU BÖLÜMLERİ KALKTI (14 Ağustos 2026 · istek:
+        "panelde Danışman öğretmenim / Çalışma gruplarım … bunlar kart olarak
+        var alttakiler kalksın").
+
+        İkisi de sayfanın üstünde ZATEN kart olarak duruyordu (12 Ağustos
+        2026'da tıklanabilir yapılmışlardı) ve kartlar aynı sayfanın altındaki
+        katlanır bölüme iniyordu: aynı iş, aynı ekranda iki kez. Kartlar artık
+        seçim SAYFALARINA gidiyor (`/panel/danisman-secim`,
+        `/panel/calisma-gruplari`) — o sayfalar hiç silinmemişti, danışmansız
+        öğrencinin giriş kapısı hâlâ orası (SKILL.md · Değişmezler 2).
+
+        Seçim formu tek bileşenden basılmaya devam ediyor (DanismanSecimi,
+        CalismaGrubuSecimi); kaybolan tek şey Panelim'deki ikinci kopya.
+      */}
 
       {/*
         "KATKI GİRİŞİ" KARTI KALDIRILDI (7 Ağustos 2026). Kart, profildeki
@@ -1273,34 +1320,6 @@ export default async function PanelSayfasi({
         getiren bir bağlantıya dönüşürdü. Sertifika ve topluluk girişleri o
         bölümün sekmelerinde duruyor.
       */}
-
-      {calismaGruplari && (
-        <KatlanabilirKart
-          baslik="Çalışma gruplarım"
-          /*
-            "İstediğiniz kadar seçebilirsiniz" NOTU KALDIRILDI (7 Ağustos 2026
-            · istek). Sayı sınırı olmadığı bilgisi kullanıcıyı yönlendirmiyor,
-            aksine "çok seç" gibi okunuyordu.
-          */
-          aciklama={
-            grupSayisi > 0
-              ? `${grupSayisi} grup seçtiniz.`
-              : "Henüz grup seçmediniz."
-          }
-          Ikon={Layers}
-          capa="calisma-gruplarim"
-          baslangictaAcik={
-            grupSayisi === 0 || acilacakBolum === "calisma-gruplarim"
-          }
-        >
-          <CalismaGrubuSecimi
-            gruplar={calismaGruplari.gruplar}
-            seciliIdler={calismaGruplari.seciliIdler}
-            kaydetEylemi={calismaGrubuKaydetEylemi}
-            donusYolu="/panel"
-          />
-        </KatlanabilirKart>
-      )}
 
       {/*
         ---------------------------------------------------------------------
@@ -1600,26 +1619,12 @@ export default async function PanelSayfasi({
         "İleride yz" — yapay zekâ ile öz değerlendirme sonraki faza bırakıldı
         (YAPILACAKLAR.md · K).
       */}
-      {ogrenciMi(kullanici) && (
-        <KatlanabilirKart
-          baslik="Özdeğerlendirme Envanterleri"
-          aciklama="Algoritmam: güçlü yönlerini, çalışma biçimini ve teknolojideki eğilimlerini keşfet."
-          Ikon={Compass}
-          capa="algoritmam"
-        >
-          <p className="text-sm text-metin-yumusak">
-            Cevapların ve sonuçların <strong>yalnızca sana görünür</strong> —
-            danışman öğretmenin, il koordinatörün ve merkez hiçbir ekranda
-            göremez.
-          </p>
-          <Link
-            href="/panel/algoritmam"
-            className={`${SINIF_BIRINCIL_BUTON} mt-4`}
-          >
-            Envanterlere git
-          </Link>
-        </KatlanabilirKart>
-      )}
+      {/*
+        BÖLÜM KALKTI, KART KALDI (14 Ağustos 2026 · istek: "öz değerlendirme
+        envanteri kartlara gelecek, alttan kalkacak"). Giriş yukarıdaki ölçüm
+        kartlarında; envanterin kendisi `/panel/algoritmam` ekranında ve
+        "sonuçlar yalnızca sana görünür" cümlesi o ekranın başında yazıyor.
+      */}
 
       {/*
         ROTAM YALNIZCA ÖĞRENCİDE (11 Ağustos 2026 · istek: "rotam sadece
@@ -1638,90 +1643,19 @@ export default async function PanelSayfasi({
         kayıtları duruyor. Kalkan şey bölümün BASILMASI; kayıtlar profilinde
         görünmeye devam ediyor.
       */}
-      {ogrenciMi(kullanici) && (
-        <KatlanabilirKart
-          baslik="Rotam"
-          aciklama="Yapmak istediklerin: öğrenmek istediğin bir konu, katılmak istediğin bir yarışma, geliştirmek istediğin bir proje. Yalnızca sen görürsün."
-          Ikon={Compass}
-          capa="rotam"
-          baslangictaAcik={acilacakBolum === "rotam"}
-        >
-          <RotamKarti
-            hedefler={hedefler}
-            ekleEylemi={hedefEkleEylemi}
-            durumEylemi={hedefDurumuEylemi}
-            silmeEylemi={hedefSilEylemi}
-            kartlaSar={false}
-          />
-          <ProfildeGorBaglantisi />
-        </KatlanabilirKart>
-      )}
+      {/*
+        ROTAM PANELDEN KALKTI (14 Ağustos 2026 · istek: "rotam kalksın").
 
-      {merkezIstatistik && (
-        <section>
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">
-            <BarChart3 size={18} className="text-vurgu-metin" aria-hidden />
-            Ekosistem sayıları
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                etiket: "Toplam öğrenci",
-                deger: merkezIstatistik.toplamOgrenci,
-                alt: "Aktif öğrenci rolü olan kayıtlar",
-              },
-              {
-                etiket: "Çalışma grubuna kayıtlı",
-                deger: merkezIstatistik.calismaGrubunaKayitliOgrenci,
-                // Seçim değil ÖĞRENCİ sayılır: bir öğrenci birden çok grup
-                // seçebiliyor, satır sayılsaydı sayı şişerdi.
-                alt: "En az bir grup seçmiş öğrenci",
-              },
-              {
-                etiket: "Okul temsilcisi",
-                deger: merkezIstatistik.okulTemsilcisi,
-                alt: "Bu eğitim-öğretim yılı",
-              },
-              {
-                etiket: "İl temsilcisi",
-                deger: merkezIstatistik.ilTemsilcisi,
-                alt: "Bu eğitim-öğretim yılı",
-              },
-              {
-                etiket: "İlçe temsilcisi",
-                deger: merkezIstatistik.ilceTemsilcisi,
-                alt: "Bu eğitim-öğretim yılı",
-              },
-              {
-                etiket: "Danışman öğretmen",
-                deger: merkezIstatistik.danismanOgretmen,
-                alt: "Görevi süren danışmanlar",
-              },
-              {
-                etiket: "İl koordinatörü",
-                deger: merkezIstatistik.ilKoordinatoru,
-                alt:
-                  merkezIstatistik.koordinatorsuzIl > 0
-                    ? `${merkezIstatistik.koordinatorsuzIl} il boş`
-                    : "Tüm iller dolu",
-              },
-            ].map((satir) => (
-              <div
-                key={satir.etiket}
-                className="rounded-kart border border-cizgi bg-kart p-4"
-              >
-                <p className="text-sm font-medium text-metin-yumusak">
-                  {satir.etiket}
-                </p>
-                <p className="mt-1 text-2xl font-bold text-baslik">
-                  {satir.deger}
-                </p>
-                <p className="mt-0.5 text-sm text-metin-yumusak">{satir.alt}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+        Bölüm 7 ve 11 Ağustos'ta önce dış kullanıcılardan, sonra bütün yetişkin
+        rollerden çekilmişti; şimdi öğrencide de basılmıyor, yani Panelim'de
+        hiç yok.
+
+        KAYITLAR VE EYLEMLER SİLİNMEDİ: hedef eylemleri rol kısıtı taşımıyor
+        (bkz. hedef-eylemleri.ts) ve girilmiş hedefler PROFİLDE görünmeye devam
+        ediyor. Kalkan şey Panelim'deki giriş bölümü — veri silinseydi geri
+        alınamazdı, oysa bu bir ekran kararı.
+      */}
+
 
       {/*
         "BAŞVURUYA AÇIK ETKİNLİKLER" ve "KATILDIĞIM ETKİNLİKLER" LİSTELERİ
